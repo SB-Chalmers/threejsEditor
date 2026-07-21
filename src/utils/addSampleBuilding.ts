@@ -5,12 +5,14 @@ import { getThemeColorAsHex } from './themeColors';
 import { ensureCounterClockwise } from './geometry';
 
 /**
- * Configuration options for creating a debug pentagon building
+ * Configuration options for creating a sample building
  */
 export interface SampleBuildingConfig {
   centerX?: number;
   centerZ?: number;
   radius?: number;
+  width?: number;
+  depth?: number;
   floors?: number;
   floorHeight?: number;
   color?: number;
@@ -20,28 +22,19 @@ export interface SampleBuildingConfig {
 }
 
 /**
- * Creates a pentagon building with 5 sides positioned around a center point
- * Points are generated in anti-clockwise order
+ * Creates a rectangular building footprint centered on the provided origin.
+ * Points are generated in anti-clockwise order.
  */
-function createPentagonPoints(centerX: number = 0, centerZ: number = 0, radius: number = 10): Point3D[] {
-  const points: Point3D[] = [];
-  const angleStep = (2 * Math.PI) / 5; // 72 degrees for each side of pentagon
-  
-  // Start from the top point (angle = -PI/2 so the pentagon points upward)
-  // Generate points in anti-clockwise order by subtracting the angle
-  for (let i = 0; i < 5; i++) {
-    const angle = -Math.PI / 2 - i * angleStep;
-    const x = centerX + radius * Math.cos(angle);
-    const z = centerZ + radius * Math.sin(angle);
-    
-    points.push({
-      x: Math.round(x * 100) / 100, // Round to 2 decimal places
-      y: 0,
-      z: Math.round(z * 100) / 100
-    });
-  }
-  
-  return points;
+function createRectanglePoints(centerX: number = 0, centerZ: number = 0, width: number = 10, depth: number = 5): Point3D[] {
+  const halfWidth = width / 2;
+  const halfDepth = depth / 2;
+
+  return [
+    { x: centerX - halfWidth, y: 0, z: centerZ - halfDepth },
+    { x: centerX + halfWidth, y: 0, z: centerZ - halfDepth },
+    { x: centerX + halfWidth, y: 0, z: centerZ + halfDepth },
+    { x: centerX - halfWidth, y: 0, z: centerZ + halfDepth }
+  ];
 }
 
 /**
@@ -61,8 +54,7 @@ function calculatePolygonArea(points: Point3D[]): number {
 }
 
 /**
- * Creates a simple pentagon building for debugging window creation.
- * This is the only building creation function needed for debugging purposes.
+ * Creates a simple sample building for startup.
  */
 export function addSampleBuilding(
   buildingService: BuildingService,
@@ -74,17 +66,23 @@ export function addSampleBuilding(
     const {
       centerX = 0,
       centerZ = 0,
-      radius = 12,
-      floors = 5,
+      radius,
+      width = 10,
+      depth = 5,
+      floors = 6,
       floorHeight = 3.5,
       color = getThemeColorAsHex('--color-building-sample', 0xFFFFFF),
-      name = 'Debug Pentagon Building',
-      description = 'A sample pentagon building for debugging windows',
+      name = 'Welcome Room',
+      description = 'A 10m x 5m starter room building',
       windowToWallRatio = 0.4
     } = config;
 
-    // Create pentagon points and ensure they are in anti-clockwise order
-    const points = ensureCounterClockwise(createPentagonPoints(centerX, centerZ, radius));
+    // Backward compatibility: if radius is provided by legacy callers, convert to a rectangle size.
+    const resolvedWidth = radius !== undefined ? radius * 2 : width;
+    const resolvedDepth = radius !== undefined ? radius : depth;
+
+    // Create rectangular points and ensure they are in anti-clockwise order
+    const points = ensureCounterClockwise(createRectanglePoints(centerX, centerZ, resolvedWidth, resolvedDepth));
     
     // Create building configuration
     const buildingConfig: BuildingConfig = {
@@ -167,14 +165,15 @@ export function addSampleBuilding(
       };
       
       windowService.addBuildingWindows(building, windowConfig);
-      console.log(`Added windows to debug building: ${building.id}`);
+      console.log(`Added windows to sample building: ${building.id}`);
     }
 
-    console.log('Debug pentagon building created:', {
+    console.log('Sample building created:', {
       id: building.id,
       name: building.name,
       center: { x: centerX, z: centerZ },
-      radius,
+      width: resolvedWidth,
+      depth: resolvedDepth,
       floors,
       area: area.toFixed(2),
       hasWindows: !!windowService
@@ -183,7 +182,7 @@ export function addSampleBuilding(
     return building;
     
   } catch (error) {
-    console.error('Error creating debug building:', error);
+    console.error('Error creating sample building:', error);
     return null;
   }
 }

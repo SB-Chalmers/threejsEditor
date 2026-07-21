@@ -89,10 +89,10 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({
           {/* Divider */}
           <div className="h-px bg-gray-700/50 mx-2 my-1" />
 
-          {/* Save Configuration */}
+          {/* Save and Run Configuration */}
           <ToolbarButton
             icon={Save}
-            tooltip="Save Configuration"
+            tooltip="Save and Run Configuration"
             onClick={onSaveConfiguration}
             disabled={!isInitialized}
             variant="default"

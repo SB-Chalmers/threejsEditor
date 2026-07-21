@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as THREE from 'three';
-import { X, Save, RotateCcw, Layers, ChevronDown, Home, Wrench, Users, Wind, Info } from 'lucide-react';
+import { X, RotateCcw, Layers, ChevronDown, Home, Wrench, Users, Wind, Info, Check } from 'lucide-react';
 import { BuildingData, BuildingConfig } from '../types/building';
 import { Tooltip } from './ui/Tooltip';
 import { MaterialCompareDialog } from './dialogs/MaterialCompareDialog';
-import { calculateCentroid, createShapeFromPoints } from '../utils/geometry';
 import { getThemeColorAsHex, addThemeChangeListener } from '../utils/themeColors';
 
 const getColorOptions = () => [
@@ -53,10 +52,28 @@ const structuralOptions = [
   { label: "Masonry – Durable, good thermal mass", value: "Masonry" }
 ];
 
+const createEditedStateFromBuilding = (building: BuildingData): BuildingConfig & { name: string; description: string } => ({
+  name: building.name || '',
+  description: building.description || '',
+  floors: building.floors,
+  floorHeight: building.floorHeight,
+  color: building.color || getThemeColorAsHex('--color-building-blue', 0x3b82f6),
+  window_to_wall_ratio: building.window_to_wall_ratio ?? 0.4,
+  window_overhang: building.window_overhang ?? false,
+  window_overhang_depth: building.window_overhang_depth ?? 0.0,
+  wall_construction: building.wall_construction || 'Default Wall',
+  floor_construction: building.floor_construction || 'Default Floor',
+  roof_construction: building.roof_construction || 'Default Roof',
+  window_construction: building.window_construction || 'Default Window',
+  structural_system: building.structural_system || 'Concrete',
+  building_program: building.building_program || 'Office',
+  hvac_system: building.hvac_system || 'Default HVAC',
+  natural_ventilation: building.natural_ventilation ?? false
+});
+
 interface BuildingEditPanelProps {
   building: BuildingData;
   onClose: () => void;
-  onSave: (updates: Partial<BuildingData> & { config?: BuildingConfig }) => void;
   onPreview?: (updates: Partial<BuildingData> & { config?: BuildingConfig }) => void;
   enableBuildingFocus?: (buildingId: string) => void;
   disableBuildingFocus?: () => void;
@@ -65,7 +82,6 @@ interface BuildingEditPanelProps {
 export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
   building,
   onClose,
-  onSave,
   onPreview,
   enableBuildingFocus,
   disableBuildingFocus
@@ -81,27 +97,15 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
 
   
   // All editable fields
-  const [edited, setEdited] = useState<BuildingConfig & { name: string; description: string }>({
-    name: building.name || '',
-    description: building.description || '',
-    floors: building.floors,
-    floorHeight: building.floorHeight,
-    color: building.color || getThemeColorAsHex('--color-building-blue', 0x3b82f6),
-    window_to_wall_ratio: building.window_to_wall_ratio ?? 0.4,
-    window_overhang: building.window_overhang ?? false,
-    window_overhang_depth: building.window_overhang_depth ?? 0.0,
-    wall_construction: building.wall_construction || 'Default Wall',
-    floor_construction: building.floor_construction || 'Default Floor',
-    roof_construction: building.roof_construction || 'Default Roof',
-    window_construction: building.window_construction || 'Default Window',
-    structural_system: building.structural_system || 'Concrete',
-    building_program: building.building_program || 'Office',
-    hvac_system: building.hvac_system || 'Default HVAC',
-    natural_ventilation: building.natural_ventilation ?? false
-  });
+  const [edited, setEdited] = useState<BuildingConfig & { name: string; description: string }>(
+    () => createEditedStateFromBuilding(building)
+  );
 
-  const [hasChanges, setHasChanges] = useState(false);
+  const initialEditedRef = useRef<BuildingConfig & { name: string; description: string }>(
+    createEditedStateFromBuilding(building)
+  );
   const [themeVersion, setThemeVersion] = useState(0);
+  const previewTimeoutRef = useRef<number | null>(null);
 
   // Enable focus effect when panel opens
   useEffect(() => {
@@ -128,190 +132,62 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
     return cleanup;
   }, []);
 
-  useEffect(() => {
-    // Compare all fields for changes
-    const orig = {
-      name: building.name || '',
-      description: building.description || '',
-      floors: building.floors,
-      floorHeight: building.floorHeight,
-      color: building.color || "#ffffff",
-      window_to_wall_ratio: building.window_to_wall_ratio ?? 0.4,
-      window_overhang: building.window_overhang ?? false,
-      window_overhang_depth: building.window_overhang_depth ?? 0.0,
-      wall_construction: building.wall_construction || 'Default Wall',
-      floor_construction: building.floor_construction || 'Default Floor',
-      roof_construction: building.roof_construction || 'Default Roof',
-      window_construction: building.window_construction || 'Default Window',
-      structural_system: building.structural_system || 'Concrete',
-      building_program: building.building_program || 'Office',
-      hvac_system: building.hvac_system || 'Default HVAC',
-      natural_ventilation: building.natural_ventilation ?? false
-    };
-    setHasChanges(JSON.stringify(orig) !== JSON.stringify(edited));
-  }, [edited, building]);  // Helper function to update building geometry directly
-  const updateBuildingGeometry = useCallback(() => {
-    if (building.mesh && !building.mesh.userData.isPreview) {      // Only update if there are actual changes
-      if (edited.floors !== building.floors || edited.floorHeight !== building.floorHeight) {
-        if (building.mesh.geometry) {
-          // Create new extruded geometry with updated height
-          const newHeight = edited.floors * edited.floorHeight;
-          
-          // Store the original position before updating
-          const originalPosition = building.mesh.position.clone();
-          
-          // Create shape properly using the centroid
-          const centroid = calculateCentroid(building.points);
-          const shape = createShapeFromPoints(building.points, centroid);
-          
-          const extrudeSettings = {
-            depth: newHeight,
-            bevelEnabled: false,
-            steps: 1
-          };
-          
-          const newGeometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-          newGeometry.rotateX(-Math.PI / 2);
-          
-          // Update mesh with new geometry
-          building.mesh.geometry.dispose();
-          building.mesh.geometry = newGeometry;
-          
-          // Restore the original position
-          building.mesh.position.copy(originalPosition);
-          
-          // Update floor lines if they exist
-          if (building.floorLines) {
-            // Remove old floor lines
-            building.floorLines.children.forEach((child: THREE.Object3D) => {
-              if ('geometry' in child && child.geometry) {
-                (child.geometry as THREE.BufferGeometry).dispose();
-              }
-              if ('material' in child && child.material) {
-                if (Array.isArray(child.material)) {
-                  child.material.forEach(mat => mat.dispose());
-                } else {
-                  (child.material as THREE.Material).dispose();
-                }
-              }
-            });
-            
-            // Clear children
-            while (building.floorLines.children.length > 0) {
-              building.floorLines.remove(building.floorLines.children[0]);
-            }
-            
-            // Create new floor lines
-            for (let floor = 1; floor < edited.floors; floor++) {
-              const yPosition = floor * edited.floorHeight;
-              
-              // Create line geometry from building footprint points
-              const linePoints: THREE.Vector3[] = [];
-              building.points.forEach(point => {
-                linePoints.push(new THREE.Vector3(point.x, yPosition, point.z));
-              });
-              // Close the line
-              linePoints.push(new THREE.Vector3(building.points[0].x, yPosition, building.points[0].z));
-              
-              const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
-              const lineMaterial = new THREE.LineBasicMaterial({ 
-                color: getThemeColorAsHex('--color-floor-lines', 0x888888),
-                transparent: false,
-                opacity: 1,
-                linewidth: 5
-              });
-              
-              const floorLine = new THREE.Line(lineGeometry, lineMaterial);
-              floorLine.userData = { buildingId: building.id, isFloorLine: true, floor };
-              building.floorLines.add(floorLine);
-            }
-          }
-        }
+  const hasChanges = JSON.stringify(edited) !== JSON.stringify(initialEditedRef.current);
+
+  const buildUpdatesFromEdited = useCallback((nextEdited: BuildingConfig & { name: string; description: string }) => ({
+    name: nextEdited.name,
+    description: nextEdited.description,
+    floors: nextEdited.floors,
+    floorHeight: nextEdited.floorHeight,
+    color: nextEdited.color,
+    window_to_wall_ratio: nextEdited.window_to_wall_ratio,
+    window_overhang: nextEdited.window_overhang,
+    window_overhang_depth: nextEdited.window_overhang_depth,
+    wall_construction: nextEdited.wall_construction,
+    floor_construction: nextEdited.floor_construction,
+    roof_construction: nextEdited.roof_construction,
+    window_construction: nextEdited.window_construction,
+    structural_system: nextEdited.structural_system,
+    building_program: nextEdited.building_program,
+    hvac_system: nextEdited.hvac_system,
+    natural_ventilation: nextEdited.natural_ventilation,
+    config: { ...nextEdited }
+  }), []);
+
+  const updateField = (field: keyof typeof edited, value: any) => {
+    setEdited((prev) => {
+      const updatedEdited = { ...prev, [field]: value };
+
+      if (
+        field === 'color' &&
+        building.mesh &&
+        building.mesh.material &&
+        building.mesh.userData.buildingId &&
+        !building.mesh.userData.isPreview &&
+        !building.mesh.userData.isDrawingElement
+      ) {
+        const material = building.mesh.material as THREE.MeshLambertMaterial;
+        material.color.setHex(value);
       }
-    }
-  }, [building, edited.floors, edited.floorHeight]);
-    // Live update for floors and floorHeight
-  useEffect(() => {
-    updateBuildingGeometry();
-    
-    // Just to provide feedback in the UI that geometry is updating
-    console.log('Live updating building geometry:', {
-      floors: edited.floors,
-      floorHeight: edited.floorHeight,
-      newHeight: edited.floors * edited.floorHeight
+
+      debouncedWindowUpdate(buildUpdatesFromEdited(updatedEdited));
+      return updatedEdited;
     });
-  }, [edited.floors, edited.floorHeight, updateBuildingGeometry]);  const updateField = (field: keyof typeof edited, value: any) => {
-    setEdited(prev => ({ ...prev, [field]: value }));
-    
-    // Live update for color
-    if (field === 'color' && building.mesh && building.mesh.material && building.mesh.userData.buildingId && !building.mesh.userData.isPreview && !building.mesh.userData.isDrawingElement) {
-      const material = building.mesh.material as THREE.MeshLambertMaterial;
-      material.color.setHex(value);
-    }
-    // Live update for window properties and building geometry that affects windows
-    if (field === 'window_to_wall_ratio' || field === 'window_overhang' || field === 'window_overhang_depth' || 
-        field === 'floors' || field === 'floorHeight') {
-      // Create the updated edited state immediately for the config
-      const updatedEdited = { ...edited, [field]: value };
-      
-      // Trigger window update through debounced onPreview
-      const updates: Partial<BuildingData> & { config: BuildingConfig } = {
-        // Update the specific field in the building data
-        [field]: value,
-        // Provide complete config with updated values
-        config: updatedEdited // Use the immediately updated state
-      };
-      
-      // Use debounced update for smooth slider interaction
-      debouncedWindowUpdate(updates);
-    }
-    
-    // If floors or floorHeight was updated directly via the UI controls,
-    // we don't need to call updateBuildingGeometry here as the useEffect will handle it
-  };const handleSave = () => {
-    // Apply the changes to the building object permanently
-    const updates: Partial<BuildingData> & { config: BuildingConfig } = {
-      name: edited.name,
-      description: edited.description,
-      floors: edited.floors,
-      floorHeight: edited.floorHeight,
-      color: edited.color,
-      window_to_wall_ratio: edited.window_to_wall_ratio,
-      window_overhang: edited.window_overhang,
-      window_overhang_depth: edited.window_overhang_depth,
-      wall_construction: edited.wall_construction,
-      floor_construction: edited.floor_construction,
-      roof_construction: edited.roof_construction,
-      window_construction: edited.window_construction,
-      structural_system: edited.structural_system,
-      building_program: edited.building_program,
-      hvac_system: edited.hvac_system,
-      natural_ventilation: edited.natural_ventilation,
-      config: { ...edited }
-    };
-    onSave(updates);
   };
+
+  const cancelPendingPreviewUpdate = useCallback(() => {
+    if (previewTimeoutRef.current !== null) {
+      window.clearTimeout(previewTimeoutRef.current);
+      previewTimeoutRef.current = null;
+    }
+  }, []);
+
   const handleReset = () => {
-    setEdited({
-      name: building.name || '',
-      description: building.description || '',
-      floors: building.floors,
-      floorHeight: building.floorHeight,
-      color: building.color || getThemeColorAsHex('--color-building-blue', 0x3b82f6),
-      window_to_wall_ratio: building.window_to_wall_ratio ?? 0.4,
-      window_overhang: building.window_overhang ?? false,
-      window_overhang_depth: building.window_overhang_depth ?? 0.0,
-      wall_construction: building.wall_construction || 'Default Wall',
-      floor_construction: building.floor_construction || 'Default Floor',
-      roof_construction: building.roof_construction || 'Default Roof',
-      window_construction: building.window_construction || 'Default Window',
-      structural_system: building.structural_system || 'Concrete',
-      building_program: building.building_program || 'Office',
-      hvac_system: building.hvac_system || 'Default HVAC',
-      natural_ventilation: building.natural_ventilation ?? false
-    });    if (building.mesh && building.mesh.material && building.mesh.userData.buildingId && !building.mesh.userData.isPreview && !building.mesh.userData.isDrawingElement) {
-      const material = building.mesh.material as THREE.MeshLambertMaterial;
-      material.color.setHex(building.color || getThemeColorAsHex('--color-building-blue', 0x3b82f6));
+    cancelPendingPreviewUpdate();
+    const resetEdited = { ...initialEditedRef.current };
+    setEdited(resetEdited);
+    if (onPreview) {
+      onPreview(buildUpdatesFromEdited(resetEdited));
     }
   };
 
@@ -363,118 +239,40 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
 
   // Restore original geometry when panel is closed without saving
   const handleClose = useCallback(() => {
+    cancelPendingPreviewUpdate();
+
     // Disable focus effect before closing
     if (disableBuildingFocus) {
       disableBuildingFocus();
       console.log('Building focus disabled on close');
     }
-    
-    // Only restore if there are unsaved changes
-    if (hasChanges) {
-      // Restore original geometry if needed
-      if (edited.floors !== building.floors || edited.floorHeight !== building.floorHeight) {        if (building.mesh && building.mesh.geometry) {          // Recreate original geometry
-          const originalHeight = building.floors * building.floorHeight;
-          
-          // Store the original position before updating
-          const originalPosition = building.mesh.position.clone();
-          
-          // Create shape properly using the centroid
-          const centroid = calculateCentroid(building.points);
-          const shape = createShapeFromPoints(building.points, centroid);
-          
-          const extrudeSettings = {
-            depth: originalHeight,
-            bevelEnabled: false,
-            steps: 1
-          };
-          
-          const newGeometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-          newGeometry.rotateX(-Math.PI / 2);
-          
-          // Update mesh with original geometry
-          building.mesh.geometry.dispose();
-          building.mesh.geometry = newGeometry;
-            // Restore the original position
-          building.mesh.position.copy(originalPosition);
-          
-          // Restore floor lines if they exist
-          if (building.floorLines) {
-            // Remove temporary floor lines
-            building.floorLines.children.forEach((child: THREE.Object3D) => {
-              if ('geometry' in child && child.geometry) {
-                (child.geometry as THREE.BufferGeometry).dispose();
-              }
-              if ('material' in child && child.material) {
-                if (Array.isArray(child.material)) {
-                  child.material.forEach(mat => mat.dispose());
-                } else {
-                  (child.material as THREE.Material).dispose();
-                }
-              }
-            });
-            
-            // Clear children
-            while (building.floorLines.children.length > 0) {
-              building.floorLines.remove(building.floorLines.children[0]);
-            }
-            
-            // Recreate original floor lines
-            for (let floor = 1; floor < building.floors; floor++) {
-              const yPosition = floor * building.floorHeight;
-              
-              // Create line geometry from building footprint points
-              const linePoints: THREE.Vector3[] = [];
-              building.points.forEach(point => {
-                linePoints.push(new THREE.Vector3(point.x, yPosition, point.z));
-              });
-              // Close the line
-              linePoints.push(new THREE.Vector3(building.points[0].x, yPosition, building.points[0].z));
-              
-              const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
-              const lineMaterial = new THREE.LineBasicMaterial({ 
-                color: getThemeColorAsHex('--color-floor-lines', 0x888888),
-                transparent: false,
-                opacity: 1,
-                linewidth: 5
-              });
-              
-              const floorLine = new THREE.Line(lineGeometry, lineMaterial);
-              floorLine.userData = { buildingId: building.id, isFloorLine: true, floor };
-              building.floorLines.add(floorLine);
-            }
-          }
-        }
-      }
-        // Restore original color if changed
-      if (edited.color !== building.color && building.mesh && building.mesh.material) {
-        const material = building.mesh.material as THREE.MeshLambertMaterial;
-        material.color.setHex(building.color || getThemeColorAsHex('--color-building-blue', 0x3b82f6));
-      }
-    }
-    
+
     // Call the original onClose handler
     onClose();
-  }, [building, edited, hasChanges, onClose, disableBuildingFocus]);
+  }, [onClose, disableBuildingFocus, cancelPendingPreviewUpdate]);
+
+  useEffect(() => {
+    return () => {
+      cancelPendingPreviewUpdate();
+    };
+  }, [cancelPendingPreviewUpdate]);
+
   // Debounced window update to avoid too many rapid updates
-  const debouncedWindowUpdate = useCallback(
-    (() => {
-      let timeoutId: number;
-      return (updates: Partial<BuildingData> & { config: BuildingConfig }) => {
-        clearTimeout(timeoutId);
-        timeoutId = window.setTimeout(() => {
-          // Always use onPreview for live updates to keep dialog open
-          if (onPreview) {
-            onPreview(updates);
-          } else {
-            // If no onPreview is available, still use onSave but ensure dialog stays open
-            // by not including closing logic
-            console.warn('No onPreview handler provided for live updates');
-          }
-        }, 50); // Fast debounce for very responsive updates
-      };
-    })(),
-    [onPreview]
-  );
+  const debouncedWindowUpdate = useCallback((updates: Partial<BuildingData> & { config: BuildingConfig }) => {
+    cancelPendingPreviewUpdate();
+
+    previewTimeoutRef.current = window.setTimeout(() => {
+      // Always use onPreview for live updates to keep dialog open
+      if (onPreview) {
+        onPreview(updates);
+      } else {
+        // If no onPreview is available, still use onSave but ensure dialog stays open
+        // by not including closing logic
+        console.warn('No onPreview handler provided for live updates');
+      }
+      previewTimeoutRef.current = null;
+    }, 50); // Fast debounce for very responsive updates
+  }, [onPreview, cancelPendingPreviewUpdate]);
 
   return (
     <div className="fixed inset-0 z-50 pointer-events-none">
@@ -930,18 +728,17 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
           </button>
           <div className="flex items-center space-x-3">
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="px-4 py-2 text-gray-300 hover:text-white transition-colors rounded-lg hover:bg-gray-700/50 text-sm font-medium"
             >
               Cancel
             </button>
             <button
-              onClick={handleSave}
-              disabled={!hasChanges}
-              className="flex items-center space-x-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200 font-medium text-sm shadow-lg"
+              onClick={handleClose}
+              className="flex items-center space-x-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200 font-medium text-sm shadow-lg"
             >
-              <Save className="w-4 h-4" />
-              <span>Save Changes</span>
+              <Check className="w-4 h-4" />
+              <span>Done</span>
             </button>
           </div>
         </div>

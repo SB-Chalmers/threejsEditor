@@ -1,5 +1,6 @@
-import { DesignNode, DesignExplorationGraph, DesignMetrics } from '../types/designExploration';
+import { DaylightRunMetadata, DesignNode, DesignExplorationGraph, DesignMetrics } from '../types/designExploration';
 import { BuildingData } from '../types/building';
+import { DaylightRunSummary } from '../types/daylight';
 
 class DesignExplorationService {
   private graph: DesignExplorationGraph = {
@@ -42,16 +43,28 @@ class DesignExplorationService {
   }
 
   // Save current configuration as a new node
-  saveConfiguration(buildings: BuildingData[], name?: string): DesignNode {
+  saveConfiguration(
+    buildings: BuildingData[],
+    name?: string,
+    metricsOverride?: Partial<DesignMetrics>,
+    daylightRun?: DaylightRunMetadata,
+    daylightResultsByBuildingId?: Record<string, DaylightRunSummary>
+  ): DesignNode {
     const nodeId = `node_${Date.now()}`;
     const parentId = this.graph.currentNodeId;
+    const defaultMetrics = this.generateDummyMetrics();
     
     const newNode: DesignNode = {
       id: nodeId,
       timestamp: new Date(),
       name: name || `Design ${this.graph.nodes.length}`,
       buildings: this.cloneBuildings(buildings),
-      metrics: this.generateDummyMetrics(),
+      metrics: {
+        ...defaultMetrics,
+        ...(metricsOverride || {})
+      },
+      daylightRun,
+      daylightResultsByBuildingId: daylightResultsByBuildingId ? { ...daylightResultsByBuildingId } : undefined,
       parentId: parentId,
       position: this.calculateNodePosition(parentId)
     };
@@ -67,6 +80,80 @@ class DesignExplorationService {
     this.notifyListeners();
     
     return newNode;
+  }
+
+  updateNode(
+    nodeId: string,
+    updates: {
+      metrics?: Partial<DesignMetrics>;
+      daylightRun?: DaylightRunMetadata;
+      daylightResultsByBuildingId?: Record<string, DaylightRunSummary>;
+    }
+  ): DesignNode | null {
+    const node = this.graph.nodes.find((candidate) => candidate.id === nodeId);
+    if (!node) {
+      return null;
+    }
+
+    if (updates.metrics) {
+      node.metrics = {
+        ...node.metrics,
+        ...updates.metrics
+      };
+    }
+
+    if (updates.daylightRun) {
+      node.daylightRun = updates.daylightRun;
+    }
+
+    if (updates.daylightResultsByBuildingId) {
+      node.daylightResultsByBuildingId = {
+        ...(node.daylightResultsByBuildingId || {}),
+        ...updates.daylightResultsByBuildingId
+      };
+    }
+
+    this.notifyListeners();
+    return node;
+  }
+
+  updateNodeSnapshot(
+    nodeId: string,
+    updates: {
+      buildings?: BuildingData[];
+      metrics?: Partial<DesignMetrics>;
+      daylightRun?: DaylightRunMetadata;
+      daylightResultsByBuildingId?: Record<string, DaylightRunSummary>;
+    }
+  ): DesignNode | null {
+    const node = this.graph.nodes.find((candidate) => candidate.id === nodeId);
+    if (!node) {
+      return null;
+    }
+
+    if (updates.buildings) {
+      node.buildings = this.cloneBuildings(updates.buildings);
+    }
+
+    if (updates.metrics) {
+      node.metrics = {
+        ...node.metrics,
+        ...updates.metrics
+      };
+    }
+
+    if (updates.daylightRun) {
+      node.daylightRun = updates.daylightRun;
+    }
+
+    if (updates.daylightResultsByBuildingId) {
+      node.daylightResultsByBuildingId = {
+        ...(updates.daylightResultsByBuildingId || {})
+      };
+    }
+
+    this.notifyListeners();
+    return node;
   }
 
   // Calculate position for new node in graph layout

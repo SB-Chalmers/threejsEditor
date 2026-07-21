@@ -146,7 +146,7 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
-      <div className="bg-gray-900 rounded-2xl border border-gray-700/50 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-gray-900 rounded-2xl border border-gray-700/50 shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
           <h2 className="text-xl font-semibold text-white">Design Exploration Graph</h2>
@@ -158,7 +158,7 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
           </button>
         </div>
 
-        <div className="flex h-96">
+        <div className="flex h-[28rem]">
           {/* Graph Canvas */}
           <div className="flex-1 relative">
             <svg
@@ -173,11 +173,11 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
           </div>
 
           {/* Node Details Panel */}
-          <div className="w-80 border-l border-gray-700/50 p-6 bg-gray-900/50">
+          <div className="w-[340px] shrink-0 border-l border-gray-700/50 bg-gray-900/50 min-w-0 flex flex-col">
             {selectedNode ? (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-white mb-2">{selectedNode.name}</h3>
+              <div className="p-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-white break-words leading-tight">{selectedNode.name}</h3>
                   <p className="text-sm text-gray-400">
                     {selectedNode.timestamp.toLocaleDateString()} at {selectedNode.timestamp.toLocaleTimeString()}
                   </p>
@@ -188,30 +188,65 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
                   )}
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-3 rounded-lg border border-gray-800 bg-gray-900/50 p-3">
                   <h4 className="text-sm font-medium text-gray-300">Performance Metrics</h4>
                   
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-400">Heating Demand:</span>
-                      <span className="text-sm text-white">{selectedNode.metrics.heatingDemand} kWh/m²/year</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-400">Daylight Autonomy:</span>
-                      <span className="text-sm text-white">{selectedNode.metrics.spatialDaylightAutonomy}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-400">Carbon Impact:</span>
-                      <span className="text-sm text-white">{selectedNode.metrics.globalWarmingPotential} kg CO₂ eq/m²</span>
-                    </div>
+                  <div className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-2 items-start">
+                    <span className="text-sm text-gray-400">Heating Demand:</span>
+                    <span className="text-sm text-white text-right break-words">{selectedNode.metrics.heatingDemand} kWh/m²/year</span>
+
+                    <span className="text-sm text-gray-400">Daylight Autonomy:</span>
+                    <span className="text-sm text-white text-right break-words">{selectedNode.metrics.spatialDaylightAutonomy}%</span>
+
+                    <span className="text-sm text-gray-400">Carbon Impact:</span>
+                    <span className="text-sm text-white text-right break-words">{selectedNode.metrics.globalWarmingPotential} kg CO₂ eq/m²</span>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <h4 className="text-sm font-medium text-gray-300">Buildings</h4>
-                  <p className="text-sm text-gray-400">
-                    {selectedNode.buildings.length} building{selectedNode.buildings.length !== 1 ? 's' : ''}
-                  </p>
+                {selectedNode.daylightRun && (
+                  <div className="space-y-3 rounded-lg border border-gray-800 bg-gray-900/50 p-3">
+                    <h4 className="text-sm font-medium text-gray-300">Daylight Run</h4>
+
+                    <div className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-2 items-start">
+                      <span className="text-sm text-gray-400">Status:</span>
+                      <span className="text-sm text-white capitalize text-right break-words">{selectedNode.daylightRun.status}</span>
+
+                      {selectedNode.daylightRun.studyId && (
+                        <>
+                          <span className="text-sm text-gray-400">Study ID:</span>
+                          <span className="text-xs text-white text-right break-all">{selectedNode.daylightRun.studyId}</span>
+                        </>
+                      )}
+
+                      {selectedNode.daylightRun.sensorCount !== undefined && (
+                        <>
+                          <span className="text-sm text-gray-400">Sensors:</span>
+                          <span className="text-sm text-white text-right">{selectedNode.daylightRun.sensorCount}</span>
+                        </>
+                      )}
+
+                      {selectedNode.daylightRun.meanDF !== undefined && (
+                        <>
+                          <span className="text-sm text-gray-400">Mean DF:</span>
+                          <span className="text-sm text-white text-right">{selectedNode.daylightRun.meanDF.toFixed(2)}%</span>
+                        </>
+                      )}
+                    </div>
+
+                    {selectedNode.daylightRun.error && (
+                      <div className="text-xs text-red-300 bg-red-900/30 border border-red-700/30 rounded p-2 break-words max-h-28 overflow-y-auto">
+                        {selectedNode.daylightRun.error}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="space-y-3 rounded-lg border border-gray-800 bg-gray-900/50 p-3">
+                  <h4 className="text-sm font-medium text-gray-300">Snapshot</h4>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-400">Buildings:</span>
+                    <span className="text-white font-medium">{selectedNode.buildings.length}</span>
+                  </div>
                 </div>
 
                 {selectedNode.id !== graph.currentNodeId && (
@@ -225,7 +260,7 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
                 )}
               </div>
             ) : (
-              <div className="text-center text-gray-400 mt-16">
+              <div className="text-center text-gray-400 mt-16 px-5">
                 <div className="text-lg mb-2">Select a node</div>
                 <p className="text-sm">Click on any node in the graph to view its details and metrics</p>
               </div>

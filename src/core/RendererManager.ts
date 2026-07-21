@@ -23,11 +23,11 @@ export class RendererManager {
   constructor(config: RendererConfig = {}) {
     this.config = {
       antialias: true,
-      preserveDrawingBuffer: true,
+      preserveDrawingBuffer: false,
       alpha: false,
       shadows: true,
       shadowType: THREE.PCFSoftShadowMap,
-      pixelRatio: Math.min(window.devicePixelRatio, 2),
+      pixelRatio: Math.min(window.devicePixelRatio, 1.5),
       toneMapping: THREE.ACESFilmicToneMapping,
       toneMappingExposure: 1.0, // Slightly reduced from 1.2 for better shadow balance
       ...config
@@ -40,7 +40,8 @@ export class RendererManager {
       antialias: this.config.antialias,
       preserveDrawingBuffer: this.config.preserveDrawingBuffer,
       alpha: this.config.alpha,
-      stencil: false
+      stencil: false,
+      powerPreference: 'high-performance'
     });
     
     // Shadow configuration - use PCFSoftShadowMap for softer shadows

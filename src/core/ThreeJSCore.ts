@@ -75,7 +75,7 @@ export class ThreeJSCore {
         this.sceneManager.getScene(),
         { 
           enableShadows: true,
-          shadowMapSize: 2048, // Higher resolution shadows
+          shadowMapSize: 1024, // Better interactive performance while keeping shadow quality usable
           sunLightIntensity: 1.5 // Softer light
         }
       );
@@ -269,21 +269,10 @@ export class ThreeJSCore {
   }
 
   private startAnimationLoop(): void {
-    let lastTime = performance.now();
-    const targetFPS = 60;
-    const targetFrameTime = 1000 / targetFPS;
-    
     const animate = (currentTime: number) => {
       if (this.isDisposed) return;
       
       this.animationId = requestAnimationFrame(animate);
-      
-      const deltaTime = currentTime - lastTime;
-      
-      // Skip frame if we're running too fast (optional frame limiting)
-      if (deltaTime < targetFrameTime - 1) {
-        return;
-      }
       
       try {
         this.performanceManager.beginFrame();
@@ -300,7 +289,6 @@ export class ThreeJSCore {
         );
         
         this.performanceManager.endFrame();
-        lastTime = currentTime;
       } catch (error) {
         console.error('Animation loop error:', error);
         if (this.config.enableErrorBoundary) {

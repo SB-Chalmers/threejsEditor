@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit, Trash2, Building } from 'lucide-react';
+import { Edit, Trash2, Building, Eye } from 'lucide-react';
 import { BuildingData } from '../types/building';
 import { getThemeColorAsHex } from '../utils/themeColors';
 
@@ -8,6 +8,8 @@ interface BuildingTooltipProps {
   position: { x: number; y: number };
   onEdit: (building: BuildingData) => void;
   onDelete: (buildingId: string) => void;
+  onViewResult?: (building: BuildingData) => void;
+  hasDaylightResult?: boolean;
   onClose: () => void;
 }
 
@@ -16,6 +18,8 @@ export const BuildingTooltip: React.FC<BuildingTooltipProps> = ({
   position,
   onEdit,
   onDelete,
+  onViewResult,
+  hasDaylightResult = false,
   onClose
 }) => {
   const handleEdit = (e: React.MouseEvent) => {
@@ -30,6 +34,12 @@ export const BuildingTooltip: React.FC<BuildingTooltipProps> = ({
       onDelete(building.id);
       onClose();
     }
+  };
+
+  const handleViewResult = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onViewResult?.(building);
+    onClose();
   };
 
   return (
@@ -79,19 +89,26 @@ export const BuildingTooltip: React.FC<BuildingTooltipProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex space-x-2">
+        <div className={`grid gap-2 ${hasDaylightResult ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          {hasDaylightResult && (
+            <button
+              onClick={handleViewResult}
+              className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-sm transition-colors"
+            >
+              <Eye className="w-3 h-3" />
+              <span>View Result</span>
+            </button>
+          )}
           <button
             onClick={handleEdit}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 
-                      text-white rounded text-sm transition-colors flex-1"
+            className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors"
           >
             <Edit className="w-3 h-3" />
             <span>Edit</span>
           </button>
           <button
             onClick={handleDelete}
-            className="flex items-center space-x-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 
-                      text-white rounded text-sm transition-colors flex-1"
+            className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors"
           >
             <Trash2 className="w-3 h-3" />
             <span>Delete</span>
