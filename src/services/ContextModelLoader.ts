@@ -8,7 +8,7 @@ export class ContextModelLoader {
   private modelPath: string;
   private contextMesh: THREE.Object3D | null = null;
 
-  constructor(sceneManager: SceneManager, modelPath: string = '../model/context.3dm') {
+  constructor(sceneManager: SceneManager, modelPath: string = `${import.meta.env.BASE_URL}model/context.3dm`) {
     this.sceneManager = sceneManager;
     this.modelPath = modelPath;
   }
