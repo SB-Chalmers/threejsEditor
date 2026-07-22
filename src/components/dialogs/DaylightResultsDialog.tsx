@@ -7,6 +7,9 @@ interface DaylightResultsDialogProps {
   onClose: () => void;
   buildingName: string;
   result: DaylightRunSummary;
+  availableResults?: Array<{ id: string; name: string }>;
+  selectedBuildingId?: string;
+  onSelectBuildingResult?: (buildingId: string) => void;
   onApplyVisualization: (points: DaylightSensorPoint[], mode: MetricMode) => void;
 }
 
@@ -17,6 +20,9 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
   onClose,
   buildingName,
   result,
+  availableResults = [],
+  selectedBuildingId,
+  onSelectBuildingResult,
   onApplyVisualization
 }) => {
   const [mode, setMode] = useState<MetricMode>('df');
@@ -49,7 +55,7 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
     }
 
     onApplyVisualization(visiblePoints, mode);
-  }, [isOpen, visiblePoints, mode, onApplyVisualization]);
+  }, [isOpen, selectedBuildingId, mode, onApplyVisualization]);
 
   const planView = useMemo(() => {
     if (visiblePointEntries.length === 0) {
@@ -99,52 +105,39 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
     const offsetY = margin + (innerSize - contentHeight) / 2;
     const cellSizePx = Math.max(2, worldCell * scale);
 
-    const normalize = (value: number): number => {
-      if (maxValue <= minValue) {
-        return 0.5;
-      }
-      return Math.max(0, Math.min(1, (value - minValue) / (maxValue - minValue)));
-    };
-
-    const getDfColorForNormalizedValue = (value: number): string => {
-      const clamp = (v: number) => Math.max(0, Math.min(1, v));
-      const mix = (a: number, b: number, t: number) => Math.round(a + (b - a) * clamp(t));
-      const lerpColor = (start: [number, number, number], end: [number, number, number], t: number) => {
-        return `rgb(${mix(start[0], end[0], t)}, ${mix(start[1], end[1], t)}, ${mix(start[2], end[2], t)})`;
-      };
-
-      if (value < 0.25) {
-        return lerpColor([29, 78, 216], [6, 182, 212], value / 0.25);
-      }
-      if (value < 0.5) {
-        return lerpColor([6, 182, 212], [16, 185, 129], (value - 0.25) / 0.25);
-      }
-      if (value < 0.75) {
-        return lerpColor([16, 185, 129], [245, 158, 11], (value - 0.5) / 0.25);
-      }
-      return lerpColor([245, 158, 11], [239, 68, 68], (value - 0.75) / 0.25);
+    const getDfColorForAbsoluteValue = (dfPercent: number): string => {
+      const mix = (a: number, b: number, t: number) => Math.round(a + (b - a) * Math.max(0, Math.min(1, t)));
+      const lerp = (from: [number, number, number], to: [number, number, number], t: number) =>
+        `rgb(${mix(from[0], to[0], t)}, ${mix(from[1], to[1], t)}, ${mix(from[2], to[2], t)})`;
+      const v = Math.max(0, dfPercent);
+      if (v < 1) return lerp([30, 58, 138], [29, 78, 216], v);
+      if (v < 2) return lerp([29, 78, 216], [6, 182, 212], v - 1);
+      if (v < 5) return lerp([6, 182, 212], [34, 197, 94], (v - 2) / 3);
+      if (v < 10) return lerp([34, 197, 94], [245, 158, 11], (v - 5) / 5);
+      return lerp([245, 158, 11], [239, 68, 68], Math.min(1, (v - 10) / 5));
     };
 
     const getSdaColor = (pointIndex: number, pointValue: number): string => {
       const pass = result.sdaPassMask?.[pointIndex];
       if (pass === true) {
-        return 'rgb(16, 185, 129)';
+        return 'rgb(34, 197, 94)';
       }
       if (pass === false) {
         return 'rgb(239, 68, 68)';
       }
-
-      const clamped = Math.max(0, Math.min(100, pointValue));
-      const t = clamped / 100;
-      const mix = (a: number, b: number, tv: number) => Math.round(a + (b - a) * tv);
-      return `rgb(${mix(239, 16, t)}, ${mix(68, 185, t)}, ${mix(68, 129, t)})`;
+      // Fallback uses LEED sDA thresholds (55% nominal, 75% enhanced)
+      const mix = (a: number, b: number, t: number) => Math.round(a + (b - a) * Math.max(0, Math.min(1, t)));
+      const v = Math.max(0, Math.min(100, pointValue));
+      if (v < 55) return `rgb(${mix(239, 249, v / 55)}, ${mix(68, 115, v / 55)}, 22)`;
+      if (v < 75) return `rgb(${mix(249, 34, (v - 55) / 20)}, ${mix(115, 197, (v - 55) / 20)}, ${mix(22, 94, (v - 55) / 20)})`;
+      return `rgb(${mix(34, 21, (v - 75) / 25)}, ${mix(197, 128, (v - 75) / 25)}, ${mix(94, 61, (v - 75) / 25)})`;
     };
 
     const cells = visiblePointEntries.map(({ point, index }) => {
       const x = offsetX + (point.x - minX) * scale - cellSizePx / 2;
       const y = offsetY + (maxZ - point.z) * scale - cellSizePx / 2;
       const color = mode === 'df'
-        ? getDfColorForNormalizedValue(normalize(point.value))
+        ? getDfColorForAbsoluteValue(point.value)
         : getSdaColor(index, point.value);
 
       return {
@@ -190,6 +183,23 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
             <h2 className="text-lg font-semibold text-white">Results Explorer</h2>
             <p className="text-sm text-gray-400 mt-1">{buildingName}</p>
           </div>
+          {availableResults.length > 0 && (
+            <label className="flex items-center gap-2 text-sm text-gray-300">
+              <span className="text-gray-400">Result building</span>
+              <select
+                aria-label="Result building"
+                value={selectedBuildingId ?? availableResults[0]?.id ?? ''}
+                onChange={(event) => onSelectBuildingResult?.(event.target.value)}
+                className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none"
+              >
+                {availableResults.map((availableResult) => (
+                  <option key={availableResult.id} value={availableResult.id}>
+                    {availableResult.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
@@ -255,25 +265,40 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
             </div>
           </div>
 
-          {activeLegendStats && (
-            <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3">
-              <div className="text-xs text-gray-300 font-medium mb-2">
-                Active {mode === 'df' ? 'DF' : 'sDA'} Visualization Legend
-              </div>
-              <div
-                className="h-3 rounded-md border border-gray-700"
-                style={{
-                  background: mode === 'df'
-                    ? 'linear-gradient(90deg, rgb(29,78,216) 0%, rgb(6,182,212) 25%, rgb(16,185,129) 50%, rgb(245,158,11) 75%, rgb(239,68,68) 100%)'
-                    : 'linear-gradient(90deg, rgb(239,68,68) 0%, rgb(16,185,129) 100%)'
-                }}
-              />
-              <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
-                <span>{activeLegendStats.min.toFixed(mode === 'df' ? 2 : 1)}%</span>
-                <span>{activeLegendStats.max.toFixed(mode === 'df' ? 2 : 1)}%</span>
-              </div>
-            </div>
-          )}
+          <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3">
+            {mode === 'df' ? (
+              <>
+                <div className="text-xs text-gray-300 font-medium mb-2">DF Scale — CIBSE/BRE reference</div>
+                <div className="h-3 rounded-md border border-gray-700" style={{
+                  background: 'linear-gradient(90deg, #1e3a8a 0%, #1d4ed8 10%, #06b6d4 20%, #22c55e 50%, #f59e0b 80%, #ef4444 100%)'
+                }} />
+                <div className="relative mt-1 h-5">
+                  <span className="absolute left-0 text-[10px] text-gray-400">0%</span>
+                  <span className="absolute text-[10px] text-gray-400 -translate-x-1/2" style={{ left: '10%' }}>1%</span>
+                  <span className="absolute text-[10px] text-cyan-300 font-bold -translate-x-1/2" style={{ left: '20%' }}>2%▲</span>
+                  <span className="absolute text-[10px] text-gray-400 -translate-x-1/2" style={{ left: '50%' }}>5%</span>
+                  <span className="absolute right-0 text-[10px] text-gray-400">10%+</span>
+                </div>
+                {activeLegendStats && (
+                  <div className="text-[10px] text-gray-500 mt-1">Range: {activeLegendStats.min.toFixed(2)}–{activeLegendStats.max.toFixed(2)}% · ▲ 2% = CIBSE/BRE office target</div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="text-xs text-gray-300 font-medium mb-2">sDA Scale — IES LM-83 / LEED v4</div>
+                <div className="h-3 rounded-md border border-gray-700" style={{
+                  background: 'linear-gradient(90deg, #ef4444 0%, #f97316 55%, #22c55e 75%, #15803d 100%)'
+                }} />
+                <div className="relative mt-1 h-5">
+                  <span className="absolute left-0 text-[10px] text-gray-400">0%</span>
+                  <span className="absolute text-[10px] text-orange-300 font-bold -translate-x-1/2" style={{ left: '55%' }}>55%▲</span>
+                  <span className="absolute text-[10px] text-emerald-300 font-bold -translate-x-1/2" style={{ left: '75%' }}>75%▲</span>
+                  <span className="absolute right-0 text-[10px] text-gray-400">100%</span>
+                </div>
+                <div className="text-[10px] text-gray-500 mt-1">▲ 55% = LEED nominal · 75% = LEED enhanced · 300 lux / 50% annual hours</div>
+              </>
+            )}
+          </div>
 
           {mode === 'df' && planView && (
             <div className="bg-gray-900/70 border border-gray-700 rounded-xl p-4">
@@ -302,20 +327,18 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
                   ))}
                 </svg>
 
-                <div className="w-full lg:w-48">
-                  <div
-                    className="h-3 rounded-md border border-gray-700"
-                    style={{
-                      background: 'linear-gradient(90deg, rgb(29,78,216) 0%, rgb(6,182,212) 25%, rgb(16,185,129) 50%, rgb(245,158,11) 75%, rgb(239,68,68) 100%)'
-                    }}
-                  />
-                  <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
-                    <span>{planView.minValue.toFixed(2)}%</span>
-                    <span>{planView.maxValue.toFixed(2)}%</span>
+                <div className="w-full lg:w-52">
+                  <div className="h-3 rounded-md border border-gray-700" style={{
+                    background: 'linear-gradient(90deg, #1e3a8a 0%, #1d4ed8 10%, #06b6d4 20%, #22c55e 50%, #f59e0b 80%, #ef4444 100%)'
+                  }} />
+                  <div className="relative mt-1 h-4">
+                    <span className="absolute left-0 text-[10px] text-gray-400">0%</span>
+                    <span className="absolute text-[10px] text-cyan-300 font-bold -translate-x-1/2" style={{ left: '20%' }}>2%</span>
+                    <span className="absolute text-[10px] text-gray-400 -translate-x-1/2" style={{ left: '50%' }}>5%</span>
+                    <span className="absolute right-0 text-[10px] text-gray-400">10+</span>
                   </div>
-                  <p className="mt-2 text-xs text-gray-500">
-                    Low DF at left (blue), high DF at right (red).
-                  </p>
+                  <p className="mt-2 text-[10px] text-gray-500">Absolute DF · 2% = CIBSE/BRE target</p>
+                  <p className="text-[10px] text-gray-500">Room range: {planView.minValue.toFixed(2)}–{planView.maxValue.toFixed(2)}%</p>
                 </div>
               </div>
             </div>
@@ -351,25 +374,26 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
                 <div className="w-full lg:w-56">
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="flex items-center gap-2 text-gray-300">
-                      <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgb(16, 185, 129)' }} />
-                      Passing
+                      <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgb(34, 197, 94)' }} />
+                      Passing ≥ threshold
                     </div>
                     <div className="flex items-center gap-2 text-gray-300">
                       <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgb(239, 68, 68)' }} />
-                      Not passing
+                      Below threshold
                     </div>
                   </div>
 
-                  <div
-                    className="mt-3 h-3 rounded-md border border-gray-700"
-                    style={{ background: 'linear-gradient(90deg, rgb(239,68,68) 0%, rgb(16,185,129) 100%)' }}
-                  />
-                  <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
-                    <span>{planView.minValue.toFixed(1)}%</span>
-                    <span>{planView.maxValue.toFixed(1)}%</span>
+                  <div className="mt-3 h-3 rounded-md border border-gray-700" style={{
+                    background: 'linear-gradient(90deg, #ef4444 0%, #f97316 55%, #22c55e 75%, #15803d 100%)'
+                  }} />
+                  <div className="relative mt-1 h-4">
+                    <span className="absolute left-0 text-[10px] text-gray-400">0%</span>
+                    <span className="absolute text-[10px] text-orange-300 font-bold -translate-x-1/2" style={{ left: '55%' }}>55%</span>
+                    <span className="absolute text-[10px] text-emerald-300 font-bold -translate-x-1/2" style={{ left: '75%' }}>75%</span>
+                    <span className="absolute right-0 text-[10px] text-gray-400">100%</span>
                   </div>
-                  <p className="mt-2 text-xs text-gray-500">
-                    sDA sensor values shown as a plan map. Use "Show passing sensors only" to isolate compliant cells.
+                  <p className="mt-2 text-[10px] text-gray-500">
+                    IES LM-83 · 300 lux / 50% annual hours · 55% = LEED nominal · 75% = enhanced
                   </p>
                 </div>
               </div>

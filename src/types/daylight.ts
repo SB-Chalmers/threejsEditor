@@ -25,8 +25,15 @@ export interface DaylightRoomInput {
   sensor_grid: SensorGridConfig;
 }
 
+export interface DaylightContextBuildingInput {
+  footprint_coordinates: [number, number][];
+  floors: number;
+  floor_to_floor_height: number;
+}
+
 export interface DaylightStudyRequest {
   room: DaylightRoomInput;
+  context_buildings: DaylightContextBuildingInput[];
   run_sda: boolean;
   location?: string;
   quality: 'draft' | 'full';
@@ -127,6 +134,7 @@ export interface DaylightBuildRequestOptions {
   thresholds?: DaylightRunThresholds;
   sensor_grid?: Partial<SensorGridConfig>;
   selected_floor_number?: number;
+  context_buildings?: DaylightContextBuildingInput[];
 }
 
 export interface DaylightRunOptions {

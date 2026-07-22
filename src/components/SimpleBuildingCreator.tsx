@@ -27,13 +27,11 @@ import { addSampleBuilding } from '../utils/addSampleBuilding';
 import { BuildingService } from '../services/BuildingService';
 import { designExplorationService } from '../services/DesignExplorationService';
 import { daylightApiService } from '../services/DaylightApiService';
-import { daylightVisualizationService } from '../services/DaylightVisualizationService';
+import { daylightVisualizationService, getOverlayGroupsForResults } from '../services/DaylightVisualizationService';
 import { DaylightRunState, DaylightRunSummary } from '../types/daylight';
 
 type DaylightLegendState = {
   mode: 'df' | 'sda';
-  min: number;
-  max: number;
 };
 
 export const SimpleBuildingCreator: React.FC = () => {
@@ -55,21 +53,12 @@ export const SimpleBuildingCreator: React.FC = () => {
   const [daylightResultsByBuildingId, setDaylightResultsByBuildingId] = useState<Record<string, DaylightRunSummary>>({});
   const [daylightLegend, setDaylightLegend] = useState<DaylightLegendState | null>(null);
   const [activeDaylightRunStatus, setActiveDaylightRunStatus] = useState<DaylightRunState | null>(null);
+  const [daylightSimulationProgress, setDaylightSimulationProgress] = useState<{ completed: number; total: number } | null>(null);
   const runAbortControllerRef = useRef<AbortController | null>(null);
   const hasAutoRunBaselineRef = useRef(false);
 
   const updateDaylightLegend = React.useCallback((points: { value: number }[], mode: 'df' | 'sda') => {
-    if (!points.length) {
-      setDaylightLegend(null);
-      return;
-    }
-
-    const values = points.map((point) => point.value);
-    setDaylightLegend({
-      mode,
-      min: Math.min(...values),
-      max: Math.max(...values)
-    });
+    setDaylightLegend(points.length > 0 ? { mode } : null);
   }, []);
 
   const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
@@ -345,6 +334,7 @@ export const SimpleBuildingCreator: React.FC = () => {
     runAbortControllerRef.current = new AbortController();
     setIsSaveAndRunInProgress(true);
     setActiveDaylightRunStatus({ status: 'queued', stage: 'Submitting study request...' });
+    setDaylightSimulationProgress(snapshotBuildings.length > 1 ? { completed: 0, total: snapshotBuildings.length } : null);
 
     // Ghosting is used for user-triggered runs, but can be disabled for baseline startup runs.
     if (useGhosting) {
@@ -353,57 +343,81 @@ export const SimpleBuildingCreator: React.FC = () => {
     daylightVisualizationService.clear(scene);
 
     try {
-      const result = await daylightApiService.runStudyForBuilding(
-        targetBuilding,
-        {
-          run_sda: runSda,
-          location: resolvedLocation,
-          quality: 'draft',
-          selected_floor_number: Math.max(1, targetBuilding.floors)
-        },
-        {
-          signal: runAbortControllerRef.current.signal,
-          onStatus: ({ status, studyId, stage, error }) => {
-            setActiveDaylightRunStatus({ status, studyId, stage, error });
-
-            if (pendingNode) {
-              designExplorationService.updateNode(pendingNode.id, {
-                daylightRun: {
+      let perStudyCompleted = 0;
+      const results = await Promise.all(
+        snapshotBuildings.map((building) =>
+          daylightApiService.runStudyForBuilding(
+            building,
+            {
+              run_sda: runSda,
+              location: resolvedLocation,
+              quality: 'draft',
+              selected_floor_number: Math.max(1, building.floors),
+              context_buildings: snapshotBuildings
+                .filter((contextBuilding) => contextBuilding.id !== building.id)
+                .map((contextBuilding) => daylightApiService.buildContextBuilding(contextBuilding))
+            },
+            {
+              signal: runAbortControllerRef.current!.signal,
+              onStatus: ({ status, studyId, stage, error }) => {
+                setActiveDaylightRunStatus({
                   status,
                   studyId,
-                  stage,
-                  error,
-                  updatedAt: new Date().toISOString()
-                }
-              });
-            }
-          }
-        }
-      );
+                  stage: `${building.name || 'Building'}: ${stage || status}`,
+                  error
+                });
 
-      daylightVisualizationService.renderSensorPoints(scene, result.points);
-      setDaylightResultsByBuildingId((prev) => ({
-        ...prev,
-        [targetBuilding.id]: result
-      }));
-      updateDaylightLegend(result.points, 'df');
+                if (pendingNode) {
+                  designExplorationService.updateNode(pendingNode.id, {
+                    daylightRun: {
+                      status,
+                      studyId,
+                      stage,
+                      error,
+                      updatedAt: new Date().toISOString()
+                    }
+                  });
+                }
+              }
+            }
+          ).then((studyResult) => {
+            // Increment after the individual promise settles so the counter
+            // advances one step at a time, not all at once after Promise.all.
+            perStudyCompleted += 1;
+            setDaylightSimulationProgress((prev) =>
+              prev ? { completed: perStudyCompleted, total: prev.total } : prev
+            );
+            return studyResult;
+          })
+        )
+      );
+      const resultsById = Object.fromEntries(
+        snapshotBuildings.map((building, index) => [building.id, results[index]])
+      );
+      const allPoints = results.flatMap((result) => result.points);
+      const result = resultsById[targetBuilding.id];
+
+      const resultGroups = results.map((r) => r.points).filter((pts) => pts.length > 0);
+      daylightVisualizationService.renderSensorPointGroups(scene, resultGroups);
+      setDaylightResultsByBuildingId((prev) => ({ ...prev, ...resultsById }));
+      updateDaylightLegend(allPoints, 'df');
 
       if (pendingNode) {
         designExplorationService.updateNode(pendingNode.id, {
           metrics: {
-            spatialDaylightAutonomy: runSda ? result.sda : pendingNode.metrics.spatialDaylightAutonomy
+            spatialDaylightAutonomy: runSda
+              ? results.reduce((total, current) => total + current.sda, 0) / results.length
+              : pendingNode.metrics.spatialDaylightAutonomy
           },
           daylightRun: {
             status: 'complete',
             studyId: result.studyId,
             stage: result.stage,
-            sensorCount: result.sensorCount,
-            meanDF: result.meanDF,
+            sensorCount: results.reduce((total, current) => total + current.sensorCount, 0),
+            meanDF: results.reduce((total, current) => total + current.meanDF, 0) / results.length,
             updatedAt: result.completedAt || new Date().toISOString()
           },
-          daylightResultsByBuildingId: {
-            [targetBuilding.id]: result
-          }
+          daylightResultsByBuildingId: resultsById
         });
       }
 
@@ -439,6 +453,7 @@ export const SimpleBuildingCreator: React.FC = () => {
       }
       setIsSaveAndRunInProgress(false);
       setActiveDaylightRunStatus(null);
+      setDaylightSimulationProgress(null);
       runAbortControllerRef.current = null;
     }
   }, [scene, buildings, daylightResultsByBuildingId, enableBuildingFocus, disableBuildingFocus, updateDaylightLegend]);
@@ -509,8 +524,17 @@ export const SimpleBuildingCreator: React.FC = () => {
         }
       });
 
-      setDaylightResultsByBuildingId(node.daylightResultsByBuildingId || {});
-      daylightVisualizationService.clear(scene);
+      const reinstatedResults = node.daylightResultsByBuildingId || {};
+      setDaylightResultsByBuildingId(reinstatedResults);
+
+      const restoredGroups = getOverlayGroupsForResults(reinstatedResults, 'df');
+      if (restoredGroups.length > 0) {
+        daylightVisualizationService.renderSensorPointGroups(scene, restoredGroups);
+        updateDaylightLegend(restoredGroups.flat(), 'df');
+      } else {
+        daylightVisualizationService.clear(scene);
+        updateDaylightLegend([], 'df');
+      }
 
       console.log('Configuration reinstated:', node.name, `(${node.buildings.length} buildings)`);
     }
@@ -541,10 +565,23 @@ export const SimpleBuildingCreator: React.FC = () => {
       return;
     }
 
-    daylightVisualizationService.renderSensorPoints(scene, result.points);
-    updateDaylightLegend(result.points, 'df');
+    const overlayGroups = getOverlayGroupsForResults(daylightResultsByBuildingId, 'df');
+    daylightVisualizationService.renderSensorPointGroups(scene, overlayGroups);
+    updateDaylightLegend(overlayGroups.flat(), 'df');
     setActiveResultsBuildingId(building.id);
     setShowDaylightResultsDialog(true);
+  };
+
+  const handleSelectBuildingResult = (buildingId: string) => {
+    const result = daylightResultsByBuildingId[buildingId];
+    if (!result || !scene) {
+      return;
+    }
+
+    const overlayGroups = getOverlayGroupsForResults(daylightResultsByBuildingId, 'df');
+    daylightVisualizationService.renderSensorPointGroups(scene, overlayGroups);
+    updateDaylightLegend(overlayGroups.flat(), 'df');
+    setActiveResultsBuildingId(buildingId);
   };
 
   const handleDeleteBuilding = (buildingId: string) => {
@@ -962,22 +999,45 @@ export const SimpleBuildingCreator: React.FC = () => {
 
             {daylightLegend && (
               <div className="absolute right-4 bottom-20 z-30 pointer-events-none">
-                <div className="bg-gray-900/90 border border-gray-700 rounded-lg p-3 min-w-[210px] shadow-xl">
-                  <div className="text-xs font-medium text-gray-200 mb-2">
-                    3D {daylightLegend.mode === 'df' ? 'DF' : 'sDA'} Legend
-                  </div>
-                  <div
-                    className="h-3 rounded-md border border-gray-700"
-                    style={{
-                      background: daylightLegend.mode === 'df'
-                        ? 'linear-gradient(90deg, rgb(29,78,216) 0%, rgb(6,182,212) 25%, rgb(16,185,129) 50%, rgb(245,158,11) 75%, rgb(239,68,68) 100%)'
-                        : 'linear-gradient(90deg, rgb(239,68,68) 0%, rgb(16,185,129) 100%)'
-                    }}
-                  />
-                  <div className="mt-2 flex items-center justify-between text-[11px] text-gray-300">
-                    <span>{daylightLegend.min.toFixed(daylightLegend.mode === 'df' ? 2 : 1)}%</span>
-                    <span>{daylightLegend.max.toFixed(daylightLegend.mode === 'df' ? 2 : 1)}%</span>
-                  </div>
+                <div className="bg-gray-900/90 border border-gray-700 rounded-lg p-3 min-w-[240px] shadow-xl">
+                  {daylightLegend.mode === 'df' ? (
+                    <>
+                      <div className="text-xs font-semibold text-gray-200 mb-2">Daylight Factor (DF)</div>
+                      <div className="h-3 rounded-md border border-gray-700" style={{
+                        background: 'linear-gradient(90deg, #1e3a8a 0%, #1d4ed8 10%, #06b6d4 20%, #22c55e 50%, #f59e0b 80%, #ef4444 100%)'
+                      }} />
+                      <div className="relative mt-1 h-4">
+                        <span className="absolute left-0 text-[10px] text-gray-400">0%</span>
+                        <span className="absolute text-[10px] text-gray-400 -translate-x-1/2" style={{ left: '10%' }}>1%</span>
+                        <span className="absolute text-[10px] text-cyan-300 font-bold -translate-x-1/2" style={{ left: '20%' }}>2%</span>
+                        <span className="absolute text-[10px] text-gray-400 -translate-x-1/2" style={{ left: '50%' }}>5%</span>
+                        <span className="absolute right-0 text-[10px] text-gray-400">10%+</span>
+                      </div>
+                      <div className="flex justify-between mt-2 text-[10px]">
+                        <span className="text-blue-400">Poor</span>
+                        <span className="text-cyan-300">▲ 2% target</span>
+                        <span className="text-orange-400">Overlit</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-xs font-semibold text-gray-200 mb-2">sDA (300 lux / 50%)</div>
+                      <div className="h-3 rounded-md border border-gray-700" style={{
+                        background: 'linear-gradient(90deg, #ef4444 0%, #f97316 55%, #22c55e 75%, #15803d 100%)'
+                      }} />
+                      <div className="relative mt-1 h-4">
+                        <span className="absolute left-0 text-[10px] text-gray-400">0%</span>
+                        <span className="absolute text-[10px] text-orange-300 font-bold -translate-x-1/2" style={{ left: '55%' }}>55%</span>
+                        <span className="absolute text-[10px] text-emerald-300 font-bold -translate-x-1/2" style={{ left: '75%' }}>75%</span>
+                        <span className="absolute right-0 text-[10px] text-gray-400">100%</span>
+                      </div>
+                      <div className="flex justify-between mt-2 text-[10px]">
+                        <span className="text-red-400">Fails LEED</span>
+                        <span className="text-orange-300">▲ nominal</span>
+                        <span className="text-emerald-300">▲ enhanced</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -1041,6 +1101,20 @@ export const SimpleBuildingCreator: React.FC = () => {
                   <div className="text-xs text-gray-200 break-all">{activeDaylightRunStatus.studyId}</div>
                 </>
               )}
+              {daylightSimulationProgress && daylightSimulationProgress.total > 1 && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-xs text-gray-400">
+                    <span>Studies completed</span>
+                    <span>{daylightSimulationProgress.completed}/{daylightSimulationProgress.total}</span>
+                  </div>
+                  <div className="mt-2 h-2 rounded-full bg-gray-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-cyan-500 transition-all duration-300"
+                      style={{ width: `${(daylightSimulationProgress.completed / daylightSimulationProgress.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
               {activeDaylightRunStatus?.error && (
                 <div className="mt-2 text-xs text-red-300 break-words">{activeDaylightRunStatus.error}</div>
               )}
@@ -1094,12 +1168,21 @@ export const SimpleBuildingCreator: React.FC = () => {
           onClose={() => setShowDaylightResultsDialog(false)}
           buildingName={buildings.find((building) => building.id === activeResultsBuildingId)?.name || 'Selected Building'}
           result={daylightResultsByBuildingId[activeResultsBuildingId]}
-          onApplyVisualization={(points, mode) => {
+          availableResults={buildings
+            .filter((building) => Boolean(daylightResultsByBuildingId[building.id]))
+            .map((building) => ({ id: building.id, name: building.name || 'Untitled Building' }))}
+          selectedBuildingId={activeResultsBuildingId}
+          onSelectBuildingResult={handleSelectBuildingResult}
+          onApplyVisualization={(_, mode) => {
             if (!scene) {
               return;
             }
-            daylightVisualizationService.renderSensorPoints(scene, points);
-            updateDaylightLegend(points, mode);
+            // Always render all saved results for the given mode so the dialog
+            // switching mode/building cannot accidentally replace the combined overlay
+            // with a single building's points.
+            const overlayGroups = getOverlayGroupsForResults(daylightResultsByBuildingId, mode);
+            daylightVisualizationService.renderSensorPointGroups(scene, overlayGroups, mode);
+            updateDaylightLegend(overlayGroups.flat(), mode);
           }}
         />
       )}

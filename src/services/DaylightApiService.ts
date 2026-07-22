@@ -3,6 +3,7 @@ import { calculateSignedArea, ensureCounterClockwise } from '../utils/geometry';
 import {
   DaylightApiError,
   DaylightBuildRequestOptions,
+  DaylightContextBuildingInput,
   DaylightLocationsResponse,
   DaylightRunOptions,
   DaylightRunSummary,
@@ -91,6 +92,7 @@ class DaylightApiService {
         additional_vertical_shading_depth: 0,
         sensor_grid
       },
+      context_buildings: options.context_buildings ?? [],
       run_sda: options.run_sda ?? false,
       location: options.location,
       quality: options.quality ?? 'draft',
@@ -98,6 +100,14 @@ class DaylightApiService {
         da_lux: 300,
         sda_target_pct: 50
       }
+    };
+  }
+
+  buildContextBuilding(building: BuildingData): DaylightContextBuildingInput {
+    return {
+      footprint_coordinates: this.buildValidatedFootprint(building),
+      floors: Math.max(1, building.floors),
+      floor_to_floor_height: building.floorHeight
     };
   }
 

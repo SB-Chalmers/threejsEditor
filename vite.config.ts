@@ -6,9 +6,11 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const daylightProxyTarget = env.VITE_DAYLIGHT_PROXY_TARGET || 'http://localhost:8000';
 
+  const basePath = env.VITE_BASE_PATH || '/';
+
   return {
     plugins: [react()],
-    base: '/editor/',
+    base: basePath,
     optimizeDeps: {
       exclude: ['lucide-react'],
     },
