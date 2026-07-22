@@ -15,8 +15,8 @@ import {
 } from '../types/daylight';
 
 const DEFAULT_DEV_BASE_URL = '/api/daylight';
-const DEFAULT_PROD_BASE_URL = 'http://localhost:8000';
-const DEFAULT_DIRECT_FALLBACK_URLS = ['http://localhost:8000', 'http://129.16.43.175:8000'];
+const DEFAULT_PROD_BASE_URL = '/api/daylight';
+const DEFAULT_DIRECT_FALLBACK_URLS: string[] = [];
 const DEFAULT_SENSOR_GRID: SensorGridConfig = { x_dim: 0.5, y_dim: 0.5, offset: 0.75 };
 
 class DaylightApiService {

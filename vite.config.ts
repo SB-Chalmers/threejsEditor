@@ -39,6 +39,15 @@ export default defineConfig(({ mode }) => {
           rewrite: (path) => path.replace(/^\/api\/daylight/, ''),
         }
       }
+    },
+    preview: {
+      proxy: {
+        '/api/daylight': {
+          target: daylightProxyTarget,
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/daylight/, ''),
+        }
+      }
     }
   };
 });
