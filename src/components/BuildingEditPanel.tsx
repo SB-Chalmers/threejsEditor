@@ -148,16 +148,30 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
       .then(opts => {
         setEpsmOptions(opts);
         // Patch any construction fields that aren't in EPSM
-        // (e.g. 'Default Wall' placeholder) to the first real EPSM option
+        // (e.g. undefined or 'Default Wall' placeholder) to the first real EPSM option,
+        // then propagate to BuildingData so GWP and simulation always get valid names.
         const isValidFor = (name: string | undefined, list: ConstructionOption[]) =>
           !!name && list.some(o => o.value === name);
-        setEdited(prev => ({
-          ...prev,
-          wall_construction:   (!isValidFor(prev.wall_construction,   opts.wall)   && opts.wall[0])   ? opts.wall[0].value   : prev.wall_construction,
-          floor_construction:  (!isValidFor(prev.floor_construction,  opts.floor)  && opts.floor[0])  ? opts.floor[0].value  : prev.floor_construction,
-          roof_construction:   (!isValidFor(prev.roof_construction,   opts.roof)   && opts.roof[0])   ? opts.roof[0].value   : prev.roof_construction,
-          window_construction: (!isValidFor(prev.window_construction, opts.window) && opts.window[0]) ? opts.window[0].value : prev.window_construction,
-        }));
+
+        setEdited(prev => {
+          const patched = {
+            ...prev,
+            wall_construction:   (!isValidFor(prev.wall_construction,   opts.wall)   && opts.wall[0])   ? opts.wall[0].value   : prev.wall_construction,
+            floor_construction:  (!isValidFor(prev.floor_construction,  opts.floor)  && opts.floor[0])  ? opts.floor[0].value  : prev.floor_construction,
+            roof_construction:   (!isValidFor(prev.roof_construction,   opts.roof)   && opts.roof[0])   ? opts.roof[0].value   : prev.roof_construction,
+            window_construction: (!isValidFor(prev.window_construction, opts.window) && opts.window[0]) ? opts.window[0].value : prev.window_construction,
+          };
+          const changed =
+            patched.wall_construction   !== prev.wall_construction   ||
+            patched.floor_construction  !== prev.floor_construction  ||
+            patched.roof_construction   !== prev.roof_construction   ||
+            patched.window_construction !== prev.window_construction;
+          // Write back to BuildingData so GWP calc and energy sim get real names
+          if (changed) {
+            debouncedWindowUpdate(buildUpdatesFromEdited(patched));
+          }
+          return patched;
+        });
       })
       .catch(() => { /* fall back to static options silently */ })
       .finally(() => setEpsmLoading(false));
