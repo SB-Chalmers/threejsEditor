@@ -5,6 +5,7 @@ import { BuildingData, BuildingConfig } from '../types/building';
 import { Tooltip } from './ui/Tooltip';
 import { MaterialCompareDialog } from './dialogs/MaterialCompareDialog';
 import { getThemeColorAsHex, addThemeChangeListener } from '../utils/themeColors';
+import { getEPSMConstructionOptions, EPSMConstructionOptions, calculateEmbodiedCarbon, EmbodiedCarbonResult } from '../services/EPSMService';
 
 const getColorOptions = () => [
   { name: 'Blue', value: getThemeColorAsHex('--color-building-blue', 0x3b82f6) },
@@ -17,25 +18,25 @@ const getColorOptions = () => [
   { name: 'Gray', value: getThemeColorAsHex('--color-building-gray', 0x6b7280) }
 ];
 
-// Updated options with performance data
-const wallOptions = [
+// Fallback options used when EPSM is unavailable
+const FALLBACK_WALL_OPTIONS = [
   { label: "Default Wall – U: 1.6 W/m²K, CO₂: 60 kg/m²", value: "Default Wall" },
   { label: "Concrete – U: 1.8 W/m²K, CO₂: 80 kg/m²", value: "Concrete" },
   { label: "Brick – U: 1.2 W/m²K, CO₂: 90 kg/m²", value: "Brick" },
   { label: "Wood – U: 0.35 W/m²K, CO₂: 45 kg/m²", value: "Wood" },
   { label: "Steel – U: 2.0 W/m²K, CO₂: 120 kg/m²", value: "Steel" }
 ];
-const floorOptions = [
+const FALLBACK_FLOOR_OPTIONS = [
   { label: "Default Floor – U: 1.5 W/m²K", value: "Default Floor" },
   { label: "Concrete Slab – U: 1.8 W/m²K", value: "Concrete Slab" },
   { label: "Raised Floor – U: 1.2 W/m²K", value: "Raised Floor" }
 ];
-const roofOptions = [
+const FALLBACK_ROOF_OPTIONS = [
   { label: "Default Roof – U: 1.4 W/m²K", value: "Default Roof" },
   { label: "Flat Roof – U: 1.6 W/m²K", value: "Flat Roof" },
   { label: "Pitched Roof – U: 1.1 W/m²K", value: "Pitched Roof" }
 ];
-const windowOptions = [
+const FALLBACK_WINDOW_OPTIONS = [
   { label: "Default Window – U: 2.8 W/m²K", value: "Default Window" },
   { label: "Double Glazed – U: 1.6 W/m²K", value: "Double Glazed" },
   { label: "Triple Glazed – U: 0.9 W/m²K", value: "Triple Glazed" }
@@ -107,6 +108,13 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
   const [themeVersion, setThemeVersion] = useState(0);
   const previewTimeoutRef = useRef<number | null>(null);
 
+  // EPSM construction options (fetched once on mount, falls back to static)
+  const [epsmOptions, setEpsmOptions] = useState<EPSMConstructionOptions | null>(null);
+  const [epsmLoading, setEpsmLoading] = useState(true);
+
+  // Live embodied carbon — recalculated whenever construction choices or options change
+  const [embodiedCarbon, setEmbodiedCarbon] = useState<EmbodiedCarbonResult | null>(null);
+
   // Enable focus effect when panel opens
   useEffect(() => {
     if (enableBuildingFocus && building.id) {
@@ -131,6 +139,91 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
     
     return cleanup;
   }, []);
+
+  // Fetch construction options from EPSM on mount
+  useEffect(() => {
+    const controller = new AbortController();
+    setEpsmLoading(true);
+    getEPSMConstructionOptions(controller.signal)
+      .then(opts => {
+        setEpsmOptions(opts);
+        // Patch any construction fields that aren't in EPSM
+        // (e.g. 'Default Wall' placeholder) to the first real EPSM option
+        const isValidFor = (name: string | undefined, list: ConstructionOption[]) =>
+          !!name && list.some(o => o.value === name);
+        setEdited(prev => ({
+          ...prev,
+          wall_construction:   (!isValidFor(prev.wall_construction,   opts.wall)   && opts.wall[0])   ? opts.wall[0].value   : prev.wall_construction,
+          floor_construction:  (!isValidFor(prev.floor_construction,  opts.floor)  && opts.floor[0])  ? opts.floor[0].value  : prev.floor_construction,
+          roof_construction:   (!isValidFor(prev.roof_construction,   opts.roof)   && opts.roof[0])   ? opts.roof[0].value   : prev.roof_construction,
+          window_construction: (!isValidFor(prev.window_construction, opts.window) && opts.window[0]) ? opts.window[0].value : prev.window_construction,
+        }));
+      })
+      .catch(() => { /* fall back to static options silently */ })
+      .finally(() => setEpsmLoading(false));
+    return () => controller.abort();
+  }, []);
+
+  // Active construction options — EPSM when available, static fallback otherwise
+  const constructionOptions = {
+    wall:   epsmOptions?.wall   ?? FALLBACK_WALL_OPTIONS,
+    floor:  epsmOptions?.floor  ?? FALLBACK_FLOOR_OPTIONS,
+    roof:   epsmOptions?.roof   ?? FALLBACK_ROOF_OPTIONS,
+    window: epsmOptions?.window ?? FALLBACK_WINDOW_OPTIONS,
+  };
+
+  // Recalculate embodied carbon whenever construction choices or EPSM data changes
+  useEffect(() => {
+    if (!epsmOptions) { setEmbodiedCarbon(null); return; }
+
+    // Approximate surface areas from building geometry
+    const footprintArea = building.area ?? 0;
+    const floors = edited.floors ?? building.floors ?? 1;
+    const floorHeight = edited.floorHeight ?? building.floorHeight ?? 3.2;
+    const wwr = edited.window_to_wall_ratio ?? 0.4;
+
+    // Perimeter ≈ sqrt(footprintArea) × 4 (assumes roughly square footprint)
+    // A better estimate uses the actual footprint points if available.
+    const perimeter = building.points && building.points.length >= 2
+      ? building.points.reduce((sum, p, i) => {
+          const next = building.points[(i + 1) % building.points.length];
+          return sum + Math.sqrt((next.x - p.x) ** 2 + (next.z - p.z) ** 2);
+        }, 0)
+      : Math.sqrt(footprintArea) * 4;
+
+    const totalWallArea   = perimeter * floors * floorHeight;
+    const totalWindowArea = totalWallArea * wwr;
+    const totalFloorArea  = footprintArea * floors;
+    const totalRoofArea   = footprintArea;
+
+    const result = calculateEmbodiedCarbon(
+      epsmOptions,
+      {
+        wall:   edited.wall_construction   ?? 'Default Wall',
+        floor:  edited.floor_construction  ?? 'Default Floor',
+        roof:   edited.roof_construction   ?? 'Default Roof',
+        window: edited.window_construction ?? 'Default Window',
+      },
+      {
+        wallArea:   totalWallArea,
+        floorArea:  totalFloorArea,
+        roofArea:   totalRoofArea,
+        windowArea: totalWindowArea,
+      }
+    );
+    setEmbodiedCarbon(result);
+  }, [
+    epsmOptions,
+    edited.wall_construction,
+    edited.floor_construction,
+    edited.roof_construction,
+    edited.window_construction,
+    edited.floors,
+    edited.floorHeight,
+    edited.window_to_wall_ratio,
+    building.area,
+    building.points,
+  ]);
 
   const hasChanges = JSON.stringify(edited) !== JSON.stringify(initialEditedRef.current);
 
@@ -550,18 +643,18 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
 
           {/* ENVELOPE & MATERIALS */}
           <Section 
-            title="Envelope & Materials" 
+            title={`Envelope & Materials${epsmLoading ? ' …' : epsmOptions ? ' · EPSM' : ''}`}
             icon={<Home className="w-4 h-4" />}
             open={sections.construction} 
             onToggle={() => toggleSection('construction')}
           >
             <div className="space-y-4">
               {[
-                { key: 'wall_construction', label: 'Wall Construction', options: wallOptions, tooltip: 'Wall type affects insulation (U-value) and embodied carbon. Lower U = better insulation.' },
-                { key: 'floor_construction', label: 'Floor Construction', options: floorOptions, tooltip: 'Floor insulation affects heat loss to ground or unheated spaces.' },
-                { key: 'roof_construction', label: 'Roof Construction', options: roofOptions, tooltip: 'Roof insulation is critical for heat loss/gain. Lower U = better.' },
-                { key: 'window_construction', label: 'Window Construction', options: windowOptions, tooltip: 'Window type affects insulation and daylight. Lower U = better insulation.' }
-              ].map(({ key, label, options, tooltip }) => (
+                { key: 'wall_construction', compareType: 'wall' as const, label: 'Wall Construction', options: constructionOptions.wall, tooltip: 'Wall type affects insulation (U-value) and embodied carbon. Lower U = better insulation.' },
+                { key: 'floor_construction', compareType: 'floor' as const, label: 'Floor Construction', options: constructionOptions.floor, tooltip: 'Floor insulation affects heat loss to ground or unheated spaces.' },
+                { key: 'roof_construction', compareType: 'roof' as const, label: 'Roof Construction', options: constructionOptions.roof, tooltip: 'Roof insulation is critical for heat loss/gain. Lower U = better.' },
+                { key: 'window_construction', compareType: 'window' as const, label: 'Window Construction', options: constructionOptions.window, tooltip: 'Window type affects insulation and daylight. Lower U = better insulation.' }
+              ].map(({ key, compareType, label, options, tooltip }) => (
                 <div key={key}>
                   <div className="flex items-center justify-between mb-2">                    <div className="flex items-center">
                       <label className="block text-xs font-medium text-gray-400">
@@ -576,7 +669,7 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
                     <button
                       type="button"
                       className="text-xs text-blue-400 hover:text-blue-300 underline transition-colors"
-                      onClick={() => openCompareModal(key)}
+                      onClick={() => openCompareModal(compareType)}
                     >
                       Compare
                     </button>
@@ -594,6 +687,33 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
                   </select>
                 </div>
               ))}
+
+              {/* Live embodied carbon breakdown */}
+              {embodiedCarbon && (
+                <div className="mt-4 p-3 bg-gray-800/60 border border-gray-600/50 rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">
+                      Embodied Carbon (A1–A3)
+                    </span>
+                    <span className="text-sm font-bold text-orange-400">
+                      {embodiedCarbon.gwp_kgco2e_per_m2_floor.toFixed(1)} kg CO₂e/m²
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-400">
+                    <span>Walls</span>
+                    <span className="text-right text-gray-300">{embodiedCarbon.wall_gwp_kgco2e.toFixed(0)} kg CO₂e</span>
+                    <span>Floor</span>
+                    <span className="text-right text-gray-300">{embodiedCarbon.floor_gwp_kgco2e.toFixed(0)} kg CO₂e</span>
+                    <span>Roof</span>
+                    <span className="text-right text-gray-300">{embodiedCarbon.roof_gwp_kgco2e.toFixed(0)} kg CO₂e</span>
+                    <span>Windows</span>
+                    <span className="text-right text-gray-300">{embodiedCarbon.window_gwp_kgco2e.toFixed(0)} kg CO₂e</span>
+                    <span className="font-medium text-gray-300">Total</span>
+                    <span className="text-right font-bold text-orange-400">{embodiedCarbon.total_gwp_kgco2e.toFixed(0)} kg CO₂e</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Based on EPSM construction GWP data × estimated surface areas</p>
+                </div>
+              )}
             </div>
           </Section>
 
@@ -748,10 +868,10 @@ export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
           <MaterialCompareDialog
             title={`Compare ${compareModal.type.charAt(0).toUpperCase() + compareModal.type.slice(1)} Options`}
             options={
-              compareModal.type === 'wall' ? wallOptions :
-              compareModal.type === 'floor' ? floorOptions :
-              compareModal.type === 'roof' ? roofOptions :
-              compareModal.type === 'window' ? windowOptions :
+              compareModal.type === 'wall' ? constructionOptions.wall :
+              compareModal.type === 'floor' ? constructionOptions.floor :
+              compareModal.type === 'roof' ? constructionOptions.roof :
+              compareModal.type === 'window' ? constructionOptions.window :
               compareModal.type === 'structural' ? structuralOptions.map(opt => ({ ...opt })) : 
               []
             }

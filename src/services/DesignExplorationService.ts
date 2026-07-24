@@ -1,4 +1,4 @@
-import { DaylightRunMetadata, DesignNode, DesignExplorationGraph, DesignMetrics } from '../types/designExploration';
+import { DaylightRunMetadata, DesignNode, DesignExplorationGraph, DesignMetrics, EnergyRunMetadata } from '../types/designExploration';
 import { BuildingData } from '../types/building';
 import { DaylightRunSummary } from '../types/daylight';
 
@@ -24,21 +24,19 @@ class DesignExplorationService {
         timestamp: new Date(),
         name: 'Baseline',
         buildings: [],
-        metrics: this.generateDummyMetrics(),
+        metrics: this.generateBaseMetrics(),
         position: { x: 0, y: 0 }
       };
       this.graph.nodes.push(baselineNode);
       this.graph.currentNodeId = 'baseline';
-      // Don't persist to storage - graph resets on page reload
     }
   }
 
-  // Generate dummy metrics for demonstration (replace with real calculations)
-  private generateDummyMetrics(): DesignMetrics {
+  // Generate baseline metrics — GWP and energy are computed elsewhere; SDA starts at 0
+  private generateBaseMetrics(): DesignMetrics {
     return {
-      heatingDemand: Math.round((Math.random() * 50 + 20) * 100) / 100, // 20-70 kWh/m²/year
-      spatialDaylightAutonomy: Math.round((Math.random() * 40 + 40) * 100) / 100, // 40-80%
-      globalWarmingPotential: Math.round((Math.random() * 200 + 100) * 100) / 100 // 100-300 kg CO2 eq/m²
+      globalWarmingPotential: 0,
+      spatialDaylightAutonomy: 0,
     };
   }
 
@@ -52,7 +50,7 @@ class DesignExplorationService {
   ): DesignNode {
     const nodeId = `node_${Date.now()}`;
     const parentId = this.graph.currentNodeId;
-    const defaultMetrics = this.generateDummyMetrics();
+    const baseMetrics = this.generateBaseMetrics();
     
     const newNode: DesignNode = {
       id: nodeId,
@@ -60,7 +58,7 @@ class DesignExplorationService {
       name: name || `Design ${this.graph.nodes.length}`,
       buildings: this.cloneBuildings(buildings),
       metrics: {
-        ...defaultMetrics,
+        ...baseMetrics,
         ...(metricsOverride || {})
       },
       daylightRun,
@@ -76,7 +74,6 @@ class DesignExplorationService {
     }
 
     this.graph.currentNodeId = nodeId;
-    // Don't persist to storage - graph resets on page reload
     this.notifyListeners();
     
     return newNode;
@@ -88,6 +85,7 @@ class DesignExplorationService {
       metrics?: Partial<DesignMetrics>;
       daylightRun?: DaylightRunMetadata;
       daylightResultsByBuildingId?: Record<string, DaylightRunSummary>;
+      energyRun?: EnergyRunMetadata;
     }
   ): DesignNode | null {
     const node = this.graph.nodes.find((candidate) => candidate.id === nodeId);
@@ -113,6 +111,10 @@ class DesignExplorationService {
       };
     }
 
+    if (updates.energyRun) {
+      node.energyRun = { ...node.energyRun, ...updates.energyRun };
+    }
+
     this.notifyListeners();
     return node;
   }
@@ -124,6 +126,7 @@ class DesignExplorationService {
       metrics?: Partial<DesignMetrics>;
       daylightRun?: DaylightRunMetadata;
       daylightResultsByBuildingId?: Record<string, DaylightRunSummary>;
+      energyRun?: EnergyRunMetadata;
     }
   ): DesignNode | null {
     const node = this.graph.nodes.find((candidate) => candidate.id === nodeId);
@@ -150,6 +153,10 @@ class DesignExplorationService {
       node.daylightResultsByBuildingId = {
         ...(updates.daylightResultsByBuildingId || {})
       };
+    }
+
+    if (updates.energyRun) {
+      node.energyRun = { ...node.energyRun, ...updates.energyRun };
     }
 
     this.notifyListeners();

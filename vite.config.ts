@@ -39,6 +39,11 @@ export default defineConfig(({ mode }) => {
           target: daylightProxyTarget,
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api\/daylight/, ''),
+        },
+        '/api/epsm': {
+          target: 'https://epsm.chalmers.se',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/epsm/, ''),
         }
       }
     },

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import { X, RotateCcw } from 'lucide-react';
+import { X, RotateCcw, Zap, Loader2 } from 'lucide-react';
 import { DesignExplorationGraph, DesignNode } from '../types/designExploration';
 import { designExplorationService } from '../services/DesignExplorationService';
 
@@ -8,12 +8,16 @@ interface DesignGraphDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onReinstateConfiguration: (nodeId: string) => void;
+  onRunEnergySimulation?: (nodeId: string) => void;
+  energySimAvailable?: boolean;
 }
 
 export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
   isOpen,
   onClose,
-  onReinstateConfiguration
+  onReinstateConfiguration,
+  onRunEnergySimulation,
+  energySimAvailable = false,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [graph, setGraph] = useState<DesignExplorationGraph>(designExplorationService.getGraph());
@@ -192,14 +196,46 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
                   <h4 className="text-sm font-medium text-gray-300">Performance Metrics</h4>
                   
                   <div className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-2 items-start">
-                    <span className="text-sm text-gray-400">Heating Demand:</span>
-                    <span className="text-sm text-white text-right break-words">{selectedNode.metrics.heatingDemand} kWh/m²/year</span>
+                    <span className="text-sm text-gray-400">Embodied Carbon:</span>
+                    <span className="text-sm text-orange-300 text-right break-words">
+                      {selectedNode.metrics.globalWarmingPotential > 0
+                        ? `${selectedNode.metrics.globalWarmingPotential.toFixed(1)} kg CO₂e/m²`
+                        : <span className="text-gray-500 italic">not computed</span>
+                      }
+                    </span>
 
                     <span className="text-sm text-gray-400">Daylight Autonomy:</span>
-                    <span className="text-sm text-white text-right break-words">{selectedNode.metrics.spatialDaylightAutonomy}%</span>
+                    <span className="text-sm text-white text-right break-words">
+                      {selectedNode.metrics.spatialDaylightAutonomy > 0
+                        ? `${selectedNode.metrics.spatialDaylightAutonomy}%`
+                        : <span className="text-gray-500 italic">not run</span>
+                      }
+                    </span>
 
-                    <span className="text-sm text-gray-400">Carbon Impact:</span>
-                    <span className="text-sm text-white text-right break-words">{selectedNode.metrics.globalWarmingPotential} kg CO₂ eq/m²</span>
+                    {selectedNode.metrics.heatingDemand !== undefined && (
+                      <>
+                        <span className="text-sm text-gray-400">Heating Demand:</span>
+                        <span className="text-sm text-blue-300 text-right">
+                          {selectedNode.metrics.heatingDemand.toFixed(1)} kWh/m²/yr
+                        </span>
+                      </>
+                    )}
+                    {selectedNode.metrics.coolingDemand !== undefined && (
+                      <>
+                        <span className="text-sm text-gray-400">Cooling Demand:</span>
+                        <span className="text-sm text-blue-300 text-right">
+                          {selectedNode.metrics.coolingDemand.toFixed(1)} kWh/m²/yr
+                        </span>
+                      </>
+                    )}
+                    {selectedNode.metrics.totalEnergy !== undefined && (
+                      <>
+                        <span className="text-sm text-gray-400">Total Energy:</span>
+                        <span className="text-sm font-semibold text-blue-300 text-right">
+                          {selectedNode.metrics.totalEnergy.toFixed(1)} kWh/m²/yr
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -240,6 +276,41 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
                     )}
                   </div>
                 )}
+
+                {/* Energy Simulation card */}
+                <div className="space-y-3 rounded-lg border border-gray-800 bg-gray-900/50 p-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-gray-300">Energy Simulation</h4>
+                    {(!selectedNode.energyRun || selectedNode.energyRun.status === 'idle' || selectedNode.energyRun.status === 'failed') && (
+                      <button
+                        onClick={() => onRunEnergySimulation?.(selectedNode.id)}
+                        disabled={!energySimAvailable}
+                        className="flex items-center space-x-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white text-xs rounded transition-colors"
+                        title={energySimAvailable ? 'Run EnergyPlus via EPSM' : 'Energy simulation backend not yet available'}
+                      >
+                        <Zap className="w-3 h-3" />
+                        <span>Run</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {!selectedNode.energyRun || selectedNode.energyRun.status === 'idle' ? (
+                    <p className="text-xs text-gray-500">
+                      {energySimAvailable
+                        ? 'Click Run to submit an EnergyPlus simulation via EPSM.'
+                        : 'Energy simulation backend is not yet available.'}
+                    </p>
+                  ) : selectedNode.energyRun.status === 'queued' || selectedNode.energyRun.status === 'running' ? (
+                    <div className="flex items-center space-x-2 text-sm text-blue-300">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="capitalize">{selectedNode.energyRun.stage ?? selectedNode.energyRun.status}…</span>
+                    </div>
+                  ) : selectedNode.energyRun.status === 'failed' ? (
+                    <div className="text-xs text-red-300 bg-red-900/30 border border-red-700/30 rounded p-2">
+                      {selectedNode.energyRun.error ?? 'Simulation failed'}
+                    </div>
+                  ) : null}
+                </div>
 
                 <div className="space-y-3 rounded-lg border border-gray-800 bg-gray-900/50 p-3">
                   <h4 className="text-sm font-medium text-gray-300">Snapshot</h4>

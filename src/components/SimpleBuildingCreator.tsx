@@ -27,7 +27,9 @@ import { addSampleBuilding } from '../utils/addSampleBuilding';
 import { BuildingService } from '../services/BuildingService';
 import { designExplorationService } from '../services/DesignExplorationService';
 import { daylightApiService } from '../services/DaylightApiService';
+import { energyApiService } from '../services/EnergyApiService';
 import { daylightVisualizationService, getOverlayGroupsForResults } from '../services/DaylightVisualizationService';
+import { getEPSMConstructionOptions, computePortfolioEmbodiedCarbon, getDefaultConstructionName } from '../services/EPSMService';
 import { DaylightRunState, DaylightRunSummary } from '../types/daylight';
 
 type DaylightLegendState = {
@@ -55,7 +57,11 @@ export const SimpleBuildingCreator: React.FC = () => {
   const [activeDaylightRunStatus, setActiveDaylightRunStatus] = useState<DaylightRunState | null>(null);
   const [daylightSimulationProgress, setDaylightSimulationProgress] = useState<{ completed: number; total: number } | null>(null);
   const runAbortControllerRef = useRef<AbortController | null>(null);
+  const energyAbortControllerRef = useRef<AbortController | null>(null);
   const hasAutoRunBaselineRef = useRef(false);
+
+  // Baseline energy sim stage (shown in overlay alongside daylight)
+  const [baselineEnergyStage, setBaselineEnergyStage] = useState<string | null>(null);
 
   const updateDaylightLegend = React.useCallback((points: { value: number }[], mode: 'df' | 'sda') => {
     setDaylightLegend(points.length > 0 ? { mode } : null);
@@ -321,7 +327,19 @@ export const SimpleBuildingCreator: React.FC = () => {
       ? designExplorationService.saveConfiguration(
           snapshotBuildings,
           configurationName,
-          { spatialDaylightAutonomy: 0 },
+          {
+            spatialDaylightAutonomy: 0,
+            globalWarmingPotential: (() => {
+              try {
+                const epsmOpts = getEPSMConstructionOptions();
+                if (epsmOpts instanceof Promise) return 0;
+                const gwp = computePortfolioEmbodiedCarbon(epsmOpts as Awaited<typeof epsmOpts>, snapshotBuildings);
+                return gwp ?? 0;
+              } catch {
+                return 0;
+              }
+            })()
+          },
           {
             status: 'queued',
             updatedAt: now
@@ -775,42 +793,100 @@ export const SimpleBuildingCreator: React.FC = () => {
               void (async () => {
                 setIsBaselineSimRunning(true);
                 try {
-                  const baselineResult = await runDaylightSimulation(
-                    managedBuilding,
-                    'Baseline Auto Run',
-                    [managedBuilding],
-                    { recordInGraph: false, useGhosting: false }
-                  );
+                  // Resolve location and EPSM construction options in parallel,
+                  // before starting sims — ensures real construction names are available
+                  const [location, epsmOpts] = await Promise.all([
+                    daylightApiService.getDefaultLocation().catch(() => undefined),
+                    getEPSMConstructionOptions().catch(() => null),
+                  ]);
 
-                  designExplorationService.updateNodeSnapshot('baseline', {
-                    buildings: [managedBuilding],
-                    metrics: {
-                      spatialDaylightAutonomy: baselineResult.sda
-                    },
-                    daylightRun: {
-                      status: 'complete',
-                      studyId: baselineResult.studyId,
-                      stage: baselineResult.stage,
-                      sensorCount: baselineResult.sensorCount,
-                      meanDF: baselineResult.meanDF,
-                      updatedAt: baselineResult.completedAt || new Date().toISOString()
-                    },
-                    daylightResultsByBuildingId: {
-                      [managedBuilding.id]: baselineResult
-                    }
-                  });
-                } catch (error) {
-                  designExplorationService.updateNodeSnapshot('baseline', {
-                    buildings: [managedBuilding],
-                    daylightRun: {
-                      status: 'failed',
-                      error: error instanceof Error ? error.message : 'Baseline simulation failed',
-                      updatedAt: new Date().toISOString()
-                    }
-                  });
-                  console.error('Baseline simulation failed:', error);
+                  // Run daylight and energy in parallel
+                  const [daylightSettled, energySettled] = await Promise.allSettled([
+                    runDaylightSimulation(
+                      managedBuilding,
+                      'Baseline Auto Run',
+                      [managedBuilding],
+                      { recordInGraph: false, useGhosting: false }
+                    ),
+                    location
+                      ? energyApiService.runEnergyStudy(
+                          managedBuilding,
+                          {
+                            constructions: {
+                              wall:   managedBuilding.wall_construction   || (epsmOpts ? getDefaultConstructionName(epsmOpts, 'wall')   : null) || '',
+                              floor:  managedBuilding.floor_construction  || (epsmOpts ? getDefaultConstructionName(epsmOpts, 'floor')  : null) || '',
+                              roof:   managedBuilding.roof_construction   || (epsmOpts ? getDefaultConstructionName(epsmOpts, 'roof')   : null) || '',
+                              window: managedBuilding.window_construction || (epsmOpts ? getDefaultConstructionName(epsmOpts, 'window') : null) || '',
+                            },
+                            building_program: managedBuilding.building_program ?? 'Office',
+                            hvac_system:      managedBuilding.hvac_system      ?? 'Default HVAC',
+                            natural_ventilation: managedBuilding.natural_ventilation ?? false,
+                            location,
+                          },
+                          {
+                            onQueued:       ()  => setBaselineEnergyStage('Queued'),
+                            onStatusUpdate: (s) => setBaselineEnergyStage(s.stage ?? s.status),
+                            onComplete:     (result) => {
+                              setBaselineEnergyStage('Complete');
+                              designExplorationService.updateNodeSnapshot('baseline', {
+                                metrics: {
+                                  heatingDemand: result.heating_demand_kwh_m2,
+                                  coolingDemand: result.cooling_demand_kwh_m2,
+                                  totalEnergy:   result.total_energy_kwh_m2,
+                                },
+                                energyRun: { status: 'complete', studyId: result.study_id }
+                              });
+                            },
+                            onError: (err) => {
+                              setBaselineEnergyStage('Failed');
+                              designExplorationService.updateNodeSnapshot('baseline', {
+                                energyRun: { status: 'failed', error: err.message }
+                              });
+                            },
+                          },
+                          energyAbortControllerRef.current ?? undefined
+                        )
+                      : Promise.resolve(null),
+                  ]);
+
+                  // Apply daylight result
+                  if (daylightSettled.status === 'fulfilled') {
+                    const baselineResult = daylightSettled.value;
+                    designExplorationService.updateNodeSnapshot('baseline', {
+                      buildings: [managedBuilding],
+                      metrics: {
+                        spatialDaylightAutonomy: baselineResult.sda
+                      },
+                      daylightRun: {
+                        status: 'complete',
+                        studyId: baselineResult.studyId,
+                        stage: baselineResult.stage,
+                        sensorCount: baselineResult.sensorCount,
+                        meanDF: baselineResult.meanDF,
+                        updatedAt: baselineResult.completedAt || new Date().toISOString()
+                      },
+                      daylightResultsByBuildingId: {
+                        [managedBuilding.id]: baselineResult
+                      }
+                    });
+                  } else {
+                    designExplorationService.updateNodeSnapshot('baseline', {
+                      buildings: [managedBuilding],
+                      daylightRun: {
+                        status: 'failed',
+                        error: daylightSettled.reason instanceof Error ? daylightSettled.reason.message : 'Baseline daylight simulation failed',
+                        updatedAt: new Date().toISOString()
+                      }
+                    });
+                    console.error('Baseline daylight simulation failed:', daylightSettled.reason);
+                  }
+
+                  if (energySettled.status === 'rejected') {
+                    console.error('Baseline energy simulation failed:', energySettled.reason);
+                  }
                 } finally {
                   setIsBaselineSimRunning(false);
+                  setBaselineEnergyStage(null);
                 }
               })();
             }
@@ -1065,19 +1141,35 @@ export const SimpleBuildingCreator: React.FC = () => {
         <div className="fixed inset-0 bg-black/45 backdrop-blur-sm flex items-center justify-center z-[60]">
           <div className="bg-gray-900/95 rounded-2xl p-8 shadow-2xl border border-gray-700/50 text-center max-w-md">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
-            <h3 className="text-white text-xl font-bold mb-2">Running Baseline Simulation</h3>
-            <p className="text-gray-300 text-sm">Preparing daylight results for the startup building...</p>
-            <div className="mt-4 bg-gray-800/70 border border-gray-700 rounded-lg p-3 text-left">
-              <div className="text-xs text-gray-400">Status</div>
-              <div className="text-sm text-cyan-300 capitalize">{activeDaylightRunStatus?.status || 'queued'}</div>
-              <div className="text-xs text-gray-400 mt-2">Stage</div>
-              <div className="text-sm text-gray-200">{activeDaylightRunStatus?.stage || 'Waiting for worker...'}</div>
-              {activeDaylightRunStatus?.studyId && (
-                <>
-                  <div className="text-xs text-gray-400 mt-2">Study ID</div>
-                  <div className="text-xs text-gray-200 break-all">{activeDaylightRunStatus.studyId}</div>
-                </>
-              )}
+            <h3 className="text-white text-xl font-bold mb-2">Running Baseline Simulations</h3>
+            <p className="text-gray-300 text-sm">Preparing daylight and energy results for the startup building...</p>
+            <div className="mt-4 space-y-3">
+              <div className="bg-gray-800/70 border border-gray-700 rounded-lg p-3 text-left">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-xs font-medium text-gray-400">Daylight</div>
+                  <div className="text-xs text-cyan-300 capitalize">{activeDaylightRunStatus?.status || 'queued'}</div>
+                </div>
+                <div className="text-sm text-gray-200">{activeDaylightRunStatus?.stage || 'Waiting for worker...'}</div>
+                {activeDaylightRunStatus?.studyId && (
+                  <div className="text-xs text-gray-500 mt-1 break-all">{activeDaylightRunStatus.studyId}</div>
+                )}
+              </div>
+              <div className="bg-gray-800/70 border border-gray-700 rounded-lg p-3 text-left">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-xs font-medium text-gray-400">Energy</div>
+                  <div className={`text-xs capitalize ${
+                    baselineEnergyStage === 'Failed' ? 'text-red-400' :
+                    baselineEnergyStage === 'Complete' ? 'text-green-400' :
+                    'text-blue-300'
+                  }`}>{baselineEnergyStage ?? 'queued'}</div>
+                </div>
+                <div className="text-sm text-gray-200">
+                  {baselineEnergyStage === 'Complete' ? 'Results ready' :
+                   baselineEnergyStage === 'Failed' ? 'Energy simulation failed' :
+                   baselineEnergyStage ? `${baselineEnergyStage}…` :
+                   'Waiting to start…'}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1160,6 +1252,79 @@ export const SimpleBuildingCreator: React.FC = () => {
         isOpen={showDesignGraphDialog}
         onClose={() => setShowDesignGraphDialog(false)}
         onReinstateConfiguration={handleReinstateConfiguration}
+        energySimAvailable={true}
+        onRunEnergySimulation={async (nodeId) => {
+          const node = designExplorationService.getGraph().nodes.find(n => n.id === nodeId);
+          if (!node || node.buildings.length === 0) return;
+          const building = node.buildings[0];
+
+          // Fetch location and EPSM options in parallel before submitting
+          const [location, epsmOpts] = await Promise.all([
+            daylightApiService.getDefaultLocation().catch(() => undefined),
+            getEPSMConstructionOptions().catch(() => null),
+          ]);
+          if (!location) return;
+
+          const resolveConstruction = (
+            value: string | undefined,
+            type: 'wall' | 'floor' | 'roof' | 'window'
+          ): string =>
+            (value && value !== 'Default Wall' && value !== 'Default Floor' &&
+             value !== 'Default Roof' && value !== 'Default Window')
+              ? value
+              : (epsmOpts ? getDefaultConstructionName(epsmOpts, type) : null) ?? value ?? '';
+
+          energyAbortControllerRef.current?.abort();
+          energyAbortControllerRef.current = new AbortController();
+
+          designExplorationService.updateNode(nodeId, {
+            energyRun: { status: 'queued', stage: 'Submitting…' }
+          });
+
+          try {
+            await energyApiService.runEnergyStudy(
+              building,
+              {
+                constructions: {
+                  wall:   resolveConstruction(building.wall_construction,   'wall'),
+                  floor:  resolveConstruction(building.floor_construction,  'floor'),
+                  roof:   resolveConstruction(building.roof_construction,   'roof'),
+                  window: resolveConstruction(building.window_construction, 'window'),
+                },
+                building_program: building.building_program ?? 'Office',
+                hvac_system:      building.hvac_system      ?? 'Default HVAC',
+                natural_ventilation: building.natural_ventilation ?? false,
+                location,
+              },
+              {
+                onQueued: (studyId) => designExplorationService.updateNode(nodeId, {
+                  energyRun: { status: 'queued', studyId, stage: 'Queued' }
+                }),
+                onStatusUpdate: (s) => designExplorationService.updateNode(nodeId, {
+                  energyRun: { status: s.status, stage: s.stage }
+                }),
+                onComplete: (result) => designExplorationService.updateNode(nodeId, {
+                  energyRun: { status: 'complete', studyId: result.study_id },
+                  metrics: {
+                    heatingDemand: result.heating_demand_kwh_m2,
+                    coolingDemand: result.cooling_demand_kwh_m2,
+                    totalEnergy:   result.total_energy_kwh_m2,
+                  }
+                }),
+                onError: (err) => designExplorationService.updateNode(nodeId, {
+                  energyRun: { status: 'failed', error: err.message }
+                }),
+              },
+              energyAbortControllerRef.current.signal
+            );
+          } catch (err) {
+            if (err instanceof Error && err.message !== 'Energy study aborted') {
+              designExplorationService.updateNode(nodeId, {
+                energyRun: { status: 'failed', error: (err as Error).message }
+              });
+            }
+          }
+        }}
       />
 
       {activeResultsBuildingId && daylightResultsByBuildingId[activeResultsBuildingId] && (
@@ -1168,6 +1333,17 @@ export const SimpleBuildingCreator: React.FC = () => {
           onClose={() => setShowDaylightResultsDialog(false)}
           buildingName={buildings.find((building) => building.id === activeResultsBuildingId)?.name || 'Selected Building'}
           result={daylightResultsByBuildingId[activeResultsBuildingId]}
+          energyResults={(() => {
+            const node = designExplorationService.getCurrentNode();
+            if (!node) return undefined;
+            return {
+              heatingDemand: node.metrics.heatingDemand,
+              coolingDemand: node.metrics.coolingDemand,
+              totalEnergy:   node.metrics.totalEnergy,
+              globalWarmingPotential: node.metrics.globalWarmingPotential,
+              status: node.energyRun?.status ?? 'idle',
+            };
+          })()}
           availableResults={buildings
             .filter((building) => Boolean(daylightResultsByBuildingId[building.id]))
             .map((building) => ({ id: building.id, name: building.name || 'Untitled Building' }))}

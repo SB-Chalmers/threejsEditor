@@ -1,12 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { X, Sun, Activity, Filter } from 'lucide-react';
+import { X, Sun, Activity, Filter, Zap, Leaf, LayoutDashboard } from 'lucide-react';
 import { DaylightRunSummary, DaylightSensorPoint } from '../../types/daylight';
+
+export interface EnergyResults {
+  heatingDemand?: number;
+  coolingDemand?: number;
+  totalEnergy?: number;
+  globalWarmingPotential?: number;
+  status?: 'idle' | 'queued' | 'running' | 'complete' | 'failed';
+}
 
 interface DaylightResultsDialogProps {
   isOpen: boolean;
   onClose: () => void;
   buildingName: string;
   result: DaylightRunSummary;
+  energyResults?: EnergyResults;
   availableResults?: Array<{ id: string; name: string }>;
   selectedBuildingId?: string;
   onSelectBuildingResult?: (buildingId: string) => void;
@@ -14,17 +23,20 @@ interface DaylightResultsDialogProps {
 }
 
 type MetricMode = 'df' | 'sda';
+type Tab = 'overview' | 'daylight' | 'energy' | 'lca';
 
 export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
   isOpen,
   onClose,
   buildingName,
   result,
+  energyResults,
   availableResults = [],
   selectedBuildingId,
   onSelectBuildingResult,
   onApplyVisualization
 }) => {
+  const [tab, setTab] = useState<Tab>('overview');
   const [mode, setMode] = useState<MetricMode>('df');
   const [showPassingOnly, setShowPassingOnly] = useState(false);
 
@@ -175,243 +187,305 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
     ? (passingSensors / result.sdaPassMask.length) * 100
     : 0;
 
+  const hasEnergy = energyResults?.status === 'complete' || energyResults?.heatingDemand !== undefined;
+  const hasGwp = (energyResults?.globalWarmingPotential ?? 0) > 0;
+
+  const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
+    { id: 'daylight', label: 'Daylight', icon: <Sun className="w-3.5 h-3.5" /> },
+    { id: 'energy',   label: 'Energy',   icon: <Zap className="w-3.5 h-3.5" /> },
+    { id: 'lca',      label: 'LCA / GWP', icon: <Leaf className="w-3.5 h-3.5" /> },
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
-      <div className="bg-gray-900 rounded-2xl border border-gray-700/50 shadow-2xl max-w-2xl w-full mx-4 overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
-          <div>
-            <h2 className="text-lg font-semibold text-white">Results Explorer</h2>
-            <p className="text-sm text-gray-400 mt-1">{buildingName}</p>
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-gray-900 rounded-2xl border border-gray-700/50 shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-700/50 shrink-0">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-white">Results Explorer</h2>
+            <p className="text-xs text-gray-400 truncate">{buildingName}</p>
           </div>
-          {availableResults.length > 0 && (
-            <label className="flex items-center gap-2 text-sm text-gray-300">
-              <span className="text-gray-400">Result building</span>
+          <div className="flex items-center gap-3">
+            {availableResults.length > 0 && (
               <select
-                aria-label="Result building"
-                value={selectedBuildingId ?? availableResults[0]?.id ?? ''}
-                onChange={(event) => onSelectBuildingResult?.(event.target.value)}
-                className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                value={selectedBuildingId}
+                onChange={e => onSelectBuildingResult?.(e.target.value)}
+                className="text-xs bg-gray-800 border border-gray-600 rounded-lg px-2 py-1.5 text-white"
               >
-                {availableResults.map((availableResult) => (
-                  <option key={availableResult.id} value={availableResult.id}>
-                    {availableResult.name}
-                  </option>
+                {availableResults.map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
                 ))}
               </select>
-            </label>
-          )}
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-400" />
-          </button>
+            )}
+            <button onClick={onClose} className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors">
+              <X className="w-4 h-4 text-gray-400" />
+            </button>
+          </div>
         </div>
 
-        <div className="p-6 space-y-5">
-          <div className="flex items-center gap-3">
+        {/* Tab bar */}
+        <div className="flex gap-1 px-6 pt-3 shrink-0">
+          {TABS.map(t => (
             <button
-              onClick={() => setMode('df')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                mode === 'df' ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                tab === t.id
+                  ? 'bg-gray-700 text-white'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
               }`}
             >
-              <Sun className="w-4 h-4 inline mr-2" />
-              DF Heatmap
+              {t.icon}
+              {t.label}
+              {t.id === 'energy' && !hasEnergy && (
+                <span className="ml-1 text-[10px] text-gray-500 italic">—</span>
+              )}
             </button>
-            <button
-              onClick={() => setMode('sda')}
-              disabled={!hasSda}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                mode === 'sda' ? 'bg-emerald-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              } disabled:bg-gray-700/60 disabled:text-gray-500 disabled:cursor-not-allowed`}
-            >
-              <Activity className="w-4 h-4 inline mr-2" />
-              sDA View
-            </button>
-          </div>
+          ))}
+        </div>
 
-          {mode === 'sda' && hasSda && (
-            <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
-              <Filter className="w-4 h-4 text-gray-400" />
-              <input
-                type="checkbox"
-                checked={showPassingOnly}
-                onChange={(e) => setShowPassingOnly(e.target.checked)}
-                className="rounded border-gray-600 bg-gray-800 text-emerald-500 focus:ring-emerald-500"
-              />
-              Show passing sensors only
-            </label>
-          )}
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-gray-800/80 border border-gray-700 rounded-lg p-3">
-              <div className="text-xs text-gray-400">Sensor Count</div>
-              <div className="text-lg font-semibold text-white">{visiblePoints.length}</div>
-            </div>
-            <div className="bg-gray-800/80 border border-gray-700 rounded-lg p-3">
-              <div className="text-xs text-gray-400">Mean DF</div>
-              <div className="text-lg font-semibold text-cyan-300">{result.meanDF.toFixed(2)}%</div>
-            </div>
-            <div className="bg-gray-800/80 border border-gray-700 rounded-lg p-3">
-              <div className="text-xs text-gray-400">DF Range</div>
-              <div className="text-sm font-semibold text-white">
-                {result.minDF !== undefined ? result.minDF.toFixed(2) : '-'} to {result.maxDF !== undefined ? result.maxDF.toFixed(2) : '-'}
-              </div>
-            </div>
-            <div className="bg-gray-800/80 border border-gray-700 rounded-lg p-3">
-              <div className="text-xs text-gray-400">sDA 300/50</div>
-              <div className="text-lg font-semibold text-emerald-300">{result.sda.toFixed(1)}%</div>
-            </div>
-          </div>
-
-          <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3">
-            {mode === 'df' ? (
-              <>
-                <div className="text-xs text-gray-300 font-medium mb-2">DF Scale — CIBSE/BRE reference</div>
-                <div className="h-3 rounded-md border border-gray-700" style={{
-                  background: 'linear-gradient(90deg, #1e3a8a 0%, #1d4ed8 10%, #06b6d4 20%, #22c55e 50%, #f59e0b 80%, #ef4444 100%)'
-                }} />
-                <div className="relative mt-1 h-5">
-                  <span className="absolute left-0 text-[10px] text-gray-400">0%</span>
-                  <span className="absolute text-[10px] text-gray-400 -translate-x-1/2" style={{ left: '10%' }}>1%</span>
-                  <span className="absolute text-[10px] text-cyan-300 font-bold -translate-x-1/2" style={{ left: '20%' }}>2%▲</span>
-                  <span className="absolute text-[10px] text-gray-400 -translate-x-1/2" style={{ left: '50%' }}>5%</span>
-                  <span className="absolute right-0 text-[10px] text-gray-400">10%+</span>
+          {/* ── OVERVIEW ── */}
+          {tab === 'overview' && (
+            <div className="space-y-4">
+              {/* Daylight KPIs */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Sun className="w-4 h-4 text-cyan-400" />
+                  <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">Daylight</span>
+                  <button
+                    onClick={() => setTab('daylight')}
+                    className="ml-auto text-[10px] text-blue-400 hover:text-blue-300"
+                  >Details →</button>
                 </div>
-                {activeLegendStats && (
-                  <div className="text-[10px] text-gray-500 mt-1">Range: {activeLegendStats.min.toFixed(2)}–{activeLegendStats.max.toFixed(2)}% · ▲ 2% = CIBSE/BRE office target</div>
+                <div className="grid grid-cols-3 gap-3">
+                  <KpiCard label="Mean DF" value={`${result.meanDF.toFixed(2)}%`} sub="Daylight Factor" color="text-cyan-300" />
+                  <KpiCard label="sDA" value={`${result.sda.toFixed(1)}%`} sub="300 lux / 50% yr" color={result.sda >= 55 ? 'text-emerald-300' : 'text-red-400'} />
+                  <KpiCard label="Sensors" value={String(result.points.length)} sub="grid points" />
+                </div>
+              </div>
+
+              {/* Energy KPIs */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="w-4 h-4 text-blue-400" />
+                  <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">Energy</span>
+                  <button onClick={() => setTab('energy')} className="ml-auto text-[10px] text-blue-400 hover:text-blue-300">Details →</button>
+                </div>
+                {hasEnergy ? (
+                  <div className="grid grid-cols-3 gap-3">
+                    <KpiCard label="Heating" value={energyResults?.heatingDemand != null ? `${energyResults.heatingDemand.toFixed(1)}` : '—'} sub="kWh/m²/yr" color="text-orange-300" />
+                    <KpiCard label="Cooling" value={energyResults?.coolingDemand != null ? `${energyResults.coolingDemand.toFixed(1)}` : '—'} sub="kWh/m²/yr" color="text-blue-300" />
+                    <KpiCard label="Total" value={energyResults?.totalEnergy != null ? `${energyResults.totalEnergy.toFixed(1)}` : '—'} sub="kWh/m²/yr" color="text-white" />
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 bg-gray-800/50 rounded-lg p-3">
+                    {energyResults?.status === 'queued' || energyResults?.status === 'running'
+                      ? `Energy simulation ${energyResults.status}…`
+                      : energyResults?.status === 'failed'
+                        ? 'Energy simulation failed'
+                        : 'Not yet run — click Run in the Design Graph'}
+                  </p>
                 )}
-              </>
-            ) : (
-              <>
-                <div className="text-xs text-gray-300 font-medium mb-2">sDA Scale — IES LM-83 / LEED v4</div>
-                <div className="h-3 rounded-md border border-gray-700" style={{
-                  background: 'linear-gradient(90deg, #ef4444 0%, #f97316 55%, #22c55e 75%, #15803d 100%)'
-                }} />
-                <div className="relative mt-1 h-5">
-                  <span className="absolute left-0 text-[10px] text-gray-400">0%</span>
-                  <span className="absolute text-[10px] text-orange-300 font-bold -translate-x-1/2" style={{ left: '55%' }}>55%▲</span>
-                  <span className="absolute text-[10px] text-emerald-300 font-bold -translate-x-1/2" style={{ left: '75%' }}>75%▲</span>
-                  <span className="absolute right-0 text-[10px] text-gray-400">100%</span>
-                </div>
-                <div className="text-[10px] text-gray-500 mt-1">▲ 55% = LEED nominal · 75% = LEED enhanced · 300 lux / 50% annual hours</div>
-              </>
-            )}
-          </div>
-
-          {mode === 'df' && planView && (
-            <div className="bg-gray-900/70 border border-gray-700 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-100">Plan View DF Heatmap</h3>
-                <div className="text-xs text-gray-400">Top-down projection</div>
               </div>
 
-              <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
-                <svg
-                  viewBox={`0 0 ${planView.viewSize} ${planView.viewSize}`}
-                  className="w-full max-w-[320px] aspect-square rounded-lg border border-gray-700 bg-gray-950"
-                  role="img"
-                  aria-label="Plan view daylight factor heatmap"
-                >
-                  {planView.cells.map((cell, index) => (
-                    <rect
-                      key={`df-cell-${index}`}
-                      x={cell.x}
-                      y={cell.y}
-                      width={planView.cellSizePx}
-                      height={planView.cellSizePx}
-                      fill={cell.color}
-                      opacity={0.95}
-                    />
-                  ))}
-                </svg>
-
-                <div className="w-full lg:w-52">
-                  <div className="h-3 rounded-md border border-gray-700" style={{
-                    background: 'linear-gradient(90deg, #1e3a8a 0%, #1d4ed8 10%, #06b6d4 20%, #22c55e 50%, #f59e0b 80%, #ef4444 100%)'
-                  }} />
-                  <div className="relative mt-1 h-4">
-                    <span className="absolute left-0 text-[10px] text-gray-400">0%</span>
-                    <span className="absolute text-[10px] text-cyan-300 font-bold -translate-x-1/2" style={{ left: '20%' }}>2%</span>
-                    <span className="absolute text-[10px] text-gray-400 -translate-x-1/2" style={{ left: '50%' }}>5%</span>
-                    <span className="absolute right-0 text-[10px] text-gray-400">10+</span>
-                  </div>
-                  <p className="mt-2 text-[10px] text-gray-500">Absolute DF · 2% = CIBSE/BRE target</p>
-                  <p className="text-[10px] text-gray-500">Room range: {planView.minValue.toFixed(2)}–{planView.maxValue.toFixed(2)}%</p>
+              {/* LCA/GWP KPIs */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Leaf className="w-4 h-4 text-green-400" />
+                  <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">Embodied Carbon (A1–A3)</span>
+                  <button onClick={() => setTab('lca')} className="ml-auto text-[10px] text-blue-400 hover:text-blue-300">Details →</button>
                 </div>
+                {hasGwp ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <KpiCard label="GWP" value={`${energyResults!.globalWarmingPotential!.toFixed(1)}`} sub="kg CO₂e/m² floor" color="text-orange-400" />
+                    <KpiCard label="Source" value="EPSM" sub="per construction assembly" color="text-gray-300" />
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 bg-gray-800/50 rounded-lg p-3">
+                    Select constructions in Edit Building to compute embodied carbon
+                  </p>
+                )}
               </div>
             </div>
           )}
 
-          {mode === 'sda' && hasSda && planView && (
-            <div className="bg-gray-900/70 border border-gray-700 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-100">Plan View sDA Map</h3>
-                <div className="text-xs text-gray-400">Top-down projection</div>
+          {/* ── DAYLIGHT ── */}
+          {tab === 'daylight' && (
+            <div className="space-y-5">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setMode('df')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'df' ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+                >
+                  <Sun className="w-4 h-4 inline mr-2" />DF Heatmap
+                </button>
+                <button
+                  onClick={() => setMode('sda')}
+                  disabled={!hasSda}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'sda' ? 'bg-emerald-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'} disabled:opacity-40 disabled:cursor-not-allowed`}
+                >
+                  <Activity className="w-4 h-4 inline mr-2" />sDA View
+                </button>
               </div>
 
-              <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
-                <svg
-                  viewBox={`0 0 ${planView.viewSize} ${planView.viewSize}`}
-                  className="w-full max-w-[320px] aspect-square rounded-lg border border-gray-700 bg-gray-950"
-                  role="img"
-                  aria-label="Plan view spatial daylight autonomy map"
-                >
-                  {planView.cells.map((cell, index) => (
-                    <rect
-                      key={`sda-cell-${index}`}
-                      x={cell.x}
-                      y={cell.y}
-                      width={planView.cellSizePx}
-                      height={planView.cellSizePx}
-                      fill={cell.color}
-                      opacity={0.95}
-                    />
-                  ))}
-                </svg>
+              {mode === 'sda' && hasSda && (
+                <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                  <Filter className="w-4 h-4 text-gray-400" />
+                  <input type="checkbox" checked={showPassingOnly} onChange={e => setShowPassingOnly(e.target.checked)} className="rounded border-gray-600 bg-gray-800 text-emerald-500" />
+                  Show passing sensors only
+                </label>
+              )}
 
-                <div className="w-full lg:w-56">
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgb(34, 197, 94)' }} />
-                      Passing ≥ threshold
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <KpiCard label="Sensor Count" value={String(visiblePoints.length)} />
+                <KpiCard label="Mean DF" value={`${result.meanDF.toFixed(2)}%`} color="text-cyan-300" />
+                <KpiCard label="DF Range" value={`${result.minDF?.toFixed(2) ?? '—'}–${result.maxDF?.toFixed(2) ?? '—'}`} />
+                <KpiCard label="sDA 300/50" value={`${result.sda.toFixed(1)}%`} color={result.sda >= 55 ? 'text-emerald-300' : 'text-red-400'} />
+              </div>
+
+              {/* Scale bar */}
+              <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3">
+                {mode === 'df' ? (
+                  <>
+                    <div className="text-xs text-gray-300 font-medium mb-2">DF Scale — CIBSE/BRE reference</div>
+                    <div className="h-3 rounded-md border border-gray-700" style={{ background: 'linear-gradient(90deg,#1e3a8a 0%,#1d4ed8 10%,#06b6d4 20%,#22c55e 50%,#f59e0b 80%,#ef4444 100%)' }} />
+                    <div className="relative mt-1 h-5">
+                      {[['0%','0%'],['1%','10%'],['2%▲','20%'],['5%','50%'],['10%+','100%']].map(([lbl,pos]) => (
+                        <span key={lbl} className={`absolute text-[10px] ${lbl.includes('▲') ? 'text-cyan-300 font-bold' : 'text-gray-400'} -translate-x-1/2`} style={{ left: pos }}>{lbl}</span>
+                      ))}
                     </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgb(239, 68, 68)' }} />
-                      Below threshold
+                    {activeLegendStats && <div className="text-[10px] text-gray-500 mt-1">Range: {activeLegendStats.min.toFixed(2)}–{activeLegendStats.max.toFixed(2)}% · ▲ 2% = CIBSE/BRE office target</div>}
+                  </>
+                ) : (
+                  <>
+                    <div className="text-xs text-gray-300 font-medium mb-2">sDA Scale — IES LM-83 / LEED v4</div>
+                    <div className="h-3 rounded-md border border-gray-700" style={{ background: 'linear-gradient(90deg,#ef4444 0%,#f97316 55%,#22c55e 75%,#15803d 100%)' }} />
+                    <div className="relative mt-1 h-5">
+                      <span className="absolute left-0 text-[10px] text-gray-400">0%</span>
+                      <span className="absolute text-[10px] text-orange-300 font-bold -translate-x-1/2" style={{ left: '55%' }}>55%▲</span>
+                      <span className="absolute text-[10px] text-emerald-300 font-bold -translate-x-1/2" style={{ left: '75%' }}>75%▲</span>
+                      <span className="absolute right-0 text-[10px] text-gray-400">100%</span>
+                    </div>
+                    <div className="text-[10px] text-gray-500 mt-1">▲ 55% = LEED nominal · 75% = LEED enhanced</div>
+                  </>
+                )}
+              </div>
+
+              {/* Plan view */}
+              {planView && (
+                <div className="bg-gray-900/70 border border-gray-700 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-100">Plan View {mode === 'df' ? 'DF Heatmap' : 'sDA Map'}</h3>
+                    <div className="text-xs text-gray-400">Top-down projection</div>
+                  </div>
+                  <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+                    <svg viewBox={`0 0 ${planView.viewSize} ${planView.viewSize}`} className="w-full max-w-[320px] aspect-square rounded-lg border border-gray-700 bg-gray-950">
+                      {planView.cells.map((cell, index) => (
+                        <rect key={index} x={cell.x} y={cell.y} width={planView.cellSizePx} height={planView.cellSizePx} fill={cell.color} opacity={0.95} />
+                      ))}
+                    </svg>
+                    <div className="text-[10px] text-gray-500">
+                      <p>Room range: {planView.minValue.toFixed(2)}–{planView.maxValue.toFixed(2)}{mode === 'df' ? '%' : '%'}</p>
+                      {hasSda && mode === 'sda' && <p className="mt-1">Passing: {passingSensors}/{result.sdaPassMask?.length} ({passingPercentage.toFixed(1)}%)</p>}
                     </div>
                   </div>
+                </div>
+              )}
+            </div>
+          )}
 
-                  <div className="mt-3 h-3 rounded-md border border-gray-700" style={{
-                    background: 'linear-gradient(90deg, #ef4444 0%, #f97316 55%, #22c55e 75%, #15803d 100%)'
-                  }} />
-                  <div className="relative mt-1 h-4">
-                    <span className="absolute left-0 text-[10px] text-gray-400">0%</span>
-                    <span className="absolute text-[10px] text-orange-300 font-bold -translate-x-1/2" style={{ left: '55%' }}>55%</span>
-                    <span className="absolute text-[10px] text-emerald-300 font-bold -translate-x-1/2" style={{ left: '75%' }}>75%</span>
-                    <span className="absolute right-0 text-[10px] text-gray-400">100%</span>
+          {/* ── ENERGY ── */}
+          {tab === 'energy' && (
+            <div className="space-y-4">
+              {hasEnergy ? (
+                <>
+                  <div className="grid grid-cols-3 gap-3">
+                    <KpiCard label="Heating Demand" value={energyResults?.heatingDemand != null ? `${energyResults.heatingDemand.toFixed(1)}` : '—'} sub="kWh/m²/yr" color="text-orange-300" />
+                    <KpiCard label="Cooling Demand" value={energyResults?.coolingDemand != null ? `${energyResults.coolingDemand.toFixed(1)}` : '—'} sub="kWh/m²/yr" color="text-blue-300" />
+                    <KpiCard label="Total Energy" value={energyResults?.totalEnergy != null ? `${energyResults.totalEnergy.toFixed(1)}` : '—'} sub="kWh/m²/yr" color="text-white" />
                   </div>
-                  <p className="mt-2 text-[10px] text-gray-500">
-                    IES LM-83 · 300 lux / 50% annual hours · 55% = LEED nominal · 75% = enhanced
+                  {energyResults?.heatingDemand != null && energyResults?.coolingDemand != null && (
+                    <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3 space-y-2">
+                      <div className="text-xs text-gray-400 font-medium mb-2">Heating vs Cooling split</div>
+                      {(() => {
+                        const total = (energyResults.heatingDemand ?? 0) + (energyResults.coolingDemand ?? 0);
+                        const hPct = total > 0 ? ((energyResults.heatingDemand ?? 0) / total) * 100 : 50;
+                        return (
+                          <div className="flex rounded-full overflow-hidden h-4">
+                            <div className="bg-orange-500/70" style={{ width: `${hPct}%` }} title={`Heating ${hPct.toFixed(0)}%`} />
+                            <div className="bg-blue-500/70 flex-1" title={`Cooling ${(100 - hPct).toFixed(0)}%`} />
+                          </div>
+                        );
+                      })()}
+                      <div className="flex justify-between text-[10px] text-gray-400">
+                        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-orange-500/70" />Heating</span>
+                        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-blue-500/70" />Cooling</span>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500">Results from EnergyPlus via EPSM. Values normalised by total floor area.</p>
+                </>
+              ) : (
+                <div className="text-center py-10 text-gray-500">
+                  <Zap className="w-8 h-8 mx-auto mb-3 text-gray-600" />
+                  <p className="text-sm">
+                    {energyResults?.status === 'queued' || energyResults?.status === 'running'
+                      ? `Energy simulation ${energyResults.status}…`
+                      : energyResults?.status === 'failed'
+                        ? 'Energy simulation failed. Try re-running from the Design Graph.'
+                        : 'Open the Design Graph and click Run on this node to run an energy simulation.'}
                   </p>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
-          {hasSda && (
-            <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3 text-sm text-gray-300">
-              Passing sensors: <span className="text-emerald-300 font-semibold">{passingSensors}</span> / {result.sdaPassMask?.length || 0}
-              <span className="text-gray-400"> ({passingPercentage.toFixed(1)}%)</span>
+          {/* ── LCA / GWP ── */}
+          {tab === 'lca' && (
+            <div className="space-y-4">
+              {hasGwp ? (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <KpiCard label="Embodied Carbon" value={`${energyResults!.globalWarmingPotential!.toFixed(1)}`} sub="kg CO₂e / m² floor" color="text-orange-400" />
+                    <KpiCard label="Scope" value="A1–A3" sub="Product & transport stages" color="text-gray-300" />
+                  </div>
+                  <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3 space-y-1.5 text-xs text-gray-400">
+                    <p className="font-medium text-gray-300 mb-2">Methodology</p>
+                    <p>GWP computed client-side using <span className="text-white">EPSM</span> construction database.</p>
+                    <p>Each construction has a pre-computed <code className="text-gray-200 bg-gray-700 px-1 rounded">gwp_kgco2e_per_m²</code> field summed from material layers.</p>
+                    <p className="mt-2">Surface areas estimated from building footprint polygon × floors × floor height × WWR.</p>
+                    <p className="mt-2 text-gray-500">Formula: Σ (gwp/m² × element area) / total floor area</p>
+                  </div>
+                  <p className="text-xs text-gray-500">Change constructions in Edit Building to see updated values live.</p>
+                </>
+              ) : (
+                <div className="text-center py-10 text-gray-500">
+                  <Leaf className="w-8 h-8 mx-auto mb-3 text-gray-600" />
+                  <p className="text-sm">Open Edit Building, select constructions from EPSM, and the embodied carbon will appear here.</p>
+                </div>
+              )}
             </div>
           )}
 
-          <div className="text-xs text-gray-400">
-            Explorer values update live as you switch between DF and sDA modes.
-          </div>
         </div>
       </div>
     </div>
   );
 };
+
+// ── Small helper ──────────────────────────────────────────────────────────────
+
+const KpiCard: React.FC<{ label: string; value: string; sub?: string; color?: string }> = ({
+  label, value, sub, color = 'text-white'
+}) => (
+  <div className="bg-gray-800/80 border border-gray-700 rounded-lg p-3">
+    <div className="text-xs text-gray-400">{label}</div>
+    <div className={`text-lg font-semibold ${color}`}>{value}</div>
+    {sub && <div className="text-[10px] text-gray-500">{sub}</div>}
+  </div>
+);
