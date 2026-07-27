@@ -279,11 +279,9 @@ export const WeatherAndLocationTab: React.FC = () => {
     try {
       console.log(`Loading weather data for ${location.city}`);
       
-      // Use proxy URL in development, direct URL in production
-      const isDevelopment = import.meta.env.DEV;
-      const zipUrl = isDevelopment 
-        ? location.zipUrl.replace('https://climate.onebuilding.org', '/api/climate')
-        : location.zipUrl;
+      // Always route through the /api/climate/ nginx proxy to avoid CORS.
+      // In dev the Vite proxy handles it; in prod the portal nginx config does.
+      const zipUrl = location.zipUrl.replace('https://climate.onebuilding.org', '/api/climate');
       
       // Use EPWParser's cached remote ZIP method
       const data = await EPWParser.parseEPWFromRemoteZip(zipUrl, location.epwFileName);

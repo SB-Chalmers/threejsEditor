@@ -1223,19 +1223,15 @@ export const SimpleBuildingCreator: React.FC = () => {
                   ) : (
                     <>
                       <div className="text-xs font-semibold text-gray-200 mb-2">sDA (300 lux / 50%)</div>
-                      <div className="h-3 rounded-md border border-gray-700" style={{
-                        background: 'linear-gradient(90deg, #ef4444 0%, #f97316 55%, #22c55e 75%, #15803d 100%)'
-                      }} />
-                      <div className="relative mt-1 h-4">
-                        <span className="absolute left-0 text-[10px] text-gray-400">0%</span>
-                        <span className="absolute text-[10px] text-orange-300 font-bold -translate-x-1/2" style={{ left: '55%' }}>55%</span>
-                        <span className="absolute text-[10px] text-emerald-300 font-bold -translate-x-1/2" style={{ left: '75%' }}>75%</span>
-                        <span className="absolute right-0 text-[10px] text-gray-400">100%</span>
-                      </div>
-                      <div className="flex justify-between mt-2 text-[10px]">
-                        <span className="text-red-400">Fails LEED</span>
-                        <span className="text-orange-300">▲ nominal</span>
-                        <span className="text-emerald-300">▲ enhanced</span>
+                      <div className="flex gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-4 h-4 rounded-sm" style={{ background: '#22c55e' }} />
+                          <span className="text-[10px] text-emerald-300 font-medium">Pass ≥ 50%</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-4 h-4 rounded-sm" style={{ background: '#ef4444' }} />
+                          <span className="text-[10px] text-red-400 font-medium">Fail &lt; 50%</span>
+                        </div>
                       </div>
                     </>
                   )}
