@@ -44,7 +44,17 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
 
     const width = 600;
     const height = 400;
-    const nodeRadius = 8;
+
+    // Card dimensions
+    const CW = 148; // card width
+    const CH = 86;  // card height (name row + 3 stacked metric rows)
+    const CHW = CW / 2;
+    const CHH = CH / 2;
+    // Collision radius ≈ half-diagonal + padding
+    const collisionR = Math.sqrt(CHW * CHW + CHH * CHH) + 12;
+
+    const fmt = (v: number | undefined, digits = 0) =>
+      v != null ? v.toFixed(digits) : '—';
 
     // Transform edges to D3 link format
     const linkData = graph.edges.map(edge => ({
@@ -54,14 +64,14 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
 
     // Create force simulation
     const simulation = d3.forceSimulation(graph.nodes as any)
-      .force("link", d3.forceLink(linkData).id((d: any) => d.id).distance(80))
-      .force("charge", d3.forceManyBody().strength(-200))
+      .force("link", d3.forceLink(linkData).id((d: any) => d.id).distance(200))
+      .force("charge", d3.forceManyBody().strength(-500))
       .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collision", d3.forceCollide(nodeRadius + 10));
+      .force("collision", d3.forceCollide(collisionR));
 
     // Add zoom behavior
     const zoom = d3.zoom()
-      .scaleExtent([0.5, 3])
+      .scaleExtent([0.3, 3])
       .on("zoom", (event) => {
         container.attr("transform", event.transform);
       });
@@ -76,55 +86,87 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
       .selectAll("line")
       .data(linkData)
       .enter().append("line")
-      .attr("stroke", "#64748b")
-      .attr("stroke-width", 2)
-      .attr("opacity", 0.6);
+      .attr("stroke", "#334155")
+      .attr("stroke-width", 1.5)
+      .attr("opacity", 0.7);
 
     // Draw nodes
     const nodeElements = container.append("g")
       .selectAll("g")
       .data(graph.nodes)
       .enter().append("g")
-      .style("cursor", "pointer");
+      .style("cursor", "pointer")
+      .on("click", (_event, d: DesignNode) => setSelectedNode(d))
+      .on("mouseover", (_event, d: DesignNode) => setHoveredNode(d.id))
+      .on("mouseout", () => setHoveredNode(null));
 
-    // Node circles
-    nodeElements.append("circle")
-      .attr("r", nodeRadius)
-      .attr("fill", (d: DesignNode) => {
-        if (d.id === graph.currentNodeId) return "#10b981";
-        if (d.id === hoveredNode) return "#3b82f6";
-        return "#6366f1";
-      })
-      .attr("stroke", "#ffffff")
-      .attr("stroke-width", 2)
-      .on("mouseover", (_event, d: DesignNode) => {
-        setHoveredNode(d.id);
-      })
-      .on("mouseout", () => {
-        setHoveredNode(null);
-      })
-      .on("click", (_event, d: DesignNode) => {
-        setSelectedNode(d);
-      });
+    // Card background rect (re-selectable stroke for selected/current state)
+    nodeElements.append("rect")
+      .attr("x", -CHW)
+      .attr("y", -CHH)
+      .attr("width", CW)
+      .attr("height", CH)
+      .attr("rx", 8)
+      .attr("fill", (d: DesignNode) =>
+        d.id === graph.currentNodeId ? "#0c2a1e" : "#0f172a")
+      .attr("stroke", (d: DesignNode) =>
+        d.id === selectedNode?.id ? "#60a5fa"
+        : d.id === graph.currentNodeId ? "#10b981"
+        : "#334155")
+      .attr("stroke-width", (d: DesignNode) =>
+        d.id === selectedNode?.id || d.id === graph.currentNodeId ? 2 : 1);
 
-    // Node labels
+    // Name row
     nodeElements.append("text")
-      .text((d: DesignNode) => d.name)
-      .attr("dy", nodeRadius + 15)
+      .text((d: DesignNode) => d.name.length > 18 ? d.name.slice(0, 17) + '…' : d.name)
+      .attr("x", 0)
+      .attr("y", -CHH + 16)
       .attr("text-anchor", "middle")
-      .attr("fill", "#e5e7eb")
-      .attr("font-size", "12px")
-      .attr("font-weight", "500");
+      .attr("fill", (d: DesignNode) => d.id === graph.currentNodeId ? "#6ee7b7" : "#f1f5f9")
+      .attr("font-size", "11px")
+      .attr("font-weight", "600")
+      .style("pointer-events", "none");
 
-    // Current node indicator
-    nodeElements
-      .filter((d: DesignNode) => d.id === graph.currentNodeId)
-      .append("circle")
-      .attr("r", nodeRadius + 4)
-      .attr("fill", "none")
-      .attr("stroke", "#10b981")
-      .attr("stroke-width", 2)
-      .attr("stroke-dasharray", "4,2");
+    // Separator line
+    nodeElements.append("line")
+      .attr("x1", -CHW + 8).attr("x2", CHW - 8)
+      .attr("y1", -CHH + 22).attr("y2", -CHH + 22)
+      .attr("stroke", "#1e293b").attr("stroke-width", 1);
+
+    // Metric badges via foreignObject
+    nodeElements.each(function(d: DesignNode) {
+      const g = d3.select(this);
+      const fo = g.append("foreignObject")
+        .attr("x", -CHW + 4)
+        .attr("y", -CHH + 26)
+        .attr("width", CW - 8)
+        .attr("height", CH - 30);
+
+      const sda   = d.metrics.spatialDaylightAutonomy;
+      const enrg  = d.metrics.totalEnergy;
+      const gwp   = d.metrics.globalWarmingPotential;
+
+      const sdaStr  = sda  > 0 ? `${sda}%`              : '—';
+      const enrgStr = enrg != null ? `${fmt(enrg)} kWh`  : '—';
+      const gwpStr  = gwp  > 0 ? `${fmt(gwp)} kg/m²`     : '—';
+
+      fo.append("xhtml:div")
+        .style("display", "flex")
+        .style("flex-direction", "column")
+        .style("gap", "3px")
+        .style("height", "100%")
+        .html(`
+          <span style="display:flex;align-items:center;gap:4px;background:#172554;color:#93c5fd;font-size:9px;font-family:ui-sans-serif,system-ui,sans-serif;border-radius:4px;padding:2px 5px;white-space:nowrap">
+            <span style="opacity:0.7">☀ sDA</span><span style="margin-left:auto;font-weight:600">${sdaStr}</span>
+          </span>
+          <span style="display:flex;align-items:center;gap:4px;background:#052e16;color:#86efac;font-size:9px;font-family:ui-sans-serif,system-ui,sans-serif;border-radius:4px;padding:2px 5px;white-space:nowrap">
+            <span style="opacity:0.7">⚡ Energy</span><span style="margin-left:auto;font-weight:600">${enrgStr}</span>
+          </span>
+          <span style="display:flex;align-items:center;gap:4px;background:#2d1b0a;color:#fdba74;font-size:9px;font-family:ui-sans-serif,system-ui,sans-serif;border-radius:4px;padding:2px 5px;white-space:nowrap">
+            <span style="opacity:0.7">🌿 GWP</span><span style="margin-left:auto;font-weight:600">${gwpStr}</span>
+          </span>
+        `);
+    });
 
     // Update positions on simulation tick
     simulation.on("tick", () => {
@@ -137,7 +179,7 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
       nodeElements.attr("transform", (d: any) => `translate(${d.x},${d.y})`);
     });
 
-  }, [isOpen, graph, hoveredNode]);
+  }, [isOpen, graph, hoveredNode, selectedNode]);
 
   const handleReinstateConfiguration = () => {
     if (selectedNode && selectedNode.id !== graph.currentNodeId) {
@@ -345,12 +387,16 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
             <span>{graph.nodes.length} design configurations saved</span>
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <div className="w-4 h-3 bg-emerald-900 border border-emerald-500 rounded"></div>
                 <span>Current</span>
               </div>
               <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-indigo-500 rounded-full"></div>
+                <div className="w-4 h-3 bg-slate-900 border border-slate-600 rounded"></div>
                 <span>Saved</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-3 bg-slate-900 border border-blue-400 rounded"></div>
+                <span>Selected</span>
               </div>
             </div>
           </div>

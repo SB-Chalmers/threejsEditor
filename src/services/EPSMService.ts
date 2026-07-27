@@ -13,9 +13,7 @@
  * No EnergyPlus run needed — EPSM pre-computes gwp_kgco2e_per_m2 per construction.
  */
 
-const EPSM_BASE = import.meta.env.DEV
-  ? '/api/epsm'
-  : (import.meta.env.VITE_EPSM_BASE_URL as string | undefined) ?? 'https://epsm.chalmers.se';
+const EPSM_BASE = (import.meta.env.VITE_EPSM_BASE_URL as string | undefined) ?? '/api/epsm';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 

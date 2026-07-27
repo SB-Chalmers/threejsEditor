@@ -29,7 +29,7 @@ import { designExplorationService } from '../services/DesignExplorationService';
 import { daylightApiService } from '../services/DaylightApiService';
 import { energyApiService } from '../services/EnergyApiService';
 import { daylightVisualizationService, getOverlayGroupsForResults } from '../services/DaylightVisualizationService';
-import { getEPSMConstructionOptions, computePortfolioEmbodiedCarbon, getDefaultConstructionName } from '../services/EPSMService';
+import { getEPSMConstructionOptions, getCachedEPSMOptions, computePortfolioEmbodiedCarbon, getDefaultConstructionName, calculateEmbodiedCarbon } from '../services/EPSMService';
 import { DaylightRunState, DaylightRunSummary } from '../types/daylight';
 
 type DaylightLegendState = {
@@ -331,9 +331,9 @@ export const SimpleBuildingCreator: React.FC = () => {
             spatialDaylightAutonomy: 0,
             globalWarmingPotential: (() => {
               try {
-                const epsmOpts = getEPSMConstructionOptions();
-                if (epsmOpts instanceof Promise) return 0;
-                const gwp = computePortfolioEmbodiedCarbon(epsmOpts as Awaited<typeof epsmOpts>, snapshotBuildings);
+                const epsmOpts = getCachedEPSMOptions();
+                if (!epsmOpts) return 0;
+                const gwp = computePortfolioEmbodiedCarbon(epsmOpts, snapshotBuildings);
                 return gwp ?? 0;
               } catch {
                 return 0;
@@ -828,13 +828,40 @@ export const SimpleBuildingCreator: React.FC = () => {
                             onStatusUpdate: (s) => setBaselineEnergyStage(s.stage ?? s.status),
                             onComplete:     (result) => {
                               setBaselineEnergyStage('Complete');
+                              const resolvedForGwp = {
+                                ...managedBuilding,
+                                wall_construction:   managedBuilding.wall_construction   || (epsmOpts ? getDefaultConstructionName(epsmOpts, 'wall')   : null) || '',
+                                floor_construction:  managedBuilding.floor_construction  || (epsmOpts ? getDefaultConstructionName(epsmOpts, 'floor')  : null) || '',
+                                roof_construction:   managedBuilding.roof_construction   || (epsmOpts ? getDefaultConstructionName(epsmOpts, 'roof')   : null) || '',
+                                window_construction: managedBuilding.window_construction || (epsmOpts ? getDefaultConstructionName(epsmOpts, 'window') : null) || '',
+                              };
+                              const gwp = epsmOpts ? (computePortfolioEmbodiedCarbon(epsmOpts, [resolvedForGwp]) ?? 0) : 0;
+                              const wwr = resolvedForGwp.window_to_wall_ratio ?? 0.4;
+                              const floors = resolvedForGwp.floors ?? 1;
+                              const floorH = resolvedForGwp.floorHeight ?? 3.2;
+                              const footprint = resolvedForGwp.area ?? 0;
+                              const perim = resolvedForGwp.points && resolvedForGwp.points.length >= 2
+                                ? resolvedForGwp.points.reduce((s, p, i) => { const n = resolvedForGwp.points![(i+1) % resolvedForGwp.points!.length]; return s + Math.sqrt((n.x-p.x)**2+(n.z-p.z)**2); }, 0)
+                                : Math.sqrt(footprint) * 4;
+                              const wallArea = perim * floors * floorH;
+                              const breakdown = epsmOpts ? calculateEmbodiedCarbon(
+                                epsmOpts,
+                                { wall: resolvedForGwp.wall_construction ?? '', floor: resolvedForGwp.floor_construction ?? '', roof: resolvedForGwp.roof_construction ?? '', window: resolvedForGwp.window_construction ?? '' },
+                                { wallArea, windowArea: wallArea * wwr, floorArea: footprint * floors, roofArea: footprint }
+                              ) : null;
                               designExplorationService.updateNodeSnapshot('baseline', {
                                 metrics: {
                                   heatingDemand: result.heating_demand_kwh_m2,
                                   coolingDemand: result.cooling_demand_kwh_m2,
                                   totalEnergy:   result.total_energy_kwh_m2,
+                                  ...(gwp > 0 ? { globalWarmingPotential: gwp } : {}),
+                                  ...(breakdown ? { embodiedCarbonBreakdown: breakdown } : {}),
                                 },
-                                energyRun: { status: 'complete', studyId: result.study_id }
+                                energyRun: {
+                                  status: 'complete',
+                                  studyId: result.study_id,
+                                  monthlyHeatBalance: result.monthly_heat_balance ?? undefined,
+                                }
                               });
                             },
                             onError: (err) => {
@@ -1303,14 +1330,43 @@ export const SimpleBuildingCreator: React.FC = () => {
                 onStatusUpdate: (s) => designExplorationService.updateNode(nodeId, {
                   energyRun: { status: s.status, stage: s.stage }
                 }),
-                onComplete: (result) => designExplorationService.updateNode(nodeId, {
-                  energyRun: { status: 'complete', studyId: result.study_id },
-                  metrics: {
-                    heatingDemand: result.heating_demand_kwh_m2,
-                    coolingDemand: result.cooling_demand_kwh_m2,
-                    totalEnergy:   result.total_energy_kwh_m2,
-                  }
-                }),
+                onComplete: (result) => {
+                  const resolvedForGwp = {
+                    ...building,
+                    wall_construction:   resolveConstruction(building.wall_construction,   'wall'),
+                    floor_construction:  resolveConstruction(building.floor_construction,  'floor'),
+                    roof_construction:   resolveConstruction(building.roof_construction,   'roof'),
+                    window_construction: resolveConstruction(building.window_construction, 'window'),
+                  };
+                  const gwp = epsmOpts ? (computePortfolioEmbodiedCarbon(epsmOpts, [resolvedForGwp]) ?? 0) : 0;
+                  const wwr = resolvedForGwp.window_to_wall_ratio ?? 0.4;
+                  const floors = resolvedForGwp.floors ?? 1;
+                  const floorH = resolvedForGwp.floorHeight ?? 3.2;
+                  const footprint = resolvedForGwp.area ?? 0;
+                  const perim = resolvedForGwp.points && resolvedForGwp.points.length >= 2
+                    ? resolvedForGwp.points.reduce((s, p, i) => { const n = resolvedForGwp.points![(i+1) % resolvedForGwp.points!.length]; return s + Math.sqrt((n.x-p.x)**2+(n.z-p.z)**2); }, 0)
+                    : Math.sqrt(footprint) * 4;
+                  const wallArea = perim * floors * floorH;
+                  const breakdown = epsmOpts ? calculateEmbodiedCarbon(
+                    epsmOpts,
+                    { wall: resolvedForGwp.wall_construction ?? '', floor: resolvedForGwp.floor_construction ?? '', roof: resolvedForGwp.roof_construction ?? '', window: resolvedForGwp.window_construction ?? '' },
+                    { wallArea, windowArea: wallArea * wwr, floorArea: footprint * floors, roofArea: footprint }
+                  ) : null;
+                  designExplorationService.updateNode(nodeId, {
+                    energyRun: {
+                      status: 'complete',
+                      studyId: result.study_id,
+                      monthlyHeatBalance: result.monthly_heat_balance ?? undefined,
+                    },
+                    metrics: {
+                      heatingDemand: result.heating_demand_kwh_m2,
+                      coolingDemand: result.cooling_demand_kwh_m2,
+                      totalEnergy:   result.total_energy_kwh_m2,
+                      ...(gwp > 0 ? { globalWarmingPotential: gwp } : {}),
+                      ...(breakdown ? { embodiedCarbonBreakdown: breakdown } : {}),
+                    }
+                  });
+                },
                 onError: (err) => designExplorationService.updateNode(nodeId, {
                   energyRun: { status: 'failed', error: err.message }
                 }),
@@ -1341,6 +1397,8 @@ export const SimpleBuildingCreator: React.FC = () => {
               coolingDemand: node.metrics.coolingDemand,
               totalEnergy:   node.metrics.totalEnergy,
               globalWarmingPotential: node.metrics.globalWarmingPotential,
+              embodiedCarbonBreakdown: node.metrics.embodiedCarbonBreakdown,
+              monthlyHeatBalance: node.energyRun?.monthlyHeatBalance,
               status: node.energyRun?.status ?? 'idle',
             };
           })()}

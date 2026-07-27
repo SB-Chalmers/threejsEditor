@@ -1,9 +1,13 @@
 import { BuildingData } from './building';
 import { DaylightRunSummary } from './daylight';
+import { EmbodiedCarbonResult } from '../services/EPSMService';
+import { MonthlyHeatBalance } from '../services/EnergyApiService';
 
 export interface DesignMetrics {
   /** Embodied carbon (A1–A3) — kg CO₂e/m² floor area, computed client-side from EPSM */
   globalWarmingPotential: number;
+  /** Per-element breakdown from EPSM — stored alongside globalWarmingPotential */
+  embodiedCarbonBreakdown?: EmbodiedCarbonResult;
   /** Spatial daylight autonomy % — from daylight sim */
   spatialDaylightAutonomy: number;
   /** Heating demand kWh/m²/year — from energy sim, undefined until run */
@@ -33,6 +37,7 @@ export interface EnergyRunMetadata {
   status: EnergyRunStatus;
   stage?: string;
   error?: string;
+  monthlyHeatBalance?: MonthlyHeatBalance;
 }
 
 export interface DesignNode {

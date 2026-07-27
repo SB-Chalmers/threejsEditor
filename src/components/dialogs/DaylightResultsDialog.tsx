@@ -1,12 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, Sun, Activity, Filter, Zap, Leaf, LayoutDashboard } from 'lucide-react';
 import { DaylightRunSummary, DaylightSensorPoint } from '../../types/daylight';
+import { EmbodiedCarbonResult } from '../../services/EPSMService';
+import { MonthlyHeatBalance } from '../../services/EnergyApiService';
+import { MonthlyHeatBalanceChart } from '../MonthlyHeatBalanceChart';
 
 export interface EnergyResults {
   heatingDemand?: number;
   coolingDemand?: number;
   totalEnergy?: number;
   globalWarmingPotential?: number;
+  embodiedCarbonBreakdown?: EmbodiedCarbonResult;
+  monthlyHeatBalance?: MonthlyHeatBalance;
   status?: 'idle' | 'queued' | 'running' | 'complete' | 'failed';
 }
 
@@ -409,25 +414,35 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
                     <KpiCard label="Cooling Demand" value={energyResults?.coolingDemand != null ? `${energyResults.coolingDemand.toFixed(1)}` : '—'} sub="kWh/m²/yr" color="text-blue-300" />
                     <KpiCard label="Total Energy" value={energyResults?.totalEnergy != null ? `${energyResults.totalEnergy.toFixed(1)}` : '—'} sub="kWh/m²/yr" color="text-white" />
                   </div>
-                  {energyResults?.heatingDemand != null && energyResults?.coolingDemand != null && (
-                    <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3 space-y-2">
-                      <div className="text-xs text-gray-400 font-medium mb-2">Heating vs Cooling split</div>
-                      {(() => {
-                        const total = (energyResults.heatingDemand ?? 0) + (energyResults.coolingDemand ?? 0);
-                        const hPct = total > 0 ? ((energyResults.heatingDemand ?? 0) / total) * 100 : 50;
-                        return (
-                          <div className="flex rounded-full overflow-hidden h-4">
-                            <div className="bg-orange-500/70" style={{ width: `${hPct}%` }} title={`Heating ${hPct.toFixed(0)}%`} />
-                            <div className="bg-blue-500/70 flex-1" title={`Cooling ${(100 - hPct).toFixed(0)}%`} />
-                          </div>
-                        );
-                      })()}
-                      <div className="flex justify-between text-[10px] text-gray-400">
-                        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-orange-500/70" />Heating</span>
-                        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-blue-500/70" />Cooling</span>
-                      </div>
+
+                  {/* Monthly heat balance chart */}
+                  {energyResults?.monthlyHeatBalance ? (
+                    <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-gray-300 uppercase tracking-wide mb-2">Monthly Heat Balance</p>
+                      <MonthlyHeatBalanceChart data={energyResults.monthlyHeatBalance} />
                     </div>
+                  ) : (
+                    energyResults?.heatingDemand != null && energyResults?.coolingDemand != null && (
+                      <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3 space-y-2">
+                        <div className="text-xs text-gray-400 font-medium mb-2">Heating vs Cooling split</div>
+                        {(() => {
+                          const total = (energyResults.heatingDemand ?? 0) + (energyResults.coolingDemand ?? 0);
+                          const hPct = total > 0 ? ((energyResults.heatingDemand ?? 0) / total) * 100 : 50;
+                          return (
+                            <div className="flex rounded-full overflow-hidden h-4">
+                              <div className="bg-orange-500/70" style={{ width: `${hPct}%` }} title={`Heating ${hPct.toFixed(0)}%`} />
+                              <div className="bg-blue-500/70 flex-1" title={`Cooling ${(100 - hPct).toFixed(0)}%`} />
+                            </div>
+                          );
+                        })()}
+                        <div className="flex justify-between text-[10px] text-gray-400">
+                          <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-orange-500/70" />Heating</span>
+                          <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-blue-500/70" />Cooling</span>
+                        </div>
+                      </div>
+                    )
                   )}
+
                   <p className="text-xs text-gray-500">Results from EnergyPlus via EPSM. Values normalised by total floor area.</p>
                 </>
               ) : (
@@ -452,21 +467,38 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
                 <>
                   <div className="grid grid-cols-2 gap-3">
                     <KpiCard label="Embodied Carbon" value={`${energyResults!.globalWarmingPotential!.toFixed(1)}`} sub="kg CO₂e / m² floor" color="text-orange-400" />
-                    <KpiCard label="Scope" value="A1–A3" sub="Product & transport stages" color="text-gray-300" />
+                    <KpiCard label="Scope" value="A1–A3" sub="Product &amp; transport stages" color="text-gray-300" />
                   </div>
+
+                  {/* Element breakdown */}
+                  {energyResults?.embodiedCarbonBreakdown && (
+                    <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-gray-300 uppercase tracking-wide mb-3">Element Breakdown</p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                        <span className="text-gray-400">Walls</span>
+                        <span className="text-right text-gray-200">{energyResults.embodiedCarbonBreakdown.wall_gwp_kgco2e.toFixed(0)} kg CO₂e</span>
+                        <span className="text-gray-400">Floor slabs</span>
+                        <span className="text-right text-gray-200">{energyResults.embodiedCarbonBreakdown.floor_gwp_kgco2e.toFixed(0)} kg CO₂e</span>
+                        <span className="text-gray-400">Roof</span>
+                        <span className="text-right text-gray-200">{energyResults.embodiedCarbonBreakdown.roof_gwp_kgco2e.toFixed(0)} kg CO₂e</span>
+                        <span className="text-gray-400">Windows</span>
+                        <span className="text-right text-gray-200">{energyResults.embodiedCarbonBreakdown.window_gwp_kgco2e.toFixed(0)} kg CO₂e</span>
+                        <span className="border-t border-gray-700 pt-2 font-medium text-gray-300">Total</span>
+                        <span className="border-t border-gray-700 pt-2 text-right font-bold text-orange-400">{energyResults.embodiedCarbonBreakdown.total_gwp_kgco2e.toFixed(0)} kg CO₂e</span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3 space-y-1.5 text-xs text-gray-400">
-                    <p className="font-medium text-gray-300 mb-2">Methodology</p>
-                    <p>GWP computed client-side using <span className="text-white">EPSM</span> construction database.</p>
-                    <p>Each construction has a pre-computed <code className="text-gray-200 bg-gray-700 px-1 rounded">gwp_kgco2e_per_m²</code> field summed from material layers.</p>
-                    <p className="mt-2">Surface areas estimated from building footprint polygon × floors × floor height × WWR.</p>
-                    <p className="mt-2 text-gray-500">Formula: Σ (gwp/m² × element area) / total floor area</p>
+                    <p className="font-medium text-gray-300 mb-1">Methodology</p>
+                    <p>GWP computed client-side from <span className="text-white">EPSM</span> pre-computed <code className="text-gray-200 bg-gray-700 px-1 rounded">gwp_kgco2e_per_m²</code> × element surface area.</p>
+                    <p className="text-gray-500">Σ (gwp/m² × element area) / total floor area</p>
                   </div>
-                  <p className="text-xs text-gray-500">Change constructions in Edit Building to see updated values live.</p>
                 </>
               ) : (
                 <div className="text-center py-10 text-gray-500">
                   <Leaf className="w-8 h-8 mx-auto mb-3 text-gray-600" />
-                  <p className="text-sm">Open Edit Building, select constructions from EPSM, and the embodied carbon will appear here.</p>
+                  <p className="text-sm">Run an energy simulation to compute embodied carbon.</p>
                 </div>
               )}
             </div>

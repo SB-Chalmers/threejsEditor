@@ -16,7 +16,7 @@ import { calculateSignedArea, ensureCounterClockwise } from '../utils/geometry';
 // ── Config ────────────────────────────────────────────────────────────────
 
 const DEFAULT_DEV_BASE_URL = '/api/daylight';
-const DEFAULT_PROD_BASE_URL = 'http://localhost:8000';
+const DEFAULT_PROD_BASE_URL = '/api/daylight';
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLL_ATTEMPTS = 120; // 6 minutes max
 
@@ -49,6 +49,18 @@ export interface EnergyStudyStatus {
   error?: string;
 }
 
+export interface MonthlyHeatBalance {
+  months: string[];
+  heating?: number[];
+  cooling?: number[];
+  people?: number[];
+  lighting?: number[];
+  equipment?: number[];
+  solar?: number[];
+  infiltration_gain?: number[];
+  infiltration_loss?: number[];
+}
+
 export interface EnergyStudyResult {
   study_id: string;
   status: string;
@@ -59,6 +71,7 @@ export interface EnergyStudyResult {
   heating_demand_kwh_m2?: number;
   cooling_demand_kwh_m2?: number;
   total_energy_kwh_m2?: number;
+  monthly_heat_balance?: MonthlyHeatBalance;
 }
 
 export interface EnergyRunCallbacks {
