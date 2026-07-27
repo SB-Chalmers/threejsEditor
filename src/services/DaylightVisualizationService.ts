@@ -169,16 +169,15 @@ class DaylightVisualizationService {
   }
 
   /**
-   * sDA colour scale anchored to IES LM-83 / LEED v4 thresholds:
-   *   < 55%   red → orange      — fails LEED credit
-   *   55–75%  orange → green    — nominal LEED credit
-   *   75–100% light → deep green — enhanced LEED credit
+   * sDA colour — binary pass / fail matching the result-view heatmap.
+   * Threshold: 50 % (matches backend sda_target_pct default and sdaPassMask).
+   *   ≥ 50 %  → green  (#22c55e)  — passes sDA300/50
+   *   < 50 %  → red    (#ef4444)  — fails
    */
   private getColorForSdaAbsolute(sdaPercent: number): THREE.Color {
-    const v = Math.max(0, Math.min(100, sdaPercent));
-    if (v < 55) return this.interpolateColor(new THREE.Color('#ef4444'), new THREE.Color('#f97316'), v / 55);
-    if (v < 75) return this.interpolateColor(new THREE.Color('#f97316'), new THREE.Color('#22c55e'), (v - 55) / 20);
-    return this.interpolateColor(new THREE.Color('#22c55e'), new THREE.Color('#15803d'), (v - 75) / 25);
+    return sdaPercent >= 50
+      ? new THREE.Color('#22c55e')
+      : new THREE.Color('#ef4444');
   }
 
   private estimateCellSize(points: DaylightSensorPoint[]): number {

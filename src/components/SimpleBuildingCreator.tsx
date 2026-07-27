@@ -483,6 +483,104 @@ export const SimpleBuildingCreator: React.FC = () => {
     }
 
     await runDaylightSimulation(targetBuilding, name);
+
+    // ── Auto-run energy for the newly created design node ─────────────────
+    const newNodeId = designExplorationService.getCurrentNode()?.id;
+    if (!newNodeId) return;
+    const node = designExplorationService.getGraph().nodes.find(n => n.id === newNodeId);
+    if (!node || node.buildings.length === 0) return;
+    const building = node.buildings[0];
+
+    const [location, epsmOpts] = await Promise.all([
+      daylightApiService.getDefaultLocation().catch(() => undefined),
+      getEPSMConstructionOptions().catch(() => null),
+    ]);
+    if (!location) return;
+
+    const resolveC = (v: string | undefined, t: 'wall'|'floor'|'roof'|'window'): string =>
+      (v && !['Default Wall','Default Floor','Default Roof','Default Window'].includes(v))
+        ? v : (epsmOpts ? getDefaultConstructionName(epsmOpts, t) : null) ?? v ?? '';
+
+    energyAbortControllerRef.current?.abort();
+    energyAbortControllerRef.current = new AbortController();
+    designExplorationService.updateNode(newNodeId, { energyRun: { status: 'queued', stage: 'Queued' } });
+
+    try {
+      await energyApiService.runEnergyStudy(
+        building,
+        {
+          constructions: {
+            wall:   resolveC(building.wall_construction,   'wall'),
+            floor:  resolveC(building.floor_construction,  'floor'),
+            roof:   resolveC(building.roof_construction,   'roof'),
+            window: resolveC(building.window_construction, 'window'),
+          },
+          building_program: building.building_program ?? 'Office',
+          hvac_system:      building.hvac_system      ?? 'Default HVAC',
+          natural_ventilation: building.natural_ventilation ?? false,
+          location,
+        },
+        {
+          onQueued: (studyId) => designExplorationService.updateNode(newNodeId, {
+            energyRun: { status: 'queued', studyId, stage: 'Queued' }
+          }),
+          onStatusUpdate: (s) => designExplorationService.updateNode(newNodeId, {
+            energyRun: { status: s.status, stage: s.stage }
+          }),
+          onComplete: (result) => {
+            const resolved = {
+              ...building,
+              wall_construction:   resolveC(building.wall_construction,   'wall'),
+              floor_construction:  resolveC(building.floor_construction,  'floor'),
+              roof_construction:   resolveC(building.roof_construction,   'roof'),
+              window_construction: resolveC(building.window_construction, 'window'),
+            };
+            const gwp = epsmOpts ? (computePortfolioEmbodiedCarbon(epsmOpts, [resolved]) ?? 0) : 0;
+            const wwr = resolved.window_to_wall_ratio ?? 0.4;
+            const floors = resolved.floors ?? 1;
+            const floorH = resolved.floorHeight ?? 3.2;
+            const footprint = resolved.area ?? 0;
+            const perim = resolved.points?.length >= 2
+              ? resolved.points.reduce((s, p, i) => {
+                  const nx = resolved.points![(i+1) % resolved.points!.length];
+                  return s + Math.sqrt((nx.x-p.x)**2+(nx.z-p.z)**2);
+                }, 0)
+              : Math.sqrt(footprint) * 4;
+            const wallArea = perim * floors * floorH;
+            const breakdown = epsmOpts ? calculateEmbodiedCarbon(
+              epsmOpts,
+              { wall: resolved.wall_construction ?? '', floor: resolved.floor_construction ?? '',
+                roof: resolved.roof_construction ?? '', window: resolved.window_construction ?? '' },
+              { wallArea, windowArea: wallArea * wwr, floorArea: footprint * floors, roofArea: footprint }
+            ) : null;
+            designExplorationService.updateNode(newNodeId, {
+              energyRun: {
+                status: 'complete',
+                studyId: result.study_id,
+                monthlyHeatBalance: result.monthly_heat_balance ?? undefined,
+              },
+              metrics: {
+                heatingDemand: result.heating_demand_kwh_m2,
+                coolingDemand: result.cooling_demand_kwh_m2,
+                totalEnergy:   result.total_energy_kwh_m2,
+                ...(gwp > 0 ? { globalWarmingPotential: gwp } : {}),
+                ...(breakdown ? { embodiedCarbonBreakdown: breakdown } : {}),
+              },
+            });
+          },
+          onError: (err) => designExplorationService.updateNode(newNodeId, {
+            energyRun: { status: 'failed', error: err.message }
+          }),
+        },
+        energyAbortControllerRef.current.signal
+      );
+    } catch (err) {
+      if (err instanceof Error && err.message !== 'Energy study aborted') {
+        designExplorationService.updateNode(newNodeId, {
+          energyRun: { status: 'failed', error: err.message }
+        });
+      }
+    }
   };
 
   const handleOpenDesignGraph = () => {
