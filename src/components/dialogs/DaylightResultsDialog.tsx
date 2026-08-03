@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Sun, Activity, Filter, Zap, Leaf, LayoutDashboard } from 'lucide-react';
 import { DaylightRunSummary, DaylightSensorPoint } from '../../types/daylight';
 import { EmbodiedCarbonResult } from '../../services/EPSMService';
@@ -45,6 +45,10 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
   const [mode, setMode] = useState<MetricMode>('df');
   const [showPassingOnly, setShowPassingOnly] = useState(false);
 
+  // Stable ref so the effect below doesn't re-fire when the parent re-creates the callback inline
+  const onApplyVisualizationRef = useRef(onApplyVisualization);
+  useEffect(() => { onApplyVisualizationRef.current = onApplyVisualization; });
+
   const hasSda = Boolean(result.sdaPoints && result.sdaPoints.length > 0);
 
   const visiblePointEntries = useMemo(() => {
@@ -71,8 +75,8 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
       return;
     }
 
-    onApplyVisualization(visiblePoints, mode);
-  }, [isOpen, selectedBuildingId, mode, onApplyVisualization]);
+    onApplyVisualizationRef.current(visiblePoints, mode);
+  }, [isOpen, selectedBuildingId, mode]);
 
   const planView = useMemo(() => {
     if (visiblePointEntries.length === 0) {

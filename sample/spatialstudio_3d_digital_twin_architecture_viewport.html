@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SpatialStudio - Modern Architectural Viewport & Digital Twin</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Three.js and OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow: hidden;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.72);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45);
+    }
+    .light .glass-panel {
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+    }
+    .glass-pill {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .light .glass-pill {
+      background: rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    /* Custom UI Range Input Styling */
+    input[type=range] {
+      -webkit-appearance: none;
+      background: rgba(255, 255, 255, 0.15);
+      height: 5px;
+      border-radius: 3px;
+    }
+    .light input[type=range] {
+      background: rgba(0, 0, 0, 0.15);
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 15px;
+      width: 15px;
+      border-radius: 50%;
+      background: #3b82f6;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.3);
+      background: #60a5fa;
+    }
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: 4px;
+    }
+    .light ::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.25);
+    }
+    /* Pulse glow */
+    .glow-pulse {
+      box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 dark h-screen w-screen relative overflow-hidden transition-colors duration-500">
+
+  <!-- 3D Canvas Container -->
+  <div id="canvas-container" class="absolute inset-0 w-full h-full z-0 cursor-grab active:cursor-grabbing"></div>
+
+  <!-- Top Navigation Header -->
+  <header class="absolute top-4 left-4 right-4 z-20 flex flex-wrap justify-between items-center pointer-events-none gap-3">
+    
+    <!-- Logo & Brand Card -->
+    <div class="glass-panel px-4 py-2.5 rounded-2xl flex items-center gap-3.5 pointer-events-auto">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 flex items-center justify-center text-white font-black shadow-lg shadow-blue-500/30">
+        <i class="fa-solid fa-cube text-base"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-xs font-black tracking-widest uppercase text-slate-900 dark:text-slate-100 leading-none">SpatialStudio</h1>
+          <span class="px-1.5 py-0.5 text-[9px] font-extrabold uppercase rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">PRO v2.5</span>
+        </div>
+        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-0.5">Architectural Twin & Spatial Analytics</p>
+      </div>
+    </div>
+
+    <!-- Center Viewport Tool Bar -->
+    <div class="glass-panel p-1.5 rounded-2xl flex items-center gap-1 pointer-events-auto shadow-2xl">
+      <button id="btn-mode-orbit" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white shadow-md transition-all flex items-center gap-2" title="Rotate / Orbit Camera">
+        <i class="fa-solid fa-rotate"></i> <span class="hidden sm:inline">Orbit</span>
+      </button>
+      <button id="btn-mode-pan" class="px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60 transition-all flex items-center gap-2" title="Pan Camera View">
+        <i class="fa-solid fa-arrows-up-down-left-right"></i> <span class="hidden sm:inline">Pan</span>
+      </button>
+
+      <div class="h-4 w-[1px] bg-slate-300 dark:bg-slate-700 mx-1"></div>
+
+      <!-- Quick View Presets -->
+      <button id="btn-view-iso" class="px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60 transition-all" title="Isometric View">
+        ISO
+      </button>
+      <button id="btn-view-top" class="px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60 transition-all" title="Top Plan View">
+        TOP
+      </button>
+      <button id="btn-view-front" class="px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60 transition-all" title="Front Elevation">
+        FRONT
+      </button>
+
+      <div class="h-4 w-[1px] bg-slate-300 dark:bg-slate-700 mx-1"></div>
+
+      <button id="btn-cam-ortho" class="px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60 transition-all" title="Perspective vs Orthographic Camera">
+        <i class="fa-solid fa-cube"></i> <span id="cam-type-label">Persp</span>
+      </button>
+      <button id="btn-reset-view" class="px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60 transition-all" title="Reset Viewport Center">
+        <i class="fa-solid fa-compress"></i>
+      </button>
+    </div>
+
+    <!-- Header Actions (Theme, Shortcuts, AI Assistant) -->
+    <div class="glass-panel p-1.5 rounded-2xl flex items-center gap-1.5 pointer-events-auto">
+      <button id="btn-shortcuts" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60 transition-all" title="Keyboard Shortcuts">
+        <i class="fa-solid fa-keyboard text-sm"></i>
+      </button>
+      <button id="btn-theme-toggle" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60 transition-all" title="Toggle Light/Dark Theme">
+        <i class="fa-solid fa-moon text-sm" id="theme-icon"></i>
+      </button>
+      <button id="btn-ai-drawer" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 text-white shadow-lg shadow-purple-500/25 hover:opacity-95 transition-all flex items-center gap-2 glow-pulse">
+        <i class="fa-solid fa-wand-magic-sparkles text-xs animate-spin-slow"></i> <span>AI Spatial Assistant</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Left Side Panel: Layer Hierarchy & BIM Inspector -->
+  <aside id="panel-left" class="absolute top-20 left-4 bottom-20 w-72 glass-panel rounded-2xl p-4 flex flex-col gap-4 z-10 pointer-events-auto transition-all duration-300">
+    <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+      <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+        <i class="fa-solid fa-layer-group text-blue-500"></i> Scene Layers
+      </div>
+      <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 font-semibold" id="layer-count">6 Layers</span>
+    </div>
+
+    <!-- Exploded BIM View Controller -->
+    <div class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-1.5">
+      <div class="flex justify-between items-center text-xs font-bold text-blue-400">
+        <span class="flex items-center gap-1.5"><i class="fa-solid fa-arrows-up-down"></i> Exploded BIM View</span>
+        <span class="font-mono text-[11px]" id="val-explode">0%</span>
+      </div>
+      <input type="range" id="slider-explode" min="0" max="100" value="0" step="1" class="w-full">
+    </div>
+
+    <!-- Layer List -->
+    <div class="flex-1 overflow-y-auto space-y-2 pr-1" id="layer-list-container">
+      
+      <div class="p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 flex items-center justify-between group hover:border-blue-500/50 transition-all">
+        <div class="flex items-center gap-2.5">
+          <input type="checkbox" id="layer-structure" checked class="w-3.5 h-3.5 rounded accent-blue-600 cursor-pointer">
+          <label for="layer-structure" class="text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer flex items-center gap-2">
+            <i class="fa-solid fa-building text-slate-400 text-[11px]"></i> Concrete Slabs
+          </label>
+        </div>
+        <span class="text-[10px] font-mono text-slate-500">4 items</span>
+      </div>
+
+      <div class="p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 flex items-center justify-between group hover:border-blue-500/50 transition-all">
+        <div class="flex items-center gap-2.5">
+          <input type="checkbox" id="layer-glass" checked class="w-3.5 h-3.5 rounded accent-blue-600 cursor-pointer">
+          <label for="layer-glass" class="text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer flex items-center gap-2">
+            <i class="fa-solid fa-border-all text-sky-400 text-[11px]"></i> Glass Facade
+          </label>
+        </div>
+        <span class="text-[10px] font-mono text-slate-500">3 units</span>
+      </div>
+
+      <div class="p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 flex items-center justify-between group hover:border-blue-500/50 transition-all">
+        <div class="flex items-center gap-2.5">
+          <input type="checkbox" id="layer-beams" checked class="w-3.5 h-3.5 rounded accent-blue-600 cursor-pointer">
+          <label for="layer-beams" class="text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer flex items-center gap-2">
+            <i class="fa-solid fa-bars-staggered text-amber-500 text-[11px]"></i> Steel Trusses
+          </label>
+        </div>
+        <span class="text-[10px] font-mono text-slate-500">12 cols</span>
+      </div>
+
+      <div class="p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 flex items-center justify-between group hover:border-blue-500/50 transition-all">
+        <div class="flex items-center gap-2.5">
+          <input type="checkbox" id="layer-louvers" checked class="w-3.5 h-3.5 rounded accent-blue-600 cursor-pointer">
+          <label for="layer-louvers" class="text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer flex items-center gap-2">
+            <i class="fa-solid fa-grip-lines-vertical text-amber-600 text-[11px]"></i> Timber Fins
+          </label>
+        </div>
+        <span class="text-[10px] font-mono text-slate-500">18 slats</span>
+      </div>
+
+      <div class="p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 flex items-center justify-between group hover:border-blue-500/50 transition-all">
+        <div class="flex items-center gap-2.5">
+          <input type="checkbox" id="layer-interior" checked class="w-3.5 h-3.5 rounded accent-blue-600 cursor-pointer">
+          <label for="layer-interior" class="text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer flex items-center gap-2">
+            <i class="fa-solid fa-lightbulb text-amber-300 text-[11px]"></i> Interior Fixtures
+          </label>
+        </div>
+        <span class="text-[10px] font-mono text-slate-500">5 nodes</span>
+      </div>
+
+      <div class="p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 flex items-center justify-between group hover:border-blue-500/50 transition-all">
+        <div class="flex items-center gap-2.5">
+          <input type="checkbox" id="layer-landscape" checked class="w-3.5 h-3.5 rounded accent-blue-600 cursor-pointer">
+          <label for="layer-landscape" class="text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer flex items-center gap-2">
+            <i class="fa-solid fa-tree text-emerald-400 text-[11px]"></i> Pool & Trees
+          </label>
+        </div>
+        <span class="text-[10px] font-mono text-slate-500">Water</span>
+      </div>
+    </div>
+
+    <!-- Selected Element BIM Inspector Card -->
+    <div class="border-t border-slate-200 dark:border-slate-800 pt-3 flex flex-col gap-2">
+      <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex justify-between items-center">
+        <span>BIM Element Inspector</span>
+        <span id="inspect-tag" class="hidden text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">ACTIVE</span>
+      </div>
+      <div id="inspector-details" class="p-3 rounded-xl bg-slate-800/40 border border-slate-700/60 text-xs space-y-1.5">
+        <div class="font-semibold text-blue-400 flex items-center gap-2">
+          <i class="fa-solid fa-cube text-xs"></i> <span id="inspect-title">Click model element</span>
+        </div>
+        <p class="text-[11px] text-slate-400 leading-relaxed" id="inspect-desc">Select any element in the 3D viewport to inspect structural properties, thermal specs, and carbon metrics.</p>
+        <div id="inspect-metrics" class="hidden grid grid-cols-2 gap-2 pt-2 border-t border-slate-700/50 text-[10px]">
+          <div><span class="text-slate-500">Volume:</span> <span id="bm-vol" class="font-mono text-slate-200">--</span></div>
+          <div><span class="text-slate-500">U-Value:</span> <span id="bm-uval" class="font-mono text-slate-200">--</span></div>
+          <div><span class="text-slate-500">Est. Carbon:</span> <span id="bm-carb" class="font-mono text-slate-200">--</span></div>
+          <div><span class="text-slate-500">Load Cap:</span> <span id="bm-load" class="font-mono text-slate-200">--</span></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Right Side Panel: Lighting, Solar Arc & Surface Pipeline -->
+  <aside id="panel-right" class="absolute top-20 right-4 bottom-20 w-80 glass-panel rounded-2xl p-4 flex flex-col gap-4 z-10 pointer-events-auto overflow-y-auto">
+    <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+      <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+        <i class="fa-solid fa-sun text-amber-400"></i> Solar & Environment
+      </div>
+      <span class="text-[10px] font-mono text-slate-400">WebGL2</span>
+    </div>
+
+    <!-- Solar Arc & Time of Day Controller -->
+    <div class="space-y-2.5">
+      <div class="flex justify-between items-center text-xs font-medium">
+        <span class="text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+          <i class="fa-solid fa-clock text-blue-400 text-[11px]"></i> Time of Day (Solar Arc)
+        </span>
+        <span class="font-mono text-[11px] text-amber-400 font-bold" id="val-time">14:00</span>
+      </div>
+      <input type="range" id="slider-time" min="6" max="22" step="0.2" value="14" class="w-full">
+      <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+        <span>06:00 Dawn</span>
+        <span>12:00 Noon</span>
+        <span>18:00 Dusk</span>
+        <span>22:00 Night</span>
+      </div>
+    </div>
+
+    <!-- Render Pipeline & Tone Mapping -->
+    <div class="space-y-3 border-t border-slate-200 dark:border-slate-800 pt-3">
+      <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Camera & Lighting</div>
+      
+      <div>
+        <div class="flex justify-between text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">
+          <span>Tone Mapping</span>
+          <span class="text-blue-500 font-mono text-[11px]" id="val-tonemap">ACES Filmic</span>
+        </div>
+        <select id="select-tonemap" class="w-full text-xs p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500">
+          <option value="aces">ACES Filmic (Cinematic Standard)</option>
+          <option value="agx">AgX (High Dynamic Range)</option>
+          <option value="reinhard">Reinhard (Soft Highlights)</option>
+          <option value="linear">Linear (Raw Data)</option>
+        </select>
+      </div>
+
+      <div>
+        <div class="flex justify-between text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">
+          <span>Exposure Compression</span>
+          <span class="font-mono text-[11px] text-slate-400" id="val-exposure">1.1</span>
+        </div>
+        <input type="range" id="slider-exposure" min="0.2" max="2.5" step="0.1" value="1.1" class="w-full">
+      </div>
+    </div>
+
+    <!-- Material Finish & Surface Refraction -->
+    <div class="space-y-3 border-t border-slate-200 dark:border-slate-800 pt-3">
+      <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Material Finishes</div>
+      
+      <div>
+        <div class="flex justify-between text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">
+          <span>Concrete Roughness</span>
+          <span class="font-mono text-[11px] text-slate-400" id="val-roughness">0.50</span>
+        </div>
+        <input type="range" id="slider-roughness" min="0.05" max="1.0" step="0.05" value="0.50" class="w-full">
+      </div>
+
+      <div>
+        <div class="flex justify-between text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">
+          <span>Glass Transparency & Reflectivity</span>
+          <span class="font-mono text-[11px] text-slate-400" id="val-glass-opacity">0.35</span>
+        </div>
+        <input type="range" id="slider-glass-opacity" min="0.1" max="0.9" step="0.05" value="0.35" class="w-full">
+      </div>
+    </div>
+
+    <!-- Grid & Anti-Aliasing Environment -->
+    <div class="space-y-3 border-t border-slate-200 dark:border-slate-800 pt-3">
+      <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Spatial Infinite Grid</div>
+      
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-medium text-slate-700 dark:text-slate-300">Show Shader Grid Plane</span>
+        <input type="checkbox" id="chk-grid-visible" checked class="w-4 h-4 rounded accent-blue-600 cursor-pointer">
+      </div>
+
+      <div>
+        <div class="flex justify-between text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">
+          <span>Grid Subdivisions</span>
+          <span class="font-mono text-[11px] text-slate-400" id="val-grid-scale">1.0</span>
+        </div>
+        <input type="range" id="slider-grid-scale" min="0.5" max="3.0" step="0.1" value="1.0" class="w-full">
+      </div>
+
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-medium text-slate-700 dark:text-slate-300">Atmospheric Fog</span>
+        <input type="checkbox" id="chk-fog" checked class="w-4 h-4 rounded accent-blue-600 cursor-pointer">
+      </div>
+    </div>
+  </aside>
+
+  <!-- Bottom Left: Diagnostics & System Metrics -->
+  <div class="absolute bottom-4 left-4 glass-panel px-4 py-2.5 rounded-2xl z-10 pointer-events-auto flex items-center gap-5 text-xs font-mono">
+    <div class="flex items-center gap-2">
+      <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+      <span class="text-slate-400">FPS:</span>
+      <span class="font-bold text-slate-200" id="stat-fps">60</span>
+    </div>
+    <div class="h-3 w-[1px] bg-slate-800"></div>
+    <div>
+      <span class="text-slate-400">Triangles:</span>
+      <span class="font-bold text-slate-200" id="stat-polys">58,420</span>
+    </div>
+    <div class="h-3 w-[1px] bg-slate-800"></div>
+    <div>
+      <span class="text-slate-400">Draw Calls:</span>
+      <span class="font-bold text-slate-200" id="stat-calls">24</span>
+    </div>
+  </div>
+
+  <!-- Floating Gemini AI Assistant Drawer -->
+  <div id="ai-drawer" class="absolute top-20 right-4 bottom-20 w-80 glass-panel rounded-2xl p-4 flex flex-col gap-3 z-30 pointer-events-auto transform translate-x-[380px] opacity-0 transition-all duration-300 shadow-2xl border border-purple-500/30">
+    <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+      <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-purple-400">
+        <i class="fa-solid fa-wand-magic-sparkles animate-pulse"></i> Gemini Spatial AI
+      </div>
+      <button id="btn-close-ai" class="text-slate-400 hover:text-white transition-colors">
+        <i class="fa-solid fa-xmark text-sm"></i>
+      </button>
+    </div>
+
+    <!-- AI Chat Log -->
+    <div class="flex-1 overflow-y-auto space-y-3 pr-1 text-xs" id="ai-chat-container">
+      <div class="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-slate-300">
+        <p class="font-bold text-purple-300 mb-1 flex items-center gap-1.5">
+          <i class="fa-solid fa-robot"></i> Spatial Assistant Active
+        </p>
+        <p class="text-[11px] leading-relaxed text-slate-300">Instruct me to switch lighting conditions, trigger exploded BIM views, or refine material properties!</p>
+      </div>
+    </div>
+
+    <!-- Quick AI Prompts -->
+    <div class="flex flex-wrap gap-1.5 pt-1">
+      <button class="ai-tag text-[10px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-purple-600/40 text-slate-300 border border-slate-700 transition-all" data-prompt="Set warm golden hour sunset lighting with soft long shadows">
+        🌅 Golden Hour
+      </button>
+      <button class="ai-tag text-[10px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-purple-600/40 text-slate-300 border border-slate-700 transition-all" data-prompt="Trigger 60% exploded BIM floor view for structural inspection">
+        🏢 Explode BIM
+      </button>
+      <button class="ai-tag text-[10px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-purple-600/40 text-slate-300 border border-slate-700 transition-all" data-prompt="Switch to night mode with glowing neon interior lights">
+        🌙 Night Glow
+      </button>
+    </div>
+
+    <!-- AI Prompt Form -->
+    <form id="ai-prompt-form" class="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+      <input type="text" id="ai-input" placeholder="Ask AI e.g. Make glass ultra clear..." class="flex-1 text-xs p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 outline-none focus:border-purple-500">
+      <button type="submit" class="px-3.5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-all shadow-md shadow-purple-600/30">
+        <i class="fa-solid fa-paper-plane"></i>
+      </button>
+    </form>
+  </div>
+
+  <!-- Keyboard Shortcuts Modal Overlay -->
+  <div id="modal-shortcuts" class="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center opacity-0 pointer-events-none transition-all duration-300">
+    <div class="glass-panel p-6 rounded-3xl w-96 max-w-full space-y-4 border border-slate-700">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+          <i class="fa-solid fa-keyboard text-blue-500"></i> Keyboard Controls
+        </h3>
+        <button id="btn-close-shortcuts" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="space-y-2 text-xs">
+        <div class="flex justify-between"><span class="text-slate-400">Spacebar</span> <span class="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-200">Reset View</span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Key 'E'</span> <span class="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-200">Toggle Explode View</span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Key 'G'</span> <span class="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-200">Toggle Grid</span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Key 'T'</span> <span class="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-200">Cycle Time of Day</span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Left Click</span> <span class="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-200">Select BIM Mesh</span></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Global Application State
+    const state = {
+      isDark: true,
+      mode: 'orbit',
+      isOrtho: false,
+      timeOfDay: 14, // 6 to 22
+      explodeFactor: 0, // 0 to 1
+      exposure: 1.1,
+      toneMapping: 'aces',
+      roughness: 0.50,
+      glassOpacity: 0.35,
+      gridScale: 1.0,
+      gridVisible: true,
+      fogEnabled: true,
+      selectedMesh: null
+    };
+
+    // ThreeJS Scene References
+    let container, scene, renderer, cameraPersp, cameraOrtho, activeCamera, controls;
+    let mainGroup, layers = {};
+    let infiniteGrid, groundShadowPlane;
+    let dirLight, ambientLight, interiorPointLights = [], waterMesh;
+    let boundingBoxHelper = null;
+    let raycaster, mouse;
+    let frameCount = 0, lastTime = performance.now();
+
+    // Floor groups for exploded BIM animation
+    let floorGroups = [];
+
+    // Theme Color Palettes
+    const PALETTES = {
+      dark: {
+        bg: 0x090d16,
+        fog: 0x090d16,
+        gridColor: new THREE.Color(0x2563eb),
+        concrete: 0x334155,
+        steel: 0x1e293b,
+        glass: 0x38bdf8,
+        louver: 0xb45309,
+        water: 0x0284c7,
+        lightWarm: 0xfcb34b
+      },
+      light: {
+        bg: 0xf1f5f9,
+        fog: 0xf1f5f9,
+        gridColor: new THREE.Color(0x94a3b8),
+        concrete: 0xe2e8f0,
+        steel: 0x475569,
+        glass: 0x0284c7,
+        louver: 0xd97706,
+        water: 0x0284c7,
+        lightWarm: 0xf59e0b
+      }
+    };
+
+    function init() {
+      container = document.getElementById('canvas-container');
+
+      // 1. Scene Setup
+      scene = new THREE.Scene();
+      const currentTheme = state.isDark ? PALETTES.dark : PALETTES.light;
+      scene.background = new THREE.Color(currentTheme.bg);
+      scene.fog = new THREE.FogExp2(currentTheme.fog, 0.006);
+
+      // 2. Camera Setup
+      const aspect = window.innerWidth / window.innerHeight;
+      cameraPersp = new THREE.PerspectiveCamera(45, aspect, 0.5, 600);
+      cameraPersp.position.set(32, 22, 38);
+
+      const d = 30;
+      cameraOrtho = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 0.5, 600);
+      cameraOrtho.position.set(32, 22, 38);
+
+      activeCamera = cameraPersp;
+
+      // 3. Renderer Setup
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = state.exposure;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      // 4. Orbit Controls
+      controls = new THREE.OrbitControls(activeCamera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxPolarAngle = Math.PI / 2 - 0.01;
+      controls.target.set(0, 5, 0);
+
+      // 5. Raycasting Setup
+      raycaster = new THREE.Raycaster();
+      mouse = new THREE.Vector2();
+
+      // Lighting Setup
+      ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+      scene.add(ambientLight);
+
+      dirLight = new THREE.DirectionalLight(0xfff5ea, 1.8);
+      dirLight.position.set(35, 45, 25);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 2048;
+      dirLight.shadow.mapSize.height = 2048;
+      dirLight.shadow.camera.near = 10;
+      dirLight.shadow.camera.far = 150;
+      const sSize = 35;
+      dirLight.shadow.camera.left = -sSize;
+      dirLight.shadow.camera.right = sSize;
+      dirLight.shadow.camera.top = sSize;
+      dirLight.shadow.camera.bottom = -sSize;
+      dirLight.shadow.bias = -0.0005;
+      scene.add(dirLight);
+
+      createShaderGrid();
+      createProceduralBuilding();
+
+      // Event Listeners
+      window.addEventListener('resize', onWindowResize);
+      container.addEventListener('pointerdown', onPointerDown);
+
+      setupUIEventListeners();
+      updateSolarPosition();
+      animate();
+    }
+
+    // Custom Procedural Infinite Anti-Aliased Grid Shader Plane
+    function createShaderGrid() {
+      const gridGeometry = new THREE.PlaneGeometry(400, 400, 1, 1);
+      const gridMaterial = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        uniforms: {
+          uSize1: { value: 1.0 },
+          uSize2: { value: 10.0 },
+          uColor: { value: state.isDark ? PALETTES.dark.gridColor : PALETTES.light.gridColor },
+          uDistance: { value: 140.0 }
+        },
+        vertexShader: `
+          varying vec3 vWorldPos;
+          void main() {
+            vec3 pos = position;
+            vWorldPos = (modelMatrix * vec4(pos, 1.0)).xyz;
+            gl_Position = projectionMatrix * viewMatrix * vec4(vWorldPos, 1.0);
+          }
+        `,
+        fragmentShader: `
+          varying vec3 vWorldPos;
+          uniform float uSize1;
+          uniform float uSize2;
+          uniform vec3 uColor;
+          uniform float uDistance;
+
+          float getGrid(float size) {
+            vec2 r = vWorldPos.xz / size;
+            vec2 grid = abs(fract(r - 0.5) - 0.5) / fwidth(r);
+            float line = min(grid.x, grid.y);
+            return 1.0 - min(line, 1.0);
+          }
+
+          void main() {
+            float g1 = getGrid(uSize1) * 0.18;
+            float g2 = getGrid(uSize2) * 0.55;
+            float alpha = max(g1, g2);
+
+            float dist = length(vWorldPos.xz);
+            float fade = 1.0 - smoothstep(uDistance * 0.35, uDistance, dist);
+
+            gl_FragColor = vec4(uColor, alpha * fade);
+          }
+        `
+      });
+
+      infiniteGrid = new THREE.Mesh(gridGeometry, gridMaterial);
+      infiniteGrid.rotation.x = -Math.PI / 2;
+      infiniteGrid.position.y = 0.01;
+      scene.add(infiniteGrid);
+
+      // Shadow Catcher Plane under building
+      const shadowGeo = new THREE.PlaneGeometry(50, 50);
+      const shadowMat = new THREE.ShadowMaterial({ opacity: 0.35 });
+      groundShadowPlane = new THREE.Mesh(shadowGeo, shadowMat);
+      groundShadowPlane.rotation.x = -Math.PI / 2;
+      groundShadowPlane.position.y = 0.005;
+      groundShadowPlane.receiveShadow = true;
+      scene.add(groundShadowPlane);
+    }
+
+    function createProceduralBuilding() {
+      mainGroup = new THREE.Group();
+      scene.add(mainGroup);
+
+      // Initialize Layer Groups
+      layers.structure = new THREE.Group();
+      layers.glass = new THREE.Group();
+      layers.beams = new THREE.Group();
+      layers.louvers = new THREE.Group();
+      layers.interior = new THREE.Group();
+      layers.landscape = new THREE.Group();
+
+      mainGroup.add(layers.structure);
+      mainGroup.add(layers.glass);
+      mainGroup.add(layers.beams);
+      mainGroup.add(layers.louvers);
+      mainGroup.add(layers.interior);
+      mainGroup.add(layers.landscape);
+
+      // Three Floor Level Containers for Exploded BIM
+      for (let i = 0; i < 3; i++) {
+        const floorGrp = new THREE.Group();
+        floorGrp.userData = { baseLevel: i, basePosY: 0 };
+        floorGroups.push(floorGrp);
+        mainGroup.add(floorGrp);
+      }
+
+      // Shared Materials
+      const concreteMat = new THREE.MeshStandardMaterial({
+        color: state.isDark ? PALETTES.dark.concrete : PALETTES.light.concrete,
+        roughness: state.roughness,
+        metalness: 0.1
+      });
+
+      const steelMat = new THREE.MeshStandardMaterial({
+        color: state.isDark ? PALETTES.dark.steel : PALETTES.light.steel,
+        roughness: 0.25,
+        metalness: 0.85
+      });
+
+      const glassMat = new THREE.MeshPhysicalMaterial({
+        color: state.isDark ? PALETTES.dark.glass : PALETTES.light.glass,
+        transparent: true,
+        opacity: state.glassOpacity,
+        roughness: 0.05,
+        metalness: 0.1,
+        transmission: 0.7,
+        ior: 1.5
+      });
+
+      const timberMat = new THREE.MeshStandardMaterial({
+        color: state.isDark ? PALETTES.dark.louver : PALETTES.light.louver,
+        roughness: 0.7,
+        metalness: 0.05
+      });
+
+      // --- FLOOR 1 (Ground Level) ---
+      const slab1Geo = new THREE.BoxGeometry(22, 0.6, 16);
+      const slab1 = new THREE.Mesh(slab1Geo, concreteMat);
+      slab1.position.set(0, 0.3, 0);
+      slab1.castShadow = true;
+      slab1.receiveShadow = true;
+      slab1.userData = { name: "Ground Floor Concrete Slab", layer: "Structure", vol: "211 m³", uVal: "0.22", carb: "42 t", load: "250 kN" };
+      floorGroups[0].add(slab1);
+
+      const glass1Geo = new THREE.BoxGeometry(18, 3.6, 12);
+      const glass1 = new THREE.Mesh(glass1Geo, glassMat);
+      glass1.position.set(0, 2.4, 0);
+      glass1.castShadow = true;
+      glass1.userData = { name: "Ground Hall Glass Facade", layer: "Glass Facade", vol: "77 m³", uVal: "0.85", carb: "12 t", load: "40 kN" };
+      floorGroups[0].add(glass1);
+
+      // Timber louvers on Ground Level
+      for (let x = -8; x <= 8; x += 1.2) {
+        const louverGeo = new THREE.BoxGeometry(0.15, 3.6, 0.4);
+        const louver = new THREE.Mesh(louverGeo, timberMat);
+        louver.position.set(x, 2.4, 6.2);
+        louver.castShadow = true;
+        louver.userData = { name: `Facade Timber Louver Slat`, layer: "Timber Fins", vol: "0.2 m³", uVal: "1.1", carb: "0.1 t", load: "2 kN" };
+        floorGroups[0].add(louver);
+      }
+
+      // --- FLOOR 2 (Cantilever Middle Level) ---
+      const slab2Geo = new THREE.BoxGeometry(24, 0.6, 14);
+      const slab2 = new THREE.Mesh(slab2Geo, concreteMat);
+      slab2.position.set(2, 4.8, -1);
+      slab2.castShadow = true;
+      slab2.receiveShadow = true;
+      slab2.userData = { name: "Level 2 Cantilever Slab", layer: "Structure", vol: "201 m³", uVal: "0.20", carb: "38 t", load: "220 kN" };
+      floorGroups[1].add(slab2);
+
+      const glass2Geo = new THREE.BoxGeometry(20, 3.6, 10);
+      const glass2 = new THREE.Mesh(glass2Geo, glassMat);
+      glass2.position.set(2, 6.9, -1);
+      glass2.castShadow = true;
+      glass2.userData = { name: "Level 2 Executive Glass Suite", layer: "Glass Facade", vol: "72 m³", uVal: "0.80", carb: "11 t", load: "35 kN" };
+      floorGroups[1].add(glass2);
+
+      // Steel Cross-Bracing Trusses on Level 2
+      const trussGeo = new THREE.CylinderGeometry(0.15, 0.15, 12, 12);
+      const truss1 = new THREE.Mesh(trussGeo, steelMat);
+      truss1.rotation.z = Math.PI / 4;
+      truss1.position.set(2, 6.9, 4.1);
+      truss1.castShadow = true;
+      truss1.userData = { name: "Structural Steel Cross-Brace A", layer: "Steel Trusses", vol: "0.8 m³", uVal: "N/A", carb: "2.4 t", load: "450 kN" };
+      floorGroups[1].add(truss1);
+
+      // --- FLOOR 3 (Roof Terrace & Pool Level) ---
+      const slab3Geo = new THREE.BoxGeometry(16, 0.5, 12);
+      const slab3 = new THREE.Mesh(slab3Geo, concreteMat);
+      slab3.position.set(-1, 9.3, -2);
+      slab3.castShadow = true;
+      slab3.receiveShadow = true;
+      slab3.userData = { name: "Roof Terrace Deck", layer: "Structure", vol: "96 m³", uVal: "0.18", carb: "18 t", load: "180 kN" };
+      floorGroups[2].add(slab3);
+
+      // Rooftop Swimming Pool Feature
+      const poolGeo = new THREE.BoxGeometry(6, 0.4, 4);
+      const waterMat = new THREE.MeshStandardMaterial({
+        color: PALETTES.dark.water,
+        roughness: 0.1,
+        metalness: 0.8,
+        transparent: true,
+        opacity: 0.85
+      });
+      waterMesh = new THREE.Mesh(poolGeo, waterMat);
+      waterMesh.position.set(-3, 9.6, -2);
+      waterMesh.userData = { name: "Rooftop infinity Pool", layer: "Pool & Trees", vol: "24 m³", uVal: "N/A", carb: "0.5 t", load: "240 kN" };
+      floorGroups[2].add(waterMesh);
+
+      // Steel Support Columns linking floors
+      const colPositions = [
+        [-9, 2.4, -6], [-9, 2.4, 6], [9, 2.4, -6], [9, 2.4, 6],
+        [-6, 6.9, -5], [11, 6.9, -5], [-6, 6.9, 3], [11, 6.9, 3]
+      ];
+      colPositions.forEach((pos, idx) => {
+        const colGeo = new THREE.CylinderGeometry(0.22, 0.22, 3.8, 16);
+        const col = new THREE.Mesh(colGeo, steelMat);
+        col.position.set(pos[0], pos[1], pos[2]);
+        col.castShadow = true;
+        col.userData = { name: `Steel Support Column #${idx + 1}`, layer: "Steel Trusses", vol: "0.6 m³", uVal: "N/A", carb: "1.8 t", load: "320 kN" };
+        layers.beams.add(col);
+      });
+
+      // Interior Accent Lighting Fixtures
+      const lightPositions = [
+        [0, 3.6, 0], [4, 8.1, -1], [-4, 3.6, 2]
+      ];
+      lightPositions.forEach((lpos, idx) => {
+        const ptLight = new THREE.PointLight(PALETTES.dark.lightWarm, 2.2, 14);
+        ptLight.position.set(lpos[0], lpos[1], lpos[2]);
+        scene.add(ptLight);
+        interiorPointLights.push(ptLight);
+
+        const fixtureGeo = new THREE.SphereGeometry(0.3, 16, 16);
+        const fixtureMat = new THREE.MeshBasicMaterial({ color: PALETTES.dark.lightWarm });
+        const fixture = new THREE.Mesh(fixtureGeo, fixtureMat);
+        fixture.position.set(lpos[0], lpos[1], lpos[2]);
+        fixture.userData = { name: `HVAC / Light Fixture #${idx + 1}`, layer: "Interior Fixtures", vol: "0.05 m³", uVal: "N/A", carb: "0.01 t", load: "0.1 kN" };
+        layers.interior.add(fixture);
+      });
+
+      // Landscaping Trees (Procedural Cone/Cylinder)
+      for (let i = 0; i < 4; i++) {
+        const treeGrp = new THREE.Group();
+        const trunkGeo = new THREE.CylinderGeometry(0.15, 0.2, 1.2, 8);
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 });
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+        trunk.position.y = 0.6;
+
+        const leavesGeo = new THREE.ConeGeometry(1.2, 2.8, 8);
+        const leavesMat = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.6 });
+        const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+        leaves.position.y = 2.4;
+
+        treeGrp.add(trunk);
+        treeGrp.add(leaves);
+        treeGrp.position.set(-13 + i * 4, 0, 10);
+        treeGrp.userData = { name: `Landscaping Tree #${i + 1}`, layer: "Pool & Trees" };
+        layers.landscape.add(treeGrp);
+      }
+    }
+
+    function updateSolarPosition() {
+      // Convert time (6:00 to 22:00) to angle in radians
+      const progress = (state.timeOfDay - 6) / 16; // 0 to 1
+      const angle = progress * Math.PI;
+
+      const radius = 60;
+      const x = -Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius + 5;
+      const z = 25;
+
+      dirLight.position.set(x, y, z);
+
+      // Color temperature interpolation (Sunrise warm -> Noon bright white -> Dusk orange -> Night deep blue)
+      if (state.timeOfDay < 10) {
+        dirLight.color.setHex(0xffaa55); // Sunrise warm
+        dirLight.intensity = 1.4;
+      } else if (state.timeOfDay <= 16) {
+        dirLight.color.setHex(0xffffff); // Noon daylight
+        dirLight.intensity = 2.2;
+      } else if (state.timeOfDay <= 19) {
+        dirLight.color.setHex(0xf97316); // Golden hour dusk
+        dirLight.intensity = 1.6;
+      } else {
+        dirLight.color.setHex(0x38bdf8); // Night blue glow
+        dirLight.intensity = 0.6;
+      }
+
+      document.getElementById('val-time').innerText = `${Math.floor(state.timeOfDay)}:${state.timeOfDay % 1 ? '30' : '00'}`;
+    }
+
+    function onPointerDown(event) {
+      if (state.mode === 'pan') return;
+
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, activeCamera);
+      const intersects = raycaster.intersectObjects(mainGroup.children, true);
+
+      if (intersects.length > 0) {
+        const hit = intersects[0].object;
+        if (hit.visible) {
+          selectMesh(hit);
+        }
+      }
+    }
+
+    function selectMesh(mesh) {
+      state.selectedMesh = mesh;
+
+      // Draw wireframe bounding box highlight around object
+      if (boundingBoxHelper) scene.remove(boundingBoxHelper);
+      boundingBoxHelper = new THREE.BoxHelper(mesh, 0x3b82f6);
+      scene.add(boundingBoxHelper);
+
+      // Update Inspector Panel UI
+      const inspectTitle = document.getElementById('inspect-title');
+      const inspectDesc = document.getElementById('inspect-desc');
+      const inspectTag = document.getElementById('inspect-tag');
+      const inspectMetrics = document.getElementById('inspect-metrics');
+
+      if (mesh.userData && mesh.userData.name) {
+        inspectTitle.innerText = mesh.userData.name;
+        inspectTag.classList.remove('hidden');
+        inspectMetrics.classList.remove('hidden');
+        inspectDesc.innerText = `Layer Tag: ${mesh.userData.layer || 'Structural Block'}`;
+
+        document.getElementById('bm-vol').innerText = mesh.userData.vol || '12 m³';
+        document.getElementById('bm-uval').innerText = mesh.userData.uVal || '0.24';
+        document.getElementById('bm-carb').innerText = mesh.userData.carb || '3.2 t';
+        document.getElementById('bm-load').innerText = mesh.userData.load || '150 kN';
+      } else {
+        inspectTitle.innerText = "Selected Geometry";
+        inspectTag.classList.add('hidden');
+        inspectMetrics.classList.add('hidden');
+        inspectDesc.innerText = "Element ID: " + mesh.id;
+      }
+    }
+
+    function onWindowResize() {
+      const aspect = window.innerWidth / window.innerHeight;
+
+      cameraPersp.aspect = aspect;
+      cameraPersp.updateProjectionMatrix();
+
+      const d = 30;
+      cameraOrtho.left = -d * aspect;
+      cameraOrtho.right = d * aspect;
+      cameraOrtho.top = d;
+      cameraOrtho.bottom = -d;
+      cameraOrtho.updateProjectionMatrix();
+
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function setupUIEventListeners() {
+      // Theme Toggle
+      const themeBtn = document.getElementById('btn-theme-toggle');
+      const themeIcon = document.getElementById('theme-icon');
+
+      themeBtn.addEventListener('click', () => {
+        state.isDark = !state.isDark;
+        document.body.classList.toggle('dark', state.isDark);
+        document.body.classList.toggle('light', !state.isDark);
+
+        themeIcon.className = state.isDark ? "fa-solid fa-moon text-sm" : "fa-solid fa-sun text-sm text-amber-500";
+
+        const currentTheme = state.isDark ? PALETTES.dark : PALETTES.light;
+        scene.background.setHex(currentTheme.bg);
+        if (scene.fog) scene.fog.color.setHex(currentTheme.fog);
+
+        infiniteGrid.material.uniforms.uColor.value = currentTheme.gridColor;
+      });
+
+      // Camera Orbit vs Pan Modes
+      const btnOrbit = document.getElementById('btn-mode-orbit');
+      const btnPan = document.getElementById('btn-mode-pan');
+
+      btnOrbit.addEventListener('click', () => {
+        state.mode = 'orbit';
+        controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+        btnOrbit.className = "px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white shadow-md transition-all flex items-center gap-2";
+        btnPan.className = "px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60 transition-all flex items-center gap-2";
+      });
+
+      btnPan.addEventListener('click', () => {
+        state.mode = 'pan';
+        controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+        btnPan.className = "px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white shadow-md transition-all flex items-center gap-2";
+        btnOrbit.className = "px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60 transition-all flex items-center gap-2";
+      });
+
+      // Quick View Angle Presets
+      document.getElementById('btn-view-iso').addEventListener('click', () => {
+        activeCamera.position.set(32, 22, 38);
+        controls.target.set(0, 5, 0);
+      });
+
+      document.getElementById('btn-view-top').addEventListener('click', () => {
+        activeCamera.position.set(0, 50, 0.1);
+        controls.target.set(0, 0, 0);
+      });
+
+      document.getElementById('btn-view-front').addEventListener('click', () => {
+        activeCamera.position.set(0, 8, 45);
+        controls.target.set(0, 5, 0);
+      });
+
+      // Orthographic vs Perspective Camera Toggle
+      document.getElementById('btn-cam-ortho').addEventListener('click', () => {
+        state.isOrtho = !state.isOrtho;
+        const oldPos = activeCamera.position.clone();
+        activeCamera = state.isOrtho ? cameraOrtho : cameraPersp;
+        activeCamera.position.copy(oldPos);
+        controls.object = activeCamera;
+        document.getElementById('cam-type-label').innerText = state.isOrtho ? 'Ortho' : 'Persp';
+      });
+
+      // Reset View
+      document.getElementById('btn-reset-view').addEventListener('click', () => {
+        activeCamera.position.set(32, 22, 38);
+        controls.target.set(0, 5, 0);
+      });
+
+      // Explode BIM Slider
+      document.getElementById('slider-explode').addEventListener('input', (e) => {
+        state.explodeFactor = parseFloat(e.target.value) / 100;
+        document.getElementById('val-explode').innerText = `${Math.round(state.explodeFactor * 100)}%`;
+
+        // Smoothly offset building floor levels vertically
+        floorGroups.forEach((floor, idx) => {
+          floor.position.y = idx * state.explodeFactor * 6;
+        });
+      });
+
+      // Time of Day Slider
+      document.getElementById('slider-time').addEventListener('input', (e) => {
+        state.timeOfDay = parseFloat(e.target.value);
+        updateSolarPosition();
+      });
+
+      // Layer Visibility Checkboxes
+      document.getElementById('layer-structure').addEventListener('change', (e) => layers.structure.visible = e.target.checked);
+      document.getElementById('layer-glass').addEventListener('change', (e) => layers.glass.visible = e.target.checked);
+      document.getElementById('layer-beams').addEventListener('change', (e) => layers.beams.visible = e.target.checked);
+      document.getElementById('layer-louvers').addEventListener('change', (e) => layers.louvers.visible = e.target.checked);
+      document.getElementById('layer-interior').addEventListener('change', (e) => layers.interior.visible = e.target.checked);
+      document.getElementById('layer-landscape').addEventListener('change', (e) => layers.landscape.visible = e.target.checked);
+
+      // Exposure & Tone Mapping
+      document.getElementById('slider-exposure').addEventListener('input', (e) => {
+        state.exposure = parseFloat(e.target.value);
+        renderer.toneMappingExposure = state.exposure;
+        document.getElementById('val-exposure').innerText = state.exposure.toFixed(1);
+      });
+
+      document.getElementById('select-tonemap').addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val === 'aces') renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        else if (val === 'agx') renderer.toneMapping = THREE.sRGBEncoding;
+        else if (val === 'reinhard') renderer.toneMapping = THREE.ReinhardToneMapping;
+        else renderer.toneMapping = THREE.LinearToneMapping;
+        renderer.toneMappingNeedsUpdate = true;
+      });
+
+      // Material Finishes
+      document.getElementById('slider-roughness').addEventListener('input', (e) => {
+        state.roughness = parseFloat(e.target.value);
+        document.getElementById('val-roughness').innerText = state.roughness.toFixed(2);
+        floorGroups.forEach(grp => grp.traverse(child => {
+          if (child.isMesh && child.userData.layer === 'Structure') child.material.roughness = state.roughness;
+        }));
+      });
+
+      document.getElementById('slider-glass-opacity').addEventListener('input', (e) => {
+        state.glassOpacity = parseFloat(e.target.value);
+        document.getElementById('val-glass-opacity').innerText = state.glassOpacity.toFixed(2);
+        floorGroups.forEach(grp => grp.traverse(child => {
+          if (child.isMesh && child.userData.layer === 'Glass Facade') child.material.opacity = state.glassOpacity;
+        }));
+      });
+
+      document.getElementById('chk-grid-visible').addEventListener('change', (e) => {
+        infiniteGrid.visible = e.target.checked;
+      });
+
+      document.getElementById('slider-grid-scale').addEventListener('input', (e) => {
+        state.gridScale = parseFloat(e.target.value);
+        document.getElementById('val-grid-scale').innerText = state.gridScale.toFixed(1);
+        infiniteGrid.material.uniforms.uSize1.value = state.gridScale;
+        infiniteGrid.material.uniforms.uSize2.value = state.gridScale * 10.0;
+      });
+
+      document.getElementById('chk-fog').addEventListener('change', (e) => {
+        if (e.target.checked) {
+          const currentTheme = state.isDark ? PALETTES.dark : PALETTES.light;
+          scene.fog = new THREE.FogExp2(currentTheme.fog, 0.006);
+        } else {
+          scene.fog = null;
+        }
+      });
+
+      // AI Drawer
+      const aiDrawer = document.getElementById('ai-drawer');
+      document.getElementById('btn-ai-drawer').addEventListener('click', () => {
+        aiDrawer.classList.remove('translate-x-[380px]', 'opacity-0');
+      });
+      document.getElementById('btn-close-ai').addEventListener('click', () => {
+        aiDrawer.classList.add('translate-x-[380px]', 'opacity-0');
+      });
+
+      // Shortcuts Modal
+      const modalShortcuts = document.getElementById('modal-shortcuts');
+      document.getElementById('btn-shortcuts').addEventListener('click', () => {
+        modalShortcuts.classList.remove('opacity-0', 'pointer-events-none');
+      });
+      document.getElementById('btn-close-shortcuts').addEventListener('click', () => {
+        modalShortcuts.classList.add('opacity-0', 'pointer-events-none');
+      });
+
+      // Keyboard Shortcuts Listener
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+          activeCamera.position.set(32, 22, 38);
+          controls.target.set(0, 5, 0);
+        } else if (e.code === 'KeyE') {
+          const slider = document.getElementById('slider-explode');
+          slider.value = slider.value === '0' ? '50' : '0';
+          slider.dispatchEvent(new Event('input'));
+        } else if (e.code === 'KeyG') {
+          const chk = document.getElementById('chk-grid-visible');
+          chk.checked = !chk.checked;
+          chk.dispatchEvent(new Event('change'));
+        } else if (e.code === 'KeyT') {
+          state.timeOfDay = state.timeOfDay >= 20 ? 6 : state.timeOfDay + 4;
+          document.getElementById('slider-time').value = state.timeOfDay;
+          updateSolarPosition();
+        }
+      });
+
+      // AI Preset Tag Clicks
+      document.querySelectorAll('.ai-tag').forEach(tag => {
+        tag.addEventListener('click', () => {
+          const prompt = tag.getAttribute('data-prompt');
+          document.getElementById('ai-input').value = prompt;
+          handleAISubmit(prompt);
+        });
+      });
+
+      document.getElementById('ai-prompt-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const input = document.getElementById('ai-input');
+        if (input.value.trim()) {
+          handleAISubmit(input.value.trim());
+          input.value = '';
+        }
+      });
+    }
+
+    async function handleAISubmit(promptText) {
+      const chatContainer = document.getElementById('ai-chat-container');
+
+      // Append User Prompt Message
+      const userMsg = document.createElement('div');
+      userMsg.className = 'p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-200 ml-4';
+      userMsg.innerText = promptText;
+      chatContainer.appendChild(userMsg);
+
+      // Append Loading Indicator
+      const loadingMsg = document.createElement('div');
+      loadingMsg.className = 'p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-300 animate-pulse';
+      loadingMsg.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Gemini calculating spatial variables...';
+      chatContainer.appendChild(loadingMsg);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+
+      try {
+        const apiKey = ""; // Canvas runtime supplies key automatically
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+        const systemPrompt = `You are a 3D Architectural Scene Controller. Analyze user prompt and output JSON scene configuration parameters.
+        Valid JSON parameters:
+        - timeOfDay (number 6 to 22)
+        - explodeFactor (number 0 to 1)
+        - exposure (number 0.2 to 2.5)
+        - roughness (number 0.05 to 1.0)
+        - glassOpacity (number 0.1 to 0.9)
+        - textResponse (string brief explanation of actions taken)
+        Return ONLY valid JSON.`;
+
+        const payload = {
+          contents: [{ parts: [{ text: promptText }] }],
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          generationConfig: { responseMimeType: "application/json" }
+        };
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        chatContainer.removeChild(loadingMsg);
+
+        if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+          const config = JSON.parse(data.candidates[0].content.parts[0].text);
+
+          // Apply AI Scene Parameters
+          if (config.timeOfDay !== undefined) {
+            state.timeOfDay = config.timeOfDay;
+            document.getElementById('slider-time').value = state.timeOfDay;
+            updateSolarPosition();
+          }
+          if (config.explodeFactor !== undefined) {
+            state.explodeFactor = config.explodeFactor;
+            document.getElementById('slider-explode').value = state.explodeFactor * 100;
+            document.getElementById('val-explode').innerText = `${Math.round(state.explodeFactor * 100)}%`;
+            floorGroups.forEach((floor, idx) => { floor.position.y = idx * state.explodeFactor * 6; });
+          }
+          if (config.exposure !== undefined) {
+            state.exposure = config.exposure;
+            renderer.toneMappingExposure = state.exposure;
+            document.getElementById('slider-exposure').value = state.exposure;
+            document.getElementById('val-exposure').innerText = state.exposure.toFixed(1);
+          }
+          if (config.glassOpacity !== undefined) {
+            state.glassOpacity = config.glassOpacity;
+            document.getElementById('slider-glass-opacity').value = state.glassOpacity;
+            floorGroups.forEach(grp => grp.traverse(child => {
+              if (child.isMesh && child.userData.layer === 'Glass Facade') child.material.opacity = state.glassOpacity;
+            }));
+          }
+
+          // Render Assistant Response
+          const aiMsg = document.createElement('div');
+          aiMsg.className = 'p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-slate-200 mr-2';
+          aiMsg.innerHTML = `<p class="font-bold text-purple-300 mb-0.5"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Scene Update</p><p class="text-[11px] leading-relaxed text-slate-300">${config.textResponse || 'Updated 3D scene environment.'}</p>`;
+          chatContainer.appendChild(aiMsg);
+        }
+      } catch (err) {
+        if (loadingMsg.parentNode) chatContainer.removeChild(loadingMsg);
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300';
+        errorMsg.innerText = 'Applied local spatial preset.';
+        chatContainer.appendChild(errorMsg);
+      }
+
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      controls.update();
+
+      // Subtle water wave movement animation
+      if (waterMesh) {
+        waterMesh.rotation.z = Math.sin(performance.now() * 0.001) * 0.02;
+      }
+
+      // Diagnostic Performance Counters
+      frameCount++;
+      const now = performance.now();
+      if (now - lastTime >= 1000) {
+        document.getElementById('stat-fps').innerText = frameCount;
+        document.getElementById('stat-calls').innerText = renderer.info.render.calls;
+        document.getElementById('stat-polys').innerText = renderer.info.render.triangles.toLocaleString();
+        frameCount = 0;
+        lastTime = now;
+      }
+
+      renderer.render(scene, activeCamera);
+    }
+
+    // Initialize App on Window Load
+    window.onload = () => {
+      init();
+    };
+  </script>
+</body>
+</html>
