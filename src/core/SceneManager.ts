@@ -16,7 +16,7 @@ export class SceneManager {
 
   constructor(config: SceneConfig = {}) {
     this.config = {
-      backgroundColor: getThemeColorAsHex('--color-scene-background', 0xf2f2f2),
+      backgroundColor: 0xF4F6F8,
       enableFog: false,
       fogColor: getThemeColorAsHex('--color-scene-fog', 0xcccccc),
       fogNear: 1,
@@ -51,26 +51,15 @@ export class SceneManager {
   }
   // Update scene colors based on current theme
   updateThemeColors(): void {
-    const isDarkTheme = document.documentElement.classList.contains('dark-theme');
-    
-    // Set appropriate background color based on theme
-    const backgroundColor = getThemeColorAsHex(
-      '--color-scene-background', 
-      isDarkTheme ? 0x050a1c : 0xf2f2f2
-    );
-    this.scene.background = new THREE.Color(backgroundColor);
+    this.scene.background = new THREE.Color(0xF4F6F8);
     
     // Update fog color and density if present
     if (this.scene.fog instanceof THREE.Fog) {
-      const fogColor = getThemeColorAsHex(
-        '--color-scene-fog', 
-        isDarkTheme ? 0x050a1c : 0xcccccc
-      );
-      this.scene.fog.color = new THREE.Color(fogColor);
+      this.scene.fog.color = new THREE.Color(0xF4F6F8);
       
       // Adjust fog density based on theme
-      this.scene.fog.near = isDarkTheme ? 150 : 250;
-      this.scene.fog.far = isDarkTheme ? 500 : 800;
+      this.scene.fog.near = 250;
+      this.scene.fog.far = 800;
     }
   }
 

@@ -18,7 +18,7 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
   return (
-    <div className="w-full h-screen bg-gray-900">
+    <div className="w-full h-screen bg-[#F4F6F8] text-slate-800">
       <SimpleBuildingCreator />
       <ThemeColorDebugger 
         isVisible={showDebugger} 

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import type { Pass } from 'three/examples/jsm/postprocessing/Pass.js';
-import { getThemeColorAsHex } from '../utils/themeColors';
+import { SceneAppearanceManager, type SceneAppearanceMode } from './SceneAppearanceManager';
 
 export interface RendererConfig {
   antialias?: boolean;
@@ -19,6 +19,7 @@ export class RendererManager {
   private composer: EffectComposer | null = null;
   private passes: Pass[] = [];
   private config: RendererConfig;
+  private readonly sceneAppearance = new SceneAppearanceManager();
 
   constructor(config: RendererConfig = {}) {
     this.config = {
@@ -127,7 +128,7 @@ export class RendererManager {
     if (this.composer) {
       // Update composer's render pass camera if it changed
       if (this.passes.length > 0 && 'camera' in this.passes[0]) {
-        const renderPass = this.passes[0] as any;
+        const renderPass = this.passes[0] as Pass & { camera: THREE.Camera };
         if (renderPass.camera !== camera) {
           renderPass.camera = camera;
         }
@@ -152,6 +153,7 @@ export class RendererManager {
   }
 
   dispose(): void {
+    this.sceneAppearance.restore();
     this.disposeComposer();
     
     // Dispose renderer resources
@@ -191,124 +193,8 @@ export class RendererManager {
     }
   }
 
-  private focusedBuildingId: string | null = null;
-  private originalMaterials: Map<THREE.Object3D, THREE.Material | THREE.Material[]> = new Map();
-  private originalShadowSettings: Map<THREE.Object3D, { castShadow: boolean; receiveShadow: boolean }> = new Map();
-
-  /**
-   * Enable selective focus on a specific building
-   */
-  async enableSelectiveFocus(buildingId: string, scene: THREE.Scene, _camera: THREE.Camera): Promise<void> {
-    this.focusedBuildingId = buildingId;
-    
-    // Use the proven material-based approach which works reliably
-    this.enableMaterialBasedFocus(buildingId, scene);
-    
-    console.log('Selective focus enabled for building:', buildingId);
+  setSceneAppearanceMode(scene: THREE.Scene, mode: SceneAppearanceMode): void {
+    this.sceneAppearance.setMode(scene, mode);
   }
 
-  /**
-   * Fallback method using material opacity changes
-   */
-  private enableMaterialBasedFocus(buildingId: string, scene: THREE.Scene): void {
-    // Store original materials and make non-focused objects semi-transparent and desaturated
-    scene.traverse((object: THREE.Object3D) => {
-      // Check if object has a material property (covers both Mesh and Line2 objects)
-      const hasMaterial = 'material' in object && object.material;
-      
-      if (hasMaterial) {
-        const materialObject = object as THREE.Object3D & { material: THREE.Material | THREE.Material[] };
-        
-        if (object.userData.buildingId !== buildingId && 
-            !object.userData.isGround) {
-          
-          // Store original material
-          this.originalMaterials.set(object, materialObject.material);
-          
-          // Store original shadow settings (only for Mesh objects)
-          if (object instanceof THREE.Mesh) {
-            this.originalShadowSettings.set(object, {
-              castShadow: object.castShadow,
-              receiveShadow: object.receiveShadow
-            });
-            
-            // Disable shadow casting for non-focused objects to reduce visual clutter
-            object.castShadow = false;
-            object.receiveShadow = true; // Keep receiving shadows for depth
-          }
-          
-          // Create a dimmed and desaturated version of the material
-          if (Array.isArray(materialObject.material)) {
-            const dimmedMaterials = materialObject.material.map(mat => {
-              const cloned = mat.clone();
-              cloned.transparent = true;
-              cloned.opacity = 0.15;  // More transparent
-              
-              // Desaturate the color if it's a colored material
-              if ('color' in cloned && cloned.color instanceof THREE.Color) {
-                const hsl = { h: 0, s: 0, l: 0 };
-                cloned.color.getHSL(hsl);
-                cloned.color.setHSL(hsl.h, hsl.s * 0.2, hsl.l * 0.7); // Reduce saturation and brightness
-              }
-              
-              return cloned;
-            });
-            materialObject.material = dimmedMaterials;
-          } else {
-            const dimmedMaterial = materialObject.material.clone();
-            dimmedMaterial.transparent = true;
-            dimmedMaterial.opacity = 0.15;  // More transparent
-            
-            // Desaturate the color if it's a colored material
-            if ('color' in dimmedMaterial && dimmedMaterial.color instanceof THREE.Color) {
-              const hsl = { h: 0, s: 0, l: 0 };
-              dimmedMaterial.color.getHSL(hsl);
-              dimmedMaterial.color.setHSL(hsl.h, hsl.s * 0.2, hsl.l * 0.7); // Reduce saturation and brightness
-            }
-            
-            materialObject.material = dimmedMaterial;
-          }
-        }
-      }
-    });
-    
-    console.log('Material-based focus enabled for building:', buildingId);
-  }
-
-  /**
-   * Disable selective focus
-   */
-  disableSelectiveFocus(): void {
-    this.focusedBuildingId = null;
-    
-    // Restore original materials
-    this.originalMaterials.forEach((originalMaterial, object) => {
-      // Check if object has a material property (covers both Mesh and Line2)
-      if ('material' in object && object.material) {
-        const materialObject = object as THREE.Object3D & { material: THREE.Material | THREE.Material[] };
-        
-        // Dispose cloned materials
-        if (Array.isArray(materialObject.material)) {
-          materialObject.material.forEach(mat => mat.dispose());
-        } else {
-          materialObject.material.dispose();
-        }
-        
-        // Restore original
-        materialObject.material = originalMaterial;
-      }
-    });
-    this.originalMaterials.clear();
-    
-    // Restore original shadow settings (only for Mesh objects)
-    this.originalShadowSettings.forEach((shadowSettings, object) => {
-      if (object instanceof THREE.Mesh) {
-        object.castShadow = shadowSettings.castShadow;
-        object.receiveShadow = shadowSettings.receiveShadow;
-      }
-    });
-    this.originalShadowSettings.clear();
-    
-    console.log('Selective focus disabled');
-  }
 }

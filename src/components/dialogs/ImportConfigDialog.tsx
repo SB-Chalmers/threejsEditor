@@ -4,7 +4,7 @@ import { Upload, X, FileText } from 'lucide-react';
 interface ImportConfigDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (config: any) => void;
+  onImport: (config: unknown) => void;
 }
 
 export const ImportConfigDialog: React.FC<ImportConfigDialogProps> = ({
@@ -78,27 +78,28 @@ export const ImportConfigDialog: React.FC<ImportConfigDialogProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
-      <div className="bg-gray-900 rounded-2xl border border-gray-700/50 shadow-2xl w-full max-w-md mx-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/15 backdrop-blur-sm">
+      <div className="mx-4 w-full max-w-sm rounded-xl border border-slate-200 bg-white shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
-          <h2 className="text-lg font-semibold text-white">Import Configuration</h2>
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <h2 className="text-[13px] font-semibold text-slate-900">Import configuration</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            className="rounded p-1 text-slate-500 hover:bg-slate-100"
             disabled={isLoading}
+            aria-label="Close"
           >
-            <X className="w-5 h-5 text-gray-400" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-4">
           <div
-            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+            className={`rounded-lg border border-dashed p-6 text-center transition-colors ${
               dragOver
-                ? 'border-blue-500 bg-blue-500/10'
-                : 'border-gray-600 hover:border-gray-500'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-slate-300 hover:border-slate-400'
             } ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
@@ -108,22 +109,22 @@ export const ImportConfigDialog: React.FC<ImportConfigDialogProps> = ({
               {isLoading ? (
                 <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
               ) : (
-                <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-gray-400" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-100">
+                  <FileText className="h-5 w-5 text-slate-500" />
                 </div>
               )}
               
               <div>
-                <div className="text-white font-medium mb-1">
+                <div className="mb-1 text-[12px] font-semibold text-slate-800">
                   {isLoading ? 'Processing...' : 'Drop JSON file here'}
                 </div>
-                <div className="text-gray-400 text-sm mb-3">
+                <div className="mb-3 text-[11px] text-slate-500">
                   or click to browse
                 </div>
                 <button
                   onClick={handleBrowseClick}
                   disabled={isLoading}
-                  className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors mx-auto"
+                  className="mx-auto flex h-8 items-center gap-1.5 rounded-md bg-blue-600 px-3 text-[11px] font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   <Upload className="w-4 h-4" />
                   <span>Browse Files</span>
@@ -133,12 +134,12 @@ export const ImportConfigDialog: React.FC<ImportConfigDialogProps> = ({
           </div>
 
           {error && (
-            <div className="mt-4 p-3 bg-red-600/20 border border-red-600/50 rounded-lg">
-              <div className="text-red-400 text-sm">{error}</div>
+            <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 p-2.5">
+              <div className="text-[11px] text-rose-700">{error}</div>
             </div>
           )}
 
-          <div className="mt-4 text-xs text-gray-400">
+          <div className="mt-3 text-[10px] leading-4 text-slate-500">
             <div className="font-medium mb-1">Supported formats:</div>
             <ul className="space-y-1">
               <li>• Exported building configurations (JSON)</li>

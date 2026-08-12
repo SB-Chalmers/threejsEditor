@@ -13,6 +13,9 @@
  * No EnergyPlus run needed — EPSM pre-computes gwp_kgco2e_per_m2 per construction.
  */
 
+import { DEFAULT_FACADE_PARAMETERS } from './FacadeGeometry';
+import { calculateBuildingMetrics } from '../utils/buildingMetrics';
+
 const EPSM_BASE = (import.meta.env.VITE_EPSM_BASE_URL as string | undefined) ?? '/api/epsm';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -44,6 +47,43 @@ export interface EPSMConstructionOptions {
   window: ConstructionOption[];
   /** Raw list for lookup by name */
   byName: Map<string, EPSMConstruction>;
+}
+
+export type EPSMElementType = 'wall' | 'floor' | 'roof' | 'window';
+export type ResolvedEnergyConstructions = Record<EPSMElementType, string>;
+
+const DEFAULT_SENTINELS: Record<EPSMElementType, string> = {
+  wall: 'Default Wall',
+  floor: 'Default Floor',
+  roof: 'Default Roof',
+  window: 'Default Window',
+};
+
+export function resolveEnergyConstructions(
+  options: EPSMConstructionOptions | null,
+  selections: Partial<ResolvedEnergyConstructions>
+): ResolvedEnergyConstructions {
+  if (!options) throw new Error('Energy constructions are unavailable. EPSM could not be loaded.');
+
+  const resolve = (type: EPSMElementType): string => {
+    const selected = selections[type];
+    if (!selected || selected === DEFAULT_SENTINELS[type]) {
+      const fallback = options[type][0]?.value;
+      if (!fallback) throw new Error(`No EPSM ${type} constructions are available.`);
+      return fallback;
+    }
+    if (!options[type].some(option => option.value === selected)) {
+      throw new Error(`“${selected}” is not available in EPSM for ${type}. Choose another construction.`);
+    }
+    return selected;
+  };
+
+  return {
+    wall: resolve('wall'),
+    floor: resolve('floor'),
+    roof: resolve('roof'),
+    window: resolve('window'),
+  };
 }
 
 /** Surface areas needed to calculate total embodied carbon */
@@ -169,6 +209,7 @@ export function calculateEmbodiedCarbon(
 export function computePortfolioEmbodiedCarbon(
   options: EPSMConstructionOptions,
   buildings: Array<{
+    footprintArea?: number;
     area?: number;
     floors?: number;
     floorHeight?: number;
@@ -186,17 +227,15 @@ export function computePortfolioEmbodiedCarbon(
   let totalFloorArea = 0;
 
   for (const b of buildings) {
-    const footprintArea = b.area ?? 0;
     const floors        = b.floors ?? 1;
     const floorHeight   = b.floorHeight ?? 3.2;
-    const wwr           = b.window_to_wall_ratio ?? 0.4;
+    const derivedMetrics = b.points && b.points.length >= 3
+      ? calculateBuildingMetrics(b.points.map(point => ({ ...point, y: 0 })), floors, floorHeight)
+      : null;
+    const footprintArea = derivedMetrics?.footprintArea ?? b.footprintArea ?? b.area ?? 0;
+    const wwr           = b.window_to_wall_ratio ?? DEFAULT_FACADE_PARAMETERS.wwr;
 
-    const perimeter = b.points && b.points.length >= 2
-      ? b.points.reduce((sum, p, i) => {
-          const next = b.points![(i + 1) % b.points!.length];
-          return sum + Math.sqrt((next.x - p.x) ** 2 + (next.z - p.z) ** 2);
-        }, 0)
-      : Math.sqrt(footprintArea) * 4;
+    const perimeter = derivedMetrics?.perimeter ?? Math.sqrt(footprintArea) * 4;
 
     const wallArea   = perimeter * floors * floorHeight;
     const windowArea = wallArea * wwr;

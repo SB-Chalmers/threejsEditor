@@ -185,6 +185,8 @@ class DesignExplorationService {
   private cloneBuildings(buildings: BuildingData[]): BuildingData[] {
     return buildings.map(building => ({
       ...building,
+      points: building.points.map(point => ({ ...point })),
+      metrics: { ...building.metrics },
       mesh: building.mesh, // Keep reference for now, might need to serialize differently
       footprintOutline: building.footprintOutline,
       floorLines: building.floorLines

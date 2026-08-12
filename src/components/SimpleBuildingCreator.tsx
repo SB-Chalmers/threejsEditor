@@ -1,18 +1,16 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useThreeJS } from '../hooks/useThreeJS';
 import { useDrawing } from '../hooks/useDrawing';
 import { useClickHandler } from '../hooks/useClickHandler';
 import { useBuildingManager } from '../hooks/useBuildingManager';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
-import { toggleTheme } from '../utils/themeColors';
 import { LeftToolbar } from './LeftToolbar';
 import { BottomToolbar } from './BottomToolbar';
 import { FloatingInstructions } from './FloatingInstructions';
-import { BuildingConfigPanel } from './BuildingConfigPanel';
-import { BuildingEditPanel } from './BuildingEditPanel';
+import { BuildingEditPanel, type BuildingEditDraft } from './BuildingEditPanel';
 import { BuildingTooltip } from './BuildingTooltip';
 import { SunController } from './SunController';
-import { MiniGraphWindow } from './MiniGraphWindow';
 import { DesignGraphDialog } from './DesignGraphDialog';
 import { SaveConfigurationDialog } from './dialogs/SaveConfigurationDialog';
 import { ImportConfigDialog } from './dialogs/ImportConfigDialog';
@@ -21,20 +19,30 @@ import { Tabs, TabContent } from './ui/Tabs';
 import { WeatherAndLocationTab } from './WeatherAndLocationTab';
 import { BuildingConfig, BuildingData } from '../types/building';
 import type { CameraType, CameraView } from '../core/ThreeJSCore';
-import { getThemeColorAsHex } from '../utils/themeColors';
 import type { SunPosition } from '../utils/sunPosition';
 import { addSampleBuilding } from '../utils/addSampleBuilding';
 import { BuildingService } from '../services/BuildingService';
 import { designExplorationService } from '../services/DesignExplorationService';
 import { daylightApiService } from '../services/DaylightApiService';
 import { energyApiService } from '../services/EnergyApiService';
-import { daylightVisualizationService, getOverlayGroupsForResults } from '../services/DaylightVisualizationService';
-import { getEPSMConstructionOptions, getCachedEPSMOptions, computePortfolioEmbodiedCarbon, getDefaultConstructionName, calculateEmbodiedCarbon } from '../services/EPSMService';
-import { DaylightRunState, DaylightRunSummary } from '../types/daylight';
+import { daylightVisualizationService, getOverlayDatasetsForResults } from '../services/DaylightVisualizationService';
+import { getEPSMConstructionOptions, getCachedEPSMOptions, computePortfolioEmbodiedCarbon, calculateEmbodiedCarbon, resolveEnergyConstructions } from '../services/EPSMService';
+import { DaylightRunSummary } from '../types/daylight';
+import { createEnergyInputFingerprint, retainValidDaylightResults } from '../services/SimulationFingerprint';
+import { clampWwr, DEFAULT_FACADE_PARAMETERS } from '../services/FacadeGeometry';
+import { FootprintEditorService } from '../services/FootprintEditorService';
+import { calculateBuildingMetrics } from '../utils/buildingMetrics';
+import { DrawingInspector } from './model/DrawingInspector';
+import { SimulationProgressCard, type SimulationTaskState } from './model/SimulationProgressCard';
+import { DaylightLegend } from './model/DaylightLegend';
+import { simulationCoordinator } from '../services/SimulationCoordinator';
 
 type DaylightLegendState = {
   mode: 'df' | 'sda';
+  isVisible: boolean;
 };
+
+type ImportedBuildingData = Partial<BuildingData> & { points: BuildingData['points'] };
 
 export const SimpleBuildingCreator: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -50,27 +58,41 @@ export const SimpleBuildingCreator: React.FC = () => {
   const [showImportConfigDialog, setShowImportConfigDialog] = useState(false);
   const [showDaylightResultsDialog, setShowDaylightResultsDialog] = useState(false);
   const [activeResultsBuildingId, setActiveResultsBuildingId] = useState<string | null>(null);
+  const [footprintEditPoints, setFootprintEditPoints] = useState<BuildingData['points'] | null>(null);
   const [isSaveAndRunInProgress, setIsSaveAndRunInProgress] = useState(false);
-  const [isBaselineSimRunning, setIsBaselineSimRunning] = useState(false);
+  const [simulationProgress, setSimulationProgress] = useState<{ daylight: SimulationTaskState; energy: SimulationTaskState } | null>(null);
   const [daylightResultsByBuildingId, setDaylightResultsByBuildingId] = useState<Record<string, DaylightRunSummary>>({});
   const [daylightLegend, setDaylightLegend] = useState<DaylightLegendState | null>(null);
-  const [activeDaylightRunStatus, setActiveDaylightRunStatus] = useState<DaylightRunState | null>(null);
-  const [daylightSimulationProgress, setDaylightSimulationProgress] = useState<{ completed: number; total: number } | null>(null);
   const runAbortControllerRef = useRef<AbortController | null>(null);
   const energyAbortControllerRef = useRef<AbortController | null>(null);
-  const hasAutoRunBaselineRef = useRef(false);
+  const footprintEditorRef = useRef<FootprintEditorService | null>(null);
+  const selectedBuildingRef = useRef<BuildingData | null>(null);
+  const suspendedAnalysisModeRef = useRef<'df' | 'sda' | null>(null);
 
-  // Baseline energy sim stage (shown in overlay alongside daylight)
-  const [baselineEnergyStage, setBaselineEnergyStage] = useState<string | null>(null);
+  const lastRunNameRef = useRef('Design study');
 
-  const updateDaylightLegend = React.useCallback((points: { value: number }[], mode: 'df' | 'sda') => {
-    setDaylightLegend(points.length > 0 ? { mode } : null);
+  const updateDaylightLegend = React.useCallback((points: { value: number }[], mode: 'df' | 'sda', isVisible = true) => {
+    setDaylightLegend(points.length > 0 ? { mode, isVisible } : null);
   }, []);
+
+  useEffect(() => {
+    if (!simulationProgress) return;
+    const settled = [simulationProgress.daylight.status, simulationProgress.energy.status]
+      .every(status => status === 'complete' || status === 'skipped');
+    if (!settled) return;
+    const timer = window.setTimeout(() => setSimulationProgress(null), 2000);
+    return () => window.clearTimeout(timer);
+  }, [simulationProgress]);
 
   const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
     floors: 3,
     floorHeight: 3.5,
-    color: getThemeColorAsHex('--color-building-default', 0x63666f1)
+    color: 0x7C8FA3,
+    window_to_wall_ratio: DEFAULT_FACADE_PARAMETERS.wwr,
+    wall_construction: 'Default Wall',
+    floor_construction: 'Default Floor',
+    roof_construction: 'Default Roof',
+    window_construction: 'Default Window',
   });
   const [currentCameraType, setCurrentCameraType] = useState<CameraType>('perspective');
   // Initialize Three.js scene
@@ -89,8 +111,8 @@ export const SimpleBuildingCreator: React.FC = () => {
     switchCameraType,
     setCameraView,
     updateSunPosition,
-    enableBuildingFocus,
-    disableBuildingFocus
+    setSceneAppearanceMode,
+    setCameraControlsEnabled
   } = useThreeJS(containerRef, showGrid);
     // Initialize building management
   const { 
@@ -99,6 +121,8 @@ export const SimpleBuildingCreator: React.FC = () => {
     buildingTooltip,
     selectBuilding, 
     updateBuilding, 
+    previewBuilding,
+    restoreBuildingPreview,
     clearAllBuildings, 
     exportBuildings, 
     buildingStats, 
@@ -107,6 +131,95 @@ export const SimpleBuildingCreator: React.FC = () => {
     addBuilding,
     hideBuildingTooltip
   } = useBuildingManager(scene, camera as THREE.PerspectiveCamera | null, windowService);
+  selectedBuildingRef.current = selectedBuilding;
+
+  const showDaylightAnalysis = React.useCallback((
+    results: Record<string, DaylightRunSummary>,
+    mode: 'df' | 'sda'
+  ): boolean => {
+    if (!scene) return false;
+    const datasets = getOverlayDatasetsForResults(results, mode);
+    const points = datasets.flatMap((dataset) => dataset.points);
+    if (datasets.length === 0) {
+      daylightVisualizationService.clear(scene);
+      setSceneAppearanceMode({ kind: 'normal' });
+      updateDaylightLegend([], mode);
+      return false;
+    }
+    daylightVisualizationService.renderDatasets(scene, datasets, mode);
+    setSceneAppearanceMode({ kind: 'daylight-analysis' });
+    updateDaylightLegend(points, mode, true);
+    return true;
+  }, [scene, setSceneAppearanceMode, updateDaylightLegend]);
+
+  const refreshHiddenDaylightAnalysis = React.useCallback((
+    results: Record<string, DaylightRunSummary>,
+    mode: 'df' | 'sda'
+  ) => {
+    if (!scene) return;
+    const datasets = getOverlayDatasetsForResults(results, mode);
+    const points = datasets.flatMap((dataset) => dataset.points);
+    if (datasets.length === 0) {
+      daylightVisualizationService.clear(scene);
+      setDaylightLegend(null);
+    } else {
+      daylightVisualizationService.renderDatasets(scene, datasets, mode);
+      daylightVisualizationService.setVisible(scene, false);
+      updateDaylightLegend(points, mode, false);
+    }
+    setSceneAppearanceMode({ kind: 'normal' });
+  }, [scene, setSceneAppearanceMode, updateDaylightLegend]);
+
+  const beginBuildingEdit = React.useCallback((building: BuildingData) => {
+    if (building.mesh.userData.isPreview || building.mesh.userData.isDrawingElement) return;
+
+    suspendedAnalysisModeRef.current = daylightLegend?.isVisible
+      ? daylightLegend.mode
+      : null;
+    if (scene && daylightLegend?.isVisible) {
+      daylightVisualizationService.setVisible(scene, false);
+      updateDaylightLegend(
+        getOverlayDatasetsForResults(daylightResultsByBuildingId, daylightLegend.mode)
+          .flatMap((dataset) => dataset.points),
+        daylightLegend.mode,
+        false
+      );
+    }
+    setSceneAppearanceMode({ kind: 'normal' });
+    setFootprintEditPoints(building.points.map(point => ({ ...point })));
+    selectBuilding(building);
+    setSceneAppearanceMode({ kind: 'editing', buildingId: building.id });
+  }, [
+    daylightLegend,
+    daylightResultsByBuildingId,
+    scene,
+    selectBuilding,
+    setSceneAppearanceMode,
+    updateDaylightLegend,
+  ]);
+
+  useEffect(() => {
+    const building = selectedBuildingRef.current;
+    if (!building || !scene || !camera || !containerRef.current) return;
+    const editor = new FootprintEditorService({
+      scene,
+      camera,
+      element: containerRef.current,
+      points: building.points,
+      snapToGrid,
+      onChange: setFootprintEditPoints,
+      onDragStateChange: dragging => setCameraControlsEnabled(!dragging),
+    });
+    footprintEditorRef.current = editor;
+    return () => {
+      editor.dispose();
+      if (footprintEditorRef.current === editor) footprintEditorRef.current = null;
+    };
+  }, [selectedBuilding?.id, scene, camera, snapToGrid, setCameraControlsEnabled]);
+
+  useEffect(() => {
+    if (footprintEditPoints) footprintEditorRef.current?.setPoints(footprintEditPoints);
+  }, [footprintEditPoints]);
 
   // Initialize drawing functionality
   const { 
@@ -147,8 +260,7 @@ export const SimpleBuildingCreator: React.FC = () => {
         const result = handleBuildingInteraction(event, container);
         
         if (result?.building && !result.building.mesh.userData.isPreview) {
-          // Select the building to show the comprehensive BuildingEditPanel
-          selectBuilding(result.building);
+          beginBuildingEdit(result.building);
         } else if (!result) {
           selectBuilding(null);
         }
@@ -177,6 +289,7 @@ export const SimpleBuildingCreator: React.FC = () => {
   // Event handlers
   const handleStartDrawing = () => {
     if (!hasInteracted) setHasInteracted(true);
+    setShowBuildingConfig(true);
     
     // If already drawing, first stop any current drawing session
     if (drawingState.isDrawing) {
@@ -224,22 +337,24 @@ export const SimpleBuildingCreator: React.FC = () => {
     setShowImportConfigDialog(true);
   };
 
-  const handleToggleTheme = () => {
-    const newTheme = toggleTheme();
-    
-    // Force Three.js scene to immediately update
-    window.dispatchEvent(new CustomEvent('threejs-theme-update', { 
-      detail: { theme: newTheme } 
-    }));
-  };
-
-  const handleImportConfigConfirm = (config: any) => {
+  const handleImportConfigConfirm = (config: unknown) => {
     try {
+      setSceneAppearanceMode({ kind: 'normal' });
+      if (scene) daylightVisualizationService.clear(scene);
+      setDaylightLegend(null);
+      setDaylightResultsByBuildingId({});
+      setShowDaylightResultsDialog(false);
+      setActiveResultsBuildingId(null);
+      suspendedAnalysisModeRef.current = null;
       // Clear current buildings
       clearAllBuildings();
       
       // Determine if config is an array of buildings or an object with buildings property
-      const buildingsData = Array.isArray(config) ? config : config.buildings || [];
+      const buildingsData: unknown[] = Array.isArray(config)
+        ? config
+        : (config && typeof config === 'object' && Array.isArray((config as { buildings?: unknown }).buildings)
+          ? (config as { buildings: unknown[] }).buildings
+          : []);
       
       if (!Array.isArray(buildingsData)) {
         throw new Error('Invalid configuration format');
@@ -248,8 +363,12 @@ export const SimpleBuildingCreator: React.FC = () => {
       // Recreate buildings from imported data
       const buildingService = new BuildingService(scene!);
       
-      buildingsData.forEach((buildingData: any, index: number) => {
+      buildingsData.forEach((rawBuildingData, index: number) => {
         try {
+          if (!rawBuildingData || typeof rawBuildingData !== 'object') {
+            throw new Error(`Building ${index + 1}: Invalid building data`);
+          }
+          const buildingData = rawBuildingData as ImportedBuildingData;
           // Validate required fields
           if (!buildingData.points || !Array.isArray(buildingData.points) || buildingData.points.length < 3) {
             throw new Error(`Building ${index + 1}: Invalid or missing points`);
@@ -257,22 +376,22 @@ export const SimpleBuildingCreator: React.FC = () => {
 
           // Create building config with defaults for missing properties
           const buildingConfig: BuildingConfig = {
-            floors: buildingData.floors || 3,
-            floorHeight: buildingData.floorHeight || 3.5,
-            color: buildingData.color || getThemeColorAsHex('--color-building-default', 0x63666f1),
-            name: buildingData.name || `Imported Building ${index + 1}`,
-            description: buildingData.description || '',
-            window_to_wall_ratio: buildingData.window_to_wall_ratio || 0.3,
-            window_overhang: buildingData.window_overhang || false,
-            window_overhang_depth: buildingData.window_overhang_depth || 0.5,
-            wall_construction: buildingData.wall_construction || 'Standard Wall',
-            floor_construction: buildingData.floor_construction || 'Standard Floor',
-            roof_construction: buildingData.roof_construction || 'Standard Roof',
-            window_construction: buildingData.window_construction || 'Standard Window',
-            structural_system: buildingData.structural_system || 'Concrete',
-            building_program: buildingData.building_program || 'Office',
-            hvac_system: buildingData.hvac_system || 'Standard HVAC',
-            natural_ventilation: buildingData.natural_ventilation || false
+            floors: buildingData.floors ?? 3,
+            floorHeight: buildingData.floorHeight ?? 3.5,
+            color: buildingData.color ?? 0x7C8FA3,
+            name: buildingData.name ?? `Imported Building ${index + 1}`,
+            description: buildingData.description ?? '',
+            window_to_wall_ratio: buildingData.window_to_wall_ratio ?? DEFAULT_FACADE_PARAMETERS.wwr,
+            window_overhang: buildingData.window_overhang ?? false,
+            window_overhang_depth: buildingData.window_overhang_depth ?? 0,
+            wall_construction: buildingData.wall_construction ?? 'Default Wall',
+            floor_construction: buildingData.floor_construction ?? 'Default Floor',
+            roof_construction: buildingData.roof_construction ?? 'Default Roof',
+            window_construction: buildingData.window_construction ?? 'Default Window',
+            structural_system: buildingData.structural_system ?? 'Concrete',
+            building_program: buildingData.building_program ?? 'Office',
+            hvac_system: buildingData.hvac_system ?? 'Default HVAC',
+            natural_ventilation: buildingData.natural_ventilation ?? false
           };
 
           // Create the 3D mesh
@@ -287,7 +406,7 @@ export const SimpleBuildingCreator: React.FC = () => {
           };
 
           // Add the building to the manager
-          addBuilding(mesh, buildingData.points, buildingConfig.floors, buildingConfig.floorHeight);
+          addBuilding(mesh, buildingData.points, buildingConfig);
           
         } catch (error) {
           console.error(`Failed to import building ${index + 1}:`, error);
@@ -306,7 +425,7 @@ export const SimpleBuildingCreator: React.FC = () => {
     targetBuilding: BuildingData,
     configurationName: string,
     buildingsForSnapshot?: BuildingData[],
-    options?: { recordInGraph?: boolean; useGhosting?: boolean }
+    options?: { recordInGraph?: boolean; useGhosting?: boolean; location?: string }
   ) => {
     const snapshotBuildings = buildingsForSnapshot && buildingsForSnapshot.length > 0
       ? buildingsForSnapshot
@@ -318,7 +437,7 @@ export const SimpleBuildingCreator: React.FC = () => {
 
     const now = new Date().toISOString();
     const configuredLocation = import.meta.env.VITE_DAYLIGHT_API_LOCATION as string | undefined;
-    const resolvedLocation = configuredLocation || await daylightApiService.getDefaultLocation(runAbortControllerRef.current?.signal);
+    const resolvedLocation = options?.location || configuredLocation || await daylightApiService.getDefaultLocation(runAbortControllerRef.current?.signal);
     const runSda = Boolean(resolvedLocation);
     const shouldRecordInGraph = options?.recordInGraph !== false;
     const useGhosting = options?.useGhosting !== false;
@@ -351,39 +470,30 @@ export const SimpleBuildingCreator: React.FC = () => {
     runAbortControllerRef.current?.abort();
     runAbortControllerRef.current = new AbortController();
     setIsSaveAndRunInProgress(true);
-    setActiveDaylightRunStatus({ status: 'queued', stage: 'Submitting study request...' });
-    setDaylightSimulationProgress(snapshotBuildings.length > 1 ? { completed: 0, total: snapshotBuildings.length } : null);
+    setSimulationProgress(previous => ({
+      daylight: { status: 'queued', message: 'Submitting daylight studies…' },
+      energy: previous?.energy ?? { status: 'preparing', message: 'Validating constructions…' },
+    }));
 
     // Ghosting is used for user-triggered runs, but can be disabled for baseline startup runs.
-    if (useGhosting) {
-      enableBuildingFocus('__daylight_overlay__');
-    }
+    setSceneAppearanceMode(useGhosting
+      ? { kind: 'editing', buildingId: '__daylight_overlay__' }
+      : { kind: 'normal' });
     daylightVisualizationService.clear(scene);
 
     try {
-      let perStudyCompleted = 0;
-      const results = await Promise.all(
-        snapshotBuildings.map((building) =>
-          daylightApiService.runStudyForBuilding(
-            building,
-            {
-              run_sda: runSda,
-              location: resolvedLocation,
-              quality: 'draft',
-              selected_floor_number: Math.max(1, building.floors),
-              context_buildings: snapshotBuildings
-                .filter((contextBuilding) => contextBuilding.id !== building.id)
-                .map((contextBuilding) => daylightApiService.buildContextBuilding(contextBuilding))
-            },
-            {
-              signal: runAbortControllerRef.current!.signal,
-              onStatus: ({ status, studyId, stage, error }) => {
-                setActiveDaylightRunStatus({
-                  status,
-                  studyId,
-                  stage: `${building.name || 'Building'}: ${stage || status}`,
-                  error
-                });
+      const resultsById = await simulationCoordinator.runDaylightStudySet({
+        buildings: snapshotBuildings,
+        location: resolvedLocation,
+        signal: runAbortControllerRef.current.signal,
+        onStatus: (building, { status, studyId, stage, error }) => {
+                setSimulationProgress(previous => previous ? {
+                  ...previous,
+                  daylight: {
+                    status: status === 'failed' ? 'failed' : status === 'complete' ? 'complete' : status === 'queued' ? 'queued' : 'running',
+                    message: error || `${building.name || 'Building'}: ${stage || status}`,
+                  },
+                } : previous);
 
                 if (pendingNode) {
                   designExplorationService.updateNode(pendingNode.id, {
@@ -396,63 +506,39 @@ export const SimpleBuildingCreator: React.FC = () => {
                     }
                   });
                 }
-              }
-            }
-          ).then((studyResult) => {
-            // Increment after the individual promise settles so the counter
-            // advances one step at a time, not all at once after Promise.all.
-            perStudyCompleted += 1;
-            setDaylightSimulationProgress((prev) =>
-              prev ? { completed: perStudyCompleted, total: prev.total } : prev
-            );
-            return studyResult;
-          })
-        )
-      );
-      const resultsById = Object.fromEntries(
-        snapshotBuildings.map((building, index) => [building.id, results[index]])
-      );
-      const allPoints = results.flatMap((result) => result.points);
+        },
+      });
+      const stampedResults = snapshotBuildings.map(building => resultsById[building.id]);
       const result = resultsById[targetBuilding.id];
 
-      const resultGroups = results.map((r) => r.points).filter((pts) => pts.length > 0);
-      daylightVisualizationService.renderSensorPointGroups(scene, resultGroups);
       setDaylightResultsByBuildingId((prev) => ({ ...prev, ...resultsById }));
-      updateDaylightLegend(allPoints, 'df');
+      showDaylightAnalysis({ ...daylightResultsByBuildingId, ...resultsById }, 'df');
 
       if (pendingNode) {
         designExplorationService.updateNode(pendingNode.id, {
           metrics: {
             spatialDaylightAutonomy: runSda
-              ? results.reduce((total, current) => total + current.sda, 0) / results.length
+              ? stampedResults.reduce((total, current) => total + current.sda, 0) / stampedResults.length
               : pendingNode.metrics.spatialDaylightAutonomy
           },
           daylightRun: {
             status: 'complete',
             studyId: result.studyId,
             stage: result.stage,
-            sensorCount: results.reduce((total, current) => total + current.sensorCount, 0),
-            meanDF: results.reduce((total, current) => total + current.meanDF, 0) / results.length,
+            sensorCount: stampedResults.reduce((total, current) => total + current.sensorCount, 0),
+            meanDF: stampedResults.reduce((total, current) => total + current.meanDF, 0) / stampedResults.length,
             updatedAt: result.completedAt || new Date().toISOString()
           },
           daylightResultsByBuildingId: resultsById
         });
       }
 
-      setActiveDaylightRunStatus({
-        status: 'complete',
-        studyId: result.studyId,
-        stage: result.stage || 'Completed'
-      });
+      setSimulationProgress(previous => previous ? { ...previous, daylight: { status: 'complete', message: 'Daylight results are ready.' } } : previous);
 
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown daylight simulation error';
-      setActiveDaylightRunStatus({
-        status: 'failed',
-        error: message,
-        stage: 'Simulation failed'
-      });
+      setSimulationProgress(previous => previous ? { ...previous, daylight: { status: 'failed', message } } : previous);
 
       if (pendingNode) {
         designExplorationService.updateNode(pendingNode.id, {
@@ -464,17 +550,15 @@ export const SimpleBuildingCreator: React.FC = () => {
         });
       }
 
+      daylightVisualizationService.clear(scene);
+      setSceneAppearanceMode({ kind: 'normal' });
+      setDaylightLegend(null);
+
       throw error;
     } finally {
-      if (useGhosting) {
-        disableBuildingFocus();
-      }
-      setIsSaveAndRunInProgress(false);
-      setActiveDaylightRunStatus(null);
-      setDaylightSimulationProgress(null);
       runAbortControllerRef.current = null;
     }
-  }, [scene, buildings, daylightResultsByBuildingId, enableBuildingFocus, disableBuildingFocus, updateDaylightLegend]);
+  }, [scene, buildings, daylightResultsByBuildingId, setSceneAppearanceMode, showDaylightAnalysis]);
 
   const handleSaveConfigurationConfirm = async (name: string) => {
     const targetBuilding = selectedBuilding || buildings[0];
@@ -482,104 +566,86 @@ export const SimpleBuildingCreator: React.FC = () => {
       throw new Error('At least one building is required to run daylight analysis.');
     }
 
-    await runDaylightSimulation(targetBuilding, name);
-
-    // ── Auto-run energy for the newly created design node ─────────────────
-    const newNodeId = designExplorationService.getCurrentNode()?.id;
-    if (!newNodeId) return;
-    const node = designExplorationService.getGraph().nodes.find(n => n.id === newNodeId);
-    if (!node || node.buildings.length === 0) return;
-    const building = node.buildings[0];
+    lastRunNameRef.current = name;
+    setSimulationProgress({
+      daylight: { status: 'preparing', message: 'Preparing geometry…' },
+      energy: { status: 'preparing', message: 'Validating EPSM constructions…' },
+    });
 
     const [location, epsmOpts] = await Promise.all([
       daylightApiService.getDefaultLocation().catch(() => undefined),
       getEPSMConstructionOptions().catch(() => null),
     ]);
-    if (!location) return;
-
-    const resolveC = (v: string | undefined, t: 'wall'|'floor'|'roof'|'window'): string =>
-      (v && !['Default Wall','Default Floor','Default Roof','Default Window'].includes(v))
-        ? v : (epsmOpts ? getDefaultConstructionName(epsmOpts, t) : null) ?? v ?? '';
 
     energyAbortControllerRef.current?.abort();
     energyAbortControllerRef.current = new AbortController();
-    designExplorationService.updateNode(newNodeId, { energyRun: { status: 'queued', stage: 'Queued' } });
+    let energyResult: Awaited<ReturnType<typeof energyApiService.runEnergyStudy>> | null = null;
 
-    try {
-      await energyApiService.runEnergyStudy(
-        building,
-        {
-          constructions: {
-            wall:   resolveC(building.wall_construction,   'wall'),
-            floor:  resolveC(building.floor_construction,  'floor'),
-            roof:   resolveC(building.roof_construction,   'roof'),
-            window: resolveC(building.window_construction, 'window'),
-          },
-          building_program: building.building_program ?? 'Office',
-          hvac_system:      building.hvac_system      ?? 'Default HVAC',
-          natural_ventilation: building.natural_ventilation ?? false,
-          location,
-        },
-        {
-          onQueued: (studyId) => designExplorationService.updateNode(newNodeId, {
-            energyRun: { status: 'queued', studyId, stage: 'Queued' }
-          }),
-          onStatusUpdate: (s) => designExplorationService.updateNode(newNodeId, {
-            energyRun: { status: s.status, stage: s.stage }
-          }),
+    const daylightPromise = runDaylightSimulation(targetBuilding, name, buildings, { location });
+    const energyPromise = (async () => {
+      if (!location) throw new Error('Energy requires a configured simulation location.');
+      setSimulationProgress(previous => previous ? { ...previous, energy: { status: 'queued', message: 'Submitting energy study…' } } : previous);
+      const coordinated = await simulationCoordinator.runEnergyStudy({
+        building: targetBuilding,
+        location,
+        epsm: epsmOpts,
+        signal: energyAbortControllerRef.current.signal,
+        callbacks: {
+          onQueued: () => setSimulationProgress(previous => previous ? { ...previous, energy: { status: 'queued', message: 'Waiting for an energy worker…' } } : previous),
+          onStatusUpdate: status => setSimulationProgress(previous => previous ? { ...previous, energy: { status: 'running', message: status.stage ?? status.status } } : previous),
           onComplete: (result) => {
-            const resolved = {
-              ...building,
-              wall_construction:   resolveC(building.wall_construction,   'wall'),
-              floor_construction:  resolveC(building.floor_construction,  'floor'),
-              roof_construction:   resolveC(building.roof_construction,   'roof'),
-              window_construction: resolveC(building.window_construction, 'window'),
-            };
-            const gwp = epsmOpts ? (computePortfolioEmbodiedCarbon(epsmOpts, [resolved]) ?? 0) : 0;
-            const wwr = resolved.window_to_wall_ratio ?? 0.4;
-            const floors = resolved.floors ?? 1;
-            const floorH = resolved.floorHeight ?? 3.2;
-            const footprint = resolved.area ?? 0;
-            const perim = resolved.points?.length >= 2
-              ? resolved.points.reduce((s, p, i) => {
-                  const nx = resolved.points![(i+1) % resolved.points!.length];
-                  return s + Math.sqrt((nx.x-p.x)**2+(nx.z-p.z)**2);
-                }, 0)
-              : Math.sqrt(footprint) * 4;
-            const wallArea = perim * floors * floorH;
-            const breakdown = epsmOpts ? calculateEmbodiedCarbon(
-              epsmOpts,
-              { wall: resolved.wall_construction ?? '', floor: resolved.floor_construction ?? '',
-                roof: resolved.roof_construction ?? '', window: resolved.window_construction ?? '' },
-              { wallArea, windowArea: wallArea * wwr, floorArea: footprint * floors, roofArea: footprint }
-            ) : null;
-            designExplorationService.updateNode(newNodeId, {
-              energyRun: {
-                status: 'complete',
-                studyId: result.study_id,
-                monthlyHeatBalance: result.monthly_heat_balance ?? undefined,
-              },
-              metrics: {
-                heatingDemand: result.heating_demand_kwh_m2,
-                coolingDemand: result.cooling_demand_kwh_m2,
-                totalEnergy:   result.total_energy_kwh_m2,
-                ...(gwp > 0 ? { globalWarmingPotential: gwp } : {}),
-                ...(breakdown ? { embodiedCarbonBreakdown: breakdown } : {}),
-              },
-            });
+            energyResult = result;
+            setSimulationProgress(previous => previous ? { ...previous, energy: { status: 'complete', message: 'Energy results are ready.' } } : previous);
           },
-          onError: (err) => designExplorationService.updateNode(newNodeId, {
-            energyRun: { status: 'failed', error: err.message }
-          }),
+          onError: error => setSimulationProgress(previous => previous ? { ...previous, energy: { status: 'failed', message: error.message } } : previous),
         },
-        energyAbortControllerRef.current.signal
-      );
-    } catch (err) {
-      if (err instanceof Error && err.message !== 'Energy study aborted') {
-        designExplorationService.updateNode(newNodeId, {
-          energyRun: { status: 'failed', error: err.message }
-        });
-      }
+      });
+      energyResult = coordinated.result;
+      return coordinated.result;
+    })().catch(error => {
+      const message = error instanceof Error ? error.message : 'Energy simulation failed.';
+      setSimulationProgress(previous => previous ? { ...previous, energy: { status: 'failed', message } } : previous);
+      throw error;
+    });
+
+    const [, energySettled] = await Promise.allSettled([daylightPromise, energyPromise]);
+    setIsSaveAndRunInProgress(false);
+    const node = designExplorationService.getCurrentNode();
+    if (node && energySettled.status === 'fulfilled' && energyResult) {
+      const resolvedConstructions = resolveEnergyConstructions(epsmOpts, {
+        wall: targetBuilding.wall_construction, floor: targetBuilding.floor_construction,
+        roof: targetBuilding.roof_construction, window: targetBuilding.window_construction,
+      });
+      const resolved = {
+        ...targetBuilding,
+        wall_construction: resolvedConstructions.wall,
+        floor_construction: resolvedConstructions.floor,
+        roof_construction: resolvedConstructions.roof,
+        window_construction: resolvedConstructions.window,
+      };
+      const gwp = epsmOpts ? (computePortfolioEmbodiedCarbon(epsmOpts, [resolved]) ?? 0) : 0;
+      const wallArea = resolved.metrics.perimeter * resolved.metrics.totalHeight;
+      const windowArea = wallArea * (resolved.window_to_wall_ratio ?? DEFAULT_FACADE_PARAMETERS.wwr);
+      const breakdown = epsmOpts ? calculateEmbodiedCarbon(epsmOpts, resolvedConstructions, {
+        wallArea, windowArea, floorArea: resolved.metrics.grossFloorArea, roofArea: resolved.metrics.footprintArea,
+      }) : null;
+      designExplorationService.updateNode(node.id, {
+        energyRun: {
+          status: 'complete', inputFingerprint: createEnergyInputFingerprint(targetBuilding),
+          studyId: energyResult.study_id, monthlyHeatBalance: energyResult.monthly_heat_balance ?? undefined,
+        },
+        metrics: {
+          heatingDemand: energyResult.heating_demand_kwh_m2,
+          coolingDemand: energyResult.cooling_demand_kwh_m2,
+          totalEnergy: energyResult.total_energy_kwh_m2,
+          ...(gwp > 0 ? { globalWarmingPotential: gwp } : {}),
+          ...(breakdown ? { embodiedCarbonBreakdown: breakdown } : {}),
+        },
+      });
+    } else if (node && energySettled.status === 'rejected') {
+      designExplorationService.updateNode(node.id, {
+        energyRun: { status: 'failed', error: energySettled.reason instanceof Error ? energySettled.reason.message : 'Energy simulation failed.' },
+      });
     }
   };
 
@@ -589,6 +655,10 @@ export const SimpleBuildingCreator: React.FC = () => {
 
   const handleReinstateConfiguration = (nodeId: string) => {
     const node = designExplorationService.reinstateConfiguration(nodeId);
+    setSceneAppearanceMode({ kind: 'normal' });
+    if (scene) daylightVisualizationService.clear(scene);
+    suspendedAnalysisModeRef.current = null;
+    selectBuilding(null);
     setShowDaylightResultsDialog(false);
     setActiveResultsBuildingId(null);
     setDaylightLegend(null);
@@ -605,7 +675,7 @@ export const SimpleBuildingCreator: React.FC = () => {
           const buildingConfig: BuildingConfig = {
             floors: buildingData.floors,
             floorHeight: buildingData.floorHeight,
-            color: buildingData.color || getThemeColorAsHex('--color-building-default', 0x63666f1),
+            color: buildingData.color ?? 0x7C8FA3,
             name: buildingData.name,
             description: buildingData.description,
             window_to_wall_ratio: buildingData.window_to_wall_ratio,
@@ -633,7 +703,7 @@ export const SimpleBuildingCreator: React.FC = () => {
           };
 
           // Add the building back to the manager
-          addBuilding(mesh, buildingData.points, buildingData.floors, buildingData.floorHeight);
+          addBuilding(mesh, buildingData.points, buildingConfig);
           
         } catch (error) {
           console.error('Failed to recreate building:', buildingData.id, error);
@@ -643,35 +713,70 @@ export const SimpleBuildingCreator: React.FC = () => {
       const reinstatedResults = node.daylightResultsByBuildingId || {};
       setDaylightResultsByBuildingId(reinstatedResults);
 
-      const restoredGroups = getOverlayGroupsForResults(reinstatedResults, 'df');
-      if (restoredGroups.length > 0) {
-        daylightVisualizationService.renderSensorPointGroups(scene, restoredGroups);
-        updateDaylightLegend(restoredGroups.flat(), 'df');
-      } else {
-        daylightVisualizationService.clear(scene);
-        updateDaylightLegend([], 'df');
-      }
+      suspendedAnalysisModeRef.current = null;
+      showDaylightAnalysis(reinstatedResults, 'df');
 
       console.log('Configuration reinstated:', node.name, `(${node.buildings.length} buildings)`);
     }
     setShowDesignGraphDialog(false);
   };
 
-  const handlePreviewBuilding = (updates: any) => {
+  const handlePreviewBuilding = (draft: BuildingEditDraft) => {
     if (selectedBuilding) {
-      updateBuilding(selectedBuilding.id, updates);
-      // Don't close the dialog - keep it open for live preview
+      setFootprintEditPoints(draft.points.map(point => ({ ...point })));
+      previewBuilding(selectedBuilding.id, draft, draft.points);
     }
   };
 
-  const handleEditBuilding = (building: any) => {
-    // Only select non-preview buildings
-    if (!building.mesh.userData.isPreview && !building.mesh.userData.isDrawingElement) {
-      selectBuilding(building);
+  const handleCommitBuilding = (draft: BuildingEditDraft) => {
+    if (!selectedBuilding) return;
+    const committedBuilding: BuildingData = {
+      ...selectedBuilding,
+      ...draft,
+      footprintArea: calculateBuildingMetrics(draft.points, draft.floors, draft.floorHeight).footprintArea,
+      metrics: calculateBuildingMetrics(draft.points, draft.floors, draft.floorHeight),
+      window_to_wall_ratio: clampWwr(draft.window_to_wall_ratio)
+    };
+    const committedBuildings = buildings.map(building =>
+      building.id === selectedBuilding.id ? committedBuilding : building
+    );
+
+    const retained = retainValidDaylightResults(daylightResultsByBuildingId, committedBuildings);
+    const resumeMode = suspendedAnalysisModeRef.current;
+    suspendedAnalysisModeRef.current = null;
+    setSceneAppearanceMode({ kind: 'normal' });
+    updateBuilding(selectedBuilding.id, { points: draft.points, config: draft });
+    setFootprintEditPoints(null);
+    selectBuilding(null);
+    setDaylightResultsByBuildingId(retained);
+
+    if (activeResultsBuildingId && !retained[activeResultsBuildingId]) {
+      setActiveResultsBuildingId(null);
+      setShowDaylightResultsDialog(false);
+    }
+
+    if (resumeMode) {
+      showDaylightAnalysis(retained, resumeMode);
+    } else if (daylightLegend) {
+      refreshHiddenDaylightAnalysis(retained, daylightLegend.mode);
+    } else if (Object.keys(retained).length === 0 && scene) {
+      daylightVisualizationService.clear(scene);
     }
   };
 
-  const handleViewBuildingResult = (building: any) => {
+  const handleCancelBuilding = () => {
+    const resumeMode = suspendedAnalysisModeRef.current;
+    suspendedAnalysisModeRef.current = null;
+    setSceneAppearanceMode({ kind: 'normal' });
+    if (selectedBuilding) restoreBuildingPreview(selectedBuilding.id);
+    setFootprintEditPoints(null);
+    selectBuilding(null);
+    if (resumeMode) showDaylightAnalysis(daylightResultsByBuildingId, resumeMode);
+  };
+
+  const handleEditBuilding = beginBuildingEdit;
+
+  const handleViewBuildingResult = (building: BuildingData) => {
     if (!scene) {
       return;
     }
@@ -681,9 +786,7 @@ export const SimpleBuildingCreator: React.FC = () => {
       return;
     }
 
-    const overlayGroups = getOverlayGroupsForResults(daylightResultsByBuildingId, 'df');
-    daylightVisualizationService.renderSensorPointGroups(scene, overlayGroups);
-    updateDaylightLegend(overlayGroups.flat(), 'df');
+    showDaylightAnalysis(daylightResultsByBuildingId, 'df');
     setActiveResultsBuildingId(building.id);
     setShowDaylightResultsDialog(true);
   };
@@ -694,23 +797,21 @@ export const SimpleBuildingCreator: React.FC = () => {
       return;
     }
 
-    const overlayGroups = getOverlayGroupsForResults(daylightResultsByBuildingId, 'df');
-    daylightVisualizationService.renderSensorPointGroups(scene, overlayGroups);
-    updateDaylightLegend(overlayGroups.flat(), 'df');
+    showDaylightAnalysis(daylightResultsByBuildingId, 'df');
     setActiveResultsBuildingId(buildingId);
   };
 
   const handleDeleteBuilding = (buildingId: string) => {
+    setSceneAppearanceMode({ kind: 'normal' });
     deleteBuilding(buildingId);
-    setDaylightResultsByBuildingId((prev) => {
-      if (!(buildingId in prev)) {
-        return prev;
-      }
-
-      const next = { ...prev };
-      delete next[buildingId];
-      return next;
-    });
+    const nextResults = { ...daylightResultsByBuildingId };
+    delete nextResults[buildingId];
+    setDaylightResultsByBuildingId(nextResults);
+    if (daylightLegend?.isVisible) {
+      showDaylightAnalysis(nextResults, daylightLegend.mode);
+    } else if (daylightLegend) {
+      refreshHiddenDaylightAnalysis(nextResults, daylightLegend.mode);
+    }
 
     if (activeResultsBuildingId === buildingId) {
       setShowDaylightResultsDialog(false);
@@ -719,22 +820,34 @@ export const SimpleBuildingCreator: React.FC = () => {
   };
 
   const handleClearAll = () => {
+    setSceneAppearanceMode({ kind: 'normal' });
+    selectBuilding(null);
     clearAllBuildings();
     setDaylightResultsByBuildingId({});
     setShowDaylightResultsDialog(false);
     setActiveResultsBuildingId(null);
     setDaylightLegend(null);
+    suspendedAnalysisModeRef.current = null;
     if (scene) {
       daylightVisualizationService.clear(scene);
     }
     // Don't clear drawing elements when using the Clear All button from LeftToolbar
     // Only clear selected building and reset UI state
-    selectBuilding(null);
-    
     // Force service state reset
     setTimeout(() => {
       if (showBuildingConfig) setShowBuildingConfig(false);
     }, 100);
+  };
+
+  const handleToggleDaylightVisibility = () => {
+    if (!scene || !daylightLegend) return;
+    if (daylightLegend.isVisible) {
+      daylightVisualizationService.setVisible(scene, false);
+      setSceneAppearanceMode({ kind: 'normal' });
+      setDaylightLegend({ ...daylightLegend, isVisible: false });
+      return;
+    }
+    showDaylightAnalysis(daylightResultsByBuildingId, daylightLegend.mode);
   };
 
   const handleSwitchCameraType = (type: CameraType) => {
@@ -764,7 +877,7 @@ export const SimpleBuildingCreator: React.FC = () => {
     if (drawingState.isDrawing) {
       return 'drawing';
     }
-    if (!drawingState.isDrawing && buildings.length > 0 && !selectedBuilding && !showBuildingConfig) {
+    if (!hasInteracted && !drawingState.isDrawing && buildings.length > 0 && !selectedBuilding && !showBuildingConfig) {
       return 'selection';
     }
     return null;
@@ -776,6 +889,7 @@ export const SimpleBuildingCreator: React.FC = () => {
       if (activeTab !== 'model') return;
       if (!hasInteracted) setHasInteracted(true);
       selectBuilding(null);
+      setShowBuildingConfig(true);
       startDrawing();
     },
     onToggleGrid: () => {
@@ -792,8 +906,7 @@ export const SimpleBuildingCreator: React.FC = () => {
       toggleFPSCounter();
     },
     onShowConfig: () => {
-      if (activeTab !== 'model') return;
-      setShowBuildingConfig(!showBuildingConfig);
+      return;
     },
     onExport: () => {
       if (activeTab !== 'model') return;
@@ -801,16 +914,15 @@ export const SimpleBuildingCreator: React.FC = () => {
     },
     onClearAll: () => {
       if (activeTab !== 'model') return;
-      clearAllBuildings();
+      handleClearAll();
       if (clearAllDrawingElements) clearAllDrawingElements();
-      selectBuilding(null);
     },
     onEscape: () => {
       if (activeTab !== 'model') return;
       if (drawingState.isDrawing) {
         stopDrawing();
       } else if (selectedBuilding) {
-        selectBuilding(null);
+        handleCancelBuilding();
       } else if (showBuildingConfig) {
         setShowBuildingConfig(false);
       }
@@ -831,7 +943,6 @@ export const SimpleBuildingCreator: React.FC = () => {
       if (activeTab !== 'model') return;
       setShowSunController(!showSunController);
     },
-    onToggleTheme: handleToggleTheme, // Theme toggle should work on both tabs
     isDrawing: drawingState.isDrawing,
     isInitialized
   });
@@ -842,9 +953,9 @@ export const SimpleBuildingCreator: React.FC = () => {
       if (scene) {
         daylightVisualizationService.clear(scene);
       }
-      disableBuildingFocus();
+      setSceneAppearanceMode({ kind: 'normal' });
     };
-  }, [scene, disableBuildingFocus]);
+  }, [scene, setSceneAppearanceMode]);
 
   // Initialize with a sample rectangular building when the scene is ready (only once)
   useEffect(() => {
@@ -863,7 +974,7 @@ export const SimpleBuildingCreator: React.FC = () => {
           depth: 5,
           floors: 6,
           floorHeight: 3.5,
-          color: getThemeColorAsHex('--color-building-sample', 0x4A90E2),
+          color: 0x7C8FA3,
           name: 'Welcome Room (10m x 5m)',
           description: 'A 10m x 5m starter room with 6 storeys',
           windowToWallRatio: 0.4
@@ -874,147 +985,38 @@ export const SimpleBuildingCreator: React.FC = () => {
           const managedBuilding = addBuilding(
             sampleBuilding.mesh,
             sampleBuilding.points,
-            sampleBuilding.floors,
-            sampleBuilding.floorHeight
+            {
+              floors: sampleBuilding.floors,
+              floorHeight: sampleBuilding.floorHeight,
+              color: sampleBuilding.color ?? 0x7C8FA3,
+              name: sampleBuilding.name,
+              description: sampleBuilding.description,
+              window_to_wall_ratio: sampleBuilding.window_to_wall_ratio,
+              window_overhang: sampleBuilding.window_overhang,
+              window_overhang_depth: sampleBuilding.window_overhang_depth,
+              wall_construction: sampleBuilding.wall_construction,
+              floor_construction: sampleBuilding.floor_construction,
+              roof_construction: sampleBuilding.roof_construction,
+              window_construction: sampleBuilding.window_construction,
+              structural_system: sampleBuilding.structural_system,
+              building_program: sampleBuilding.building_program,
+              hvac_system: sampleBuilding.hvac_system,
+              natural_ventilation: sampleBuilding.natural_ventilation
+            }
           );
 
           if (managedBuilding) {
             console.log('✅ Sample room building added successfully:', managedBuilding.id);
             
-            // Set user as having interacted so welcome screen doesn't show
-            setHasInteracted(true);
             // Mark that we've initialized with a sample building
             setHasInitializedWithSample(true);
 
-            if (!hasAutoRunBaselineRef.current) {
-              hasAutoRunBaselineRef.current = true;
-              void (async () => {
-                setIsBaselineSimRunning(true);
-                try {
-                  // Resolve location and EPSM construction options in parallel,
-                  // before starting sims — ensures real construction names are available
-                  const [location, epsmOpts] = await Promise.all([
-                    daylightApiService.getDefaultLocation().catch(() => undefined),
-                    getEPSMConstructionOptions().catch(() => null),
-                  ]);
-
-                  // Run daylight and energy in parallel
-                  const [daylightSettled, energySettled] = await Promise.allSettled([
-                    runDaylightSimulation(
-                      managedBuilding,
-                      'Baseline Auto Run',
-                      [managedBuilding],
-                      { recordInGraph: false, useGhosting: false }
-                    ),
-                    location
-                      ? energyApiService.runEnergyStudy(
-                          managedBuilding,
-                          {
-                            constructions: {
-                              wall:   managedBuilding.wall_construction   || (epsmOpts ? getDefaultConstructionName(epsmOpts, 'wall')   : null) || '',
-                              floor:  managedBuilding.floor_construction  || (epsmOpts ? getDefaultConstructionName(epsmOpts, 'floor')  : null) || '',
-                              roof:   managedBuilding.roof_construction   || (epsmOpts ? getDefaultConstructionName(epsmOpts, 'roof')   : null) || '',
-                              window: managedBuilding.window_construction || (epsmOpts ? getDefaultConstructionName(epsmOpts, 'window') : null) || '',
-                            },
-                            building_program: managedBuilding.building_program ?? 'Office',
-                            hvac_system:      managedBuilding.hvac_system      ?? 'Default HVAC',
-                            natural_ventilation: managedBuilding.natural_ventilation ?? false,
-                            location,
-                          },
-                          {
-                            onQueued:       ()  => setBaselineEnergyStage('Queued'),
-                            onStatusUpdate: (s) => setBaselineEnergyStage(s.stage ?? s.status),
-                            onComplete:     (result) => {
-                              setBaselineEnergyStage('Complete');
-                              const resolvedForGwp = {
-                                ...managedBuilding,
-                                wall_construction:   managedBuilding.wall_construction   || (epsmOpts ? getDefaultConstructionName(epsmOpts, 'wall')   : null) || '',
-                                floor_construction:  managedBuilding.floor_construction  || (epsmOpts ? getDefaultConstructionName(epsmOpts, 'floor')  : null) || '',
-                                roof_construction:   managedBuilding.roof_construction   || (epsmOpts ? getDefaultConstructionName(epsmOpts, 'roof')   : null) || '',
-                                window_construction: managedBuilding.window_construction || (epsmOpts ? getDefaultConstructionName(epsmOpts, 'window') : null) || '',
-                              };
-                              const gwp = epsmOpts ? (computePortfolioEmbodiedCarbon(epsmOpts, [resolvedForGwp]) ?? 0) : 0;
-                              const wwr = resolvedForGwp.window_to_wall_ratio ?? 0.4;
-                              const floors = resolvedForGwp.floors ?? 1;
-                              const floorH = resolvedForGwp.floorHeight ?? 3.2;
-                              const footprint = resolvedForGwp.area ?? 0;
-                              const perim = resolvedForGwp.points && resolvedForGwp.points.length >= 2
-                                ? resolvedForGwp.points.reduce((s, p, i) => { const n = resolvedForGwp.points![(i+1) % resolvedForGwp.points!.length]; return s + Math.sqrt((n.x-p.x)**2+(n.z-p.z)**2); }, 0)
-                                : Math.sqrt(footprint) * 4;
-                              const wallArea = perim * floors * floorH;
-                              const breakdown = epsmOpts ? calculateEmbodiedCarbon(
-                                epsmOpts,
-                                { wall: resolvedForGwp.wall_construction ?? '', floor: resolvedForGwp.floor_construction ?? '', roof: resolvedForGwp.roof_construction ?? '', window: resolvedForGwp.window_construction ?? '' },
-                                { wallArea, windowArea: wallArea * wwr, floorArea: footprint * floors, roofArea: footprint }
-                              ) : null;
-                              designExplorationService.updateNodeSnapshot('baseline', {
-                                metrics: {
-                                  heatingDemand: result.heating_demand_kwh_m2,
-                                  coolingDemand: result.cooling_demand_kwh_m2,
-                                  totalEnergy:   result.total_energy_kwh_m2,
-                                  ...(gwp > 0 ? { globalWarmingPotential: gwp } : {}),
-                                  ...(breakdown ? { embodiedCarbonBreakdown: breakdown } : {}),
-                                },
-                                energyRun: {
-                                  status: 'complete',
-                                  studyId: result.study_id,
-                                  monthlyHeatBalance: result.monthly_heat_balance ?? undefined,
-                                }
-                              });
-                            },
-                            onError: (err) => {
-                              setBaselineEnergyStage('Failed');
-                              designExplorationService.updateNodeSnapshot('baseline', {
-                                energyRun: { status: 'failed', error: err.message }
-                              });
-                            },
-                          },
-                          energyAbortControllerRef.current ?? undefined
-                        )
-                      : Promise.resolve(null),
-                  ]);
-
-                  // Apply daylight result
-                  if (daylightSettled.status === 'fulfilled') {
-                    const baselineResult = daylightSettled.value;
-                    designExplorationService.updateNodeSnapshot('baseline', {
-                      buildings: [managedBuilding],
-                      metrics: {
-                        spatialDaylightAutonomy: baselineResult.sda
-                      },
-                      daylightRun: {
-                        status: 'complete',
-                        studyId: baselineResult.studyId,
-                        stage: baselineResult.stage,
-                        sensorCount: baselineResult.sensorCount,
-                        meanDF: baselineResult.meanDF,
-                        updatedAt: baselineResult.completedAt || new Date().toISOString()
-                      },
-                      daylightResultsByBuildingId: {
-                        [managedBuilding.id]: baselineResult
-                      }
-                    });
-                  } else {
-                    designExplorationService.updateNodeSnapshot('baseline', {
-                      buildings: [managedBuilding],
-                      daylightRun: {
-                        status: 'failed',
-                        error: daylightSettled.reason instanceof Error ? daylightSettled.reason.message : 'Baseline daylight simulation failed',
-                        updatedAt: new Date().toISOString()
-                      }
-                    });
-                    console.error('Baseline daylight simulation failed:', daylightSettled.reason);
-                  }
-
-                  if (energySettled.status === 'rejected') {
-                    console.error('Baseline energy simulation failed:', energySettled.reason);
-                  }
-                } finally {
-                  setIsBaselineSimRunning(false);
-                  setBaselineEnergyStage(null);
-                }
-              })();
-            }
+            designExplorationService.updateNodeSnapshot('baseline', {
+              buildings: [managedBuilding],
+              daylightRun: { status: 'idle' },
+              energyRun: { status: 'idle' },
+              daylightResultsByBuildingId: {},
+            });
           } else {
             console.error('❌ Failed to add sample building to building manager');
           }
@@ -1025,18 +1027,7 @@ export const SimpleBuildingCreator: React.FC = () => {
         console.error('❌ Error creating sample building:', error);
       }
     }
-  }, [isInitialized, scene, buildings.length, windowService, addBuilding, hasInitializedWithSample, runDaylightSimulation]);
-
-  // Safeguard: Re-ensure sample building exists when switching to model tab
-  useEffect(() => {
-    if (activeTab === 'model' && isInitialized && scene && buildings.length === 0 && hasInitializedWithSample) {
-      console.log('🔄 Sample building missing when switching to model tab, recreating...');
-      
-      // Reset the initialization flag to allow recreation
-      setHasInitializedWithSample(false);
-    }
-  }, [activeTab, isInitialized, scene, buildings.length, hasInitializedWithSample]);
-// End of sample building initialization
+  }, [isInitialized, scene, buildings.length, windowService, addBuilding, hasInitializedWithSample]);
 
   // Define tabs
   const tabs = [
@@ -1089,7 +1080,7 @@ export const SimpleBuildingCreator: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full h-screen bg-gray-950 flex flex-col">
+    <div className="model-workspace relative flex h-screen w-full flex-col bg-[#F4F6F8] text-slate-800">
       {/* Tab Navigation */}
       <Tabs 
         tabs={tabs} 
@@ -1125,13 +1116,11 @@ export const SimpleBuildingCreator: React.FC = () => {
               isInitialized={isInitialized}
               hasBuildings={buildings.length > 0}
               onStartDrawing={handleStartDrawing}
-              onShowConfig={() => setShowBuildingConfig(!showBuildingConfig)}
               onExport={exportBuildings}
               onClearAll={handleClearAll}
               onSaveConfiguration={handleSaveConfiguration}
               onImportConfiguration={handleImportConfiguration}
               onToggleSunController={() => setShowSunController(!showSunController)}
-              onToggleTheme={handleToggleTheme}
             />
 
             {/* Bottom Toolbar */}
@@ -1146,6 +1135,7 @@ export const SimpleBuildingCreator: React.FC = () => {
               onToggleFPS={toggleFPSCounter}
               onSwitchCameraType={handleSwitchCameraType}
               onSetCameraView={handleSetCameraView}
+              onOpenDesignGraph={handleOpenDesignGraph}
             />
 
             {/* Floating Instructions */}
@@ -1171,12 +1161,11 @@ export const SimpleBuildingCreator: React.FC = () => {
               />
             )}
 
-            {/* Building Configuration Panel */}
-            {showBuildingConfig && (
-              <BuildingConfigPanel
+            {drawingState.isDrawing && showBuildingConfig && (
+              <DrawingInspector
                 config={buildingConfig}
-                onConfigChange={setBuildingConfig}
-                onClose={() => setShowBuildingConfig(false)}
+                onChange={setBuildingConfig}
+                onClose={() => { setShowBuildingConfig(false); stopDrawing(); }}
               />
             )}
 
@@ -1190,57 +1179,19 @@ export const SimpleBuildingCreator: React.FC = () => {
             {/* Building Edit Panel */}
             {selectedBuilding && (
               <BuildingEditPanel
+                key={selectedBuilding.id}
                 building={selectedBuilding}
-                onClose={() => selectBuilding(null)}
+                footprintPoints={footprintEditPoints ?? undefined}
                 onPreview={handlePreviewBuilding}
-                enableBuildingFocus={enableBuildingFocus}
-                disableBuildingFocus={disableBuildingFocus}
+                onCommit={handleCommitBuilding}
+                onCancel={handleCancelBuilding}
               />
             )}
 
-            {daylightLegend && (
-              <div className="absolute right-4 bottom-20 z-30 pointer-events-none">
-                <div className="bg-gray-900/90 border border-gray-700 rounded-lg p-3 min-w-[240px] shadow-xl">
-                  {daylightLegend.mode === 'df' ? (
-                    <>
-                      <div className="text-xs font-semibold text-gray-200 mb-2">Daylight Factor (DF)</div>
-                      <div className="h-3 rounded-md border border-gray-700" style={{
-                        background: 'linear-gradient(90deg, #1e3a8a 0%, #1d4ed8 10%, #06b6d4 20%, #22c55e 50%, #f59e0b 80%, #ef4444 100%)'
-                      }} />
-                      <div className="relative mt-1 h-4">
-                        <span className="absolute left-0 text-[10px] text-gray-400">0%</span>
-                        <span className="absolute text-[10px] text-gray-400 -translate-x-1/2" style={{ left: '10%' }}>1%</span>
-                        <span className="absolute text-[10px] text-cyan-300 font-bold -translate-x-1/2" style={{ left: '20%' }}>2%</span>
-                        <span className="absolute text-[10px] text-gray-400 -translate-x-1/2" style={{ left: '50%' }}>5%</span>
-                        <span className="absolute right-0 text-[10px] text-gray-400">10%+</span>
-                      </div>
-                      <div className="flex justify-between mt-2 text-[10px]">
-                        <span className="text-blue-400">Poor</span>
-                        <span className="text-cyan-300">▲ 2% target</span>
-                        <span className="text-orange-400">Overlit</span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-xs font-semibold text-gray-200 mb-2">sDA (300 lux / 50%)</div>
-                      <div className="flex gap-2">
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-4 h-4 rounded-sm" style={{ background: '#22c55e' }} />
-                          <span className="text-[10px] text-emerald-300 font-medium">Pass ≥ 50%</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-4 h-4 rounded-sm" style={{ background: '#ef4444' }} />
-                          <span className="text-[10px] text-red-400 font-medium">Fail &lt; 50%</span>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
+            {daylightLegend && <DaylightLegend {...daylightLegend} onToggle={handleToggleDaylightVisibility} />}
 
-            {/* Mini Graph Window */}
-            <MiniGraphWindow onOpenFullGraph={handleOpenDesignGraph} />
+            {simulationProgress && <SimulationProgressCard daylight={simulationProgress.daylight} energy={simulationProgress.energy} onDismiss={() => setSimulationProgress(null)} onRetry={() => void handleSaveConfigurationConfirm(lastRunNameRef.current)} />}
+
           </>
         )}
       </TabContent>
@@ -1248,105 +1199,25 @@ export const SimpleBuildingCreator: React.FC = () => {
       {/* Global Overlays and Dialogs */}
       {/* Loading Overlay */}
       {isInitializing && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-gray-900/95 rounded-2xl p-8 shadow-2xl border border-gray-700/50 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <h3 className="text-white text-xl font-bold mb-2">Initializing 3D Scene</h3>
-            <p className="text-gray-300 text-sm">Setting up WebGL renderer...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Baseline Simulation Overlay */}
-      {isBaselineSimRunning && !isInitializing && (
-        <div className="fixed inset-0 bg-black/45 backdrop-blur-sm flex items-center justify-center z-[60]">
-          <div className="bg-gray-900/95 rounded-2xl p-8 shadow-2xl border border-gray-700/50 text-center max-w-md">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
-            <h3 className="text-white text-xl font-bold mb-2">Running Baseline Simulations</h3>
-            <p className="text-gray-300 text-sm">Preparing daylight and energy results for the startup building...</p>
-            <div className="mt-4 space-y-3">
-              <div className="bg-gray-800/70 border border-gray-700 rounded-lg p-3 text-left">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="text-xs font-medium text-gray-400">Daylight</div>
-                  <div className="text-xs text-cyan-300 capitalize">{activeDaylightRunStatus?.status || 'queued'}</div>
-                </div>
-                <div className="text-sm text-gray-200">{activeDaylightRunStatus?.stage || 'Waiting for worker...'}</div>
-                {activeDaylightRunStatus?.studyId && (
-                  <div className="text-xs text-gray-500 mt-1 break-all">{activeDaylightRunStatus.studyId}</div>
-                )}
-              </div>
-              <div className="bg-gray-800/70 border border-gray-700 rounded-lg p-3 text-left">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="text-xs font-medium text-gray-400">Energy</div>
-                  <div className={`text-xs capitalize ${
-                    baselineEnergyStage === 'Failed' ? 'text-red-400' :
-                    baselineEnergyStage === 'Complete' ? 'text-green-400' :
-                    'text-blue-300'
-                  }`}>{baselineEnergyStage ?? 'queued'}</div>
-                </div>
-                <div className="text-sm text-gray-200">
-                  {baselineEnergyStage === 'Complete' ? 'Results ready' :
-                   baselineEnergyStage === 'Failed' ? 'Energy simulation failed' :
-                   baselineEnergyStage ? `${baselineEnergyStage}…` :
-                   'Waiting to start…'}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Daylight Simulation Overlay */}
-      {isSaveAndRunInProgress && !isBaselineSimRunning && !isInitializing && (
-        <div className="fixed inset-0 bg-black/45 backdrop-blur-sm flex items-center justify-center z-[60]">
-          <div className="bg-gray-900/95 rounded-2xl p-8 shadow-2xl border border-gray-700/50 text-center max-w-md">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
-            <h3 className="text-white text-xl font-bold mb-2">Running Daylight Simulation</h3>
-            <p className="text-gray-300 text-sm">Preparing daylight results for the selected design...</p>
-            <div className="mt-4 bg-gray-800/70 border border-gray-700 rounded-lg p-3 text-left">
-              <div className="text-xs text-gray-400">Status</div>
-              <div className="text-sm text-cyan-300 capitalize">{activeDaylightRunStatus?.status || 'queued'}</div>
-              <div className="text-xs text-gray-400 mt-2">Stage</div>
-              <div className="text-sm text-gray-200">{activeDaylightRunStatus?.stage || 'Waiting for worker...'}</div>
-              {activeDaylightRunStatus?.studyId && (
-                <>
-                  <div className="text-xs text-gray-400 mt-2">Study ID</div>
-                  <div className="text-xs text-gray-200 break-all">{activeDaylightRunStatus.studyId}</div>
-                </>
-              )}
-              {daylightSimulationProgress && daylightSimulationProgress.total > 1 && (
-                <div className="mt-3">
-                  <div className="flex items-center justify-between text-xs text-gray-400">
-                    <span>Studies completed</span>
-                    <span>{daylightSimulationProgress.completed}/{daylightSimulationProgress.total}</span>
-                  </div>
-                  <div className="mt-2 h-2 rounded-full bg-gray-800 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-cyan-500 transition-all duration-300"
-                      style={{ width: `${(daylightSimulationProgress.completed / daylightSimulationProgress.total) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-              {activeDaylightRunStatus?.error && (
-                <div className="mt-2 text-xs text-red-300 break-words">{activeDaylightRunStatus.error}</div>
-              )}
-            </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-100/70 backdrop-blur-sm">
+          <div className="rounded-lg border border-slate-200 bg-white px-6 py-5 text-center shadow-xl">
+            <Loader2 className="mx-auto mb-3 h-7 w-7 animate-spin text-blue-600" />
+            <h3 className="text-[13px] font-semibold text-slate-900">Initializing 3D scene</h3>
+            <p className="mt-1 text-[11px] text-slate-500">Setting up the WebGL renderer…</p>
           </div>
         </div>
       )}
 
       {/* Error Overlay */}
       {initializationError && !isInitializing && (
-        <div className="fixed inset-0 bg-red-900/20 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-red-900/95 rounded-2xl p-8 shadow-2xl border border-red-700/50 text-center max-w-md">
-            <div className="text-red-400 text-4xl mb-4">⚠️</div>
-            <h3 className="text-white text-xl font-bold mb-4">Scene Initialization Failed</h3>
-            <p className="text-red-100 mb-6 text-sm">{initializationError}</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-100/70 backdrop-blur-sm">
+          <div className="max-w-sm rounded-lg border border-rose-200 bg-white p-6 text-center shadow-xl">
+            <AlertTriangle className="mx-auto mb-3 h-7 w-7 text-rose-600" />
+            <h3 className="text-[13px] font-semibold text-slate-900">Scene initialization failed</h3>
+            <p className="mb-5 mt-2 text-[11px] leading-5 text-slate-600">{initializationError}</p>
             <button
               onClick={retryInitialization}
-              className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg 
-                        transition-all duration-200 font-medium shadow-lg"
+              className="h-8 w-full rounded-md bg-rose-600 px-4 text-[11px] font-semibold text-white hover:bg-rose-700"
             >
               Retry Initialization
             </button>
@@ -1386,15 +1257,6 @@ export const SimpleBuildingCreator: React.FC = () => {
           ]);
           if (!location) return;
 
-          const resolveConstruction = (
-            value: string | undefined,
-            type: 'wall' | 'floor' | 'roof' | 'window'
-          ): string =>
-            (value && value !== 'Default Wall' && value !== 'Default Floor' &&
-             value !== 'Default Roof' && value !== 'Default Window')
-              ? value
-              : (epsmOpts ? getDefaultConstructionName(epsmOpts, type) : null) ?? value ?? '';
-
           energyAbortControllerRef.current?.abort();
           energyAbortControllerRef.current = new AbortController();
 
@@ -1403,15 +1265,16 @@ export const SimpleBuildingCreator: React.FC = () => {
           });
 
           try {
+            const resolvedConstructions = resolveEnergyConstructions(epsmOpts, {
+              wall: building.wall_construction,
+              floor: building.floor_construction,
+              roof: building.roof_construction,
+              window: building.window_construction,
+            });
             await energyApiService.runEnergyStudy(
               building,
               {
-                constructions: {
-                  wall:   resolveConstruction(building.wall_construction,   'wall'),
-                  floor:  resolveConstruction(building.floor_construction,  'floor'),
-                  roof:   resolveConstruction(building.roof_construction,   'roof'),
-                  window: resolveConstruction(building.window_construction, 'window'),
-                },
+                constructions: resolvedConstructions,
                 building_program: building.building_program ?? 'Office',
                 hvac_system:      building.hvac_system      ?? 'Default HVAC',
                 natural_ventilation: building.natural_ventilation ?? false,
@@ -1427,28 +1290,23 @@ export const SimpleBuildingCreator: React.FC = () => {
                 onComplete: (result) => {
                   const resolvedForGwp = {
                     ...building,
-                    wall_construction:   resolveConstruction(building.wall_construction,   'wall'),
-                    floor_construction:  resolveConstruction(building.floor_construction,  'floor'),
-                    roof_construction:   resolveConstruction(building.roof_construction,   'roof'),
-                    window_construction: resolveConstruction(building.window_construction, 'window'),
+                    wall_construction: resolvedConstructions.wall,
+                    floor_construction: resolvedConstructions.floor,
+                    roof_construction: resolvedConstructions.roof,
+                    window_construction: resolvedConstructions.window,
                   };
                   const gwp = epsmOpts ? (computePortfolioEmbodiedCarbon(epsmOpts, [resolvedForGwp]) ?? 0) : 0;
-                  const wwr = resolvedForGwp.window_to_wall_ratio ?? 0.4;
-                  const floors = resolvedForGwp.floors ?? 1;
-                  const floorH = resolvedForGwp.floorHeight ?? 3.2;
-                  const footprint = resolvedForGwp.area ?? 0;
-                  const perim = resolvedForGwp.points && resolvedForGwp.points.length >= 2
-                    ? resolvedForGwp.points.reduce((s, p, i) => { const n = resolvedForGwp.points![(i+1) % resolvedForGwp.points!.length]; return s + Math.sqrt((n.x-p.x)**2+(n.z-p.z)**2); }, 0)
-                    : Math.sqrt(footprint) * 4;
-                  const wallArea = perim * floors * floorH;
+                  const wwr = resolvedForGwp.window_to_wall_ratio ?? DEFAULT_FACADE_PARAMETERS.wwr;
+                  const wallArea = resolvedForGwp.metrics.perimeter * resolvedForGwp.metrics.totalHeight;
                   const breakdown = epsmOpts ? calculateEmbodiedCarbon(
                     epsmOpts,
                     { wall: resolvedForGwp.wall_construction ?? '', floor: resolvedForGwp.floor_construction ?? '', roof: resolvedForGwp.roof_construction ?? '', window: resolvedForGwp.window_construction ?? '' },
-                    { wallArea, windowArea: wallArea * wwr, floorArea: footprint * floors, roofArea: footprint }
+                    { wallArea, windowArea: wallArea * wwr, floorArea: resolvedForGwp.metrics.grossFloorArea, roofArea: resolvedForGwp.metrics.footprintArea }
                   ) : null;
                   designExplorationService.updateNode(nodeId, {
                     energyRun: {
                       status: 'complete',
+                      inputFingerprint: createEnergyInputFingerprint(building),
                       studyId: result.study_id,
                       monthlyHeatBalance: result.monthly_heat_balance ?? undefined,
                     },
@@ -1486,6 +1344,16 @@ export const SimpleBuildingCreator: React.FC = () => {
           energyResults={(() => {
             const node = designExplorationService.getCurrentNode();
             if (!node) return undefined;
+            const simulatedBuildingId = node.buildings[0]?.id;
+            const currentSimulatedBuilding = buildings.find(building => building.id === simulatedBuildingId);
+            const isCurrent = Boolean(
+              currentSimulatedBuilding &&
+              node.energyRun?.inputFingerprint &&
+              node.energyRun.inputFingerprint === createEnergyInputFingerprint(currentSimulatedBuilding)
+            );
+            if (!isCurrent) {
+              return { status: 'idle' as const };
+            }
             return {
               heatingDemand: node.metrics.heatingDemand,
               coolingDemand: node.metrics.coolingDemand,
@@ -1508,9 +1376,7 @@ export const SimpleBuildingCreator: React.FC = () => {
             // Always render all saved results for the given mode so the dialog
             // switching mode/building cannot accidentally replace the combined overlay
             // with a single building's points.
-            const overlayGroups = getOverlayGroupsForResults(daylightResultsByBuildingId, mode);
-            daylightVisualizationService.renderSensorPointGroups(scene, overlayGroups, mode);
-            updateDaylightLegend(overlayGroups.flat(), mode);
+            showDaylightAnalysis(daylightResultsByBuildingId, mode);
           }}
         />
       )}

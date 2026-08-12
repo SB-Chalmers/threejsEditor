@@ -7,8 +7,8 @@ export class BuildingService {
   private scene: THREE.Scene;
   
   // Reusable geometries and materials for better performance
-  private static debugMaterial: THREE.MeshLambertMaterial | null = null;
-  private static previewMaterial: THREE.MeshLambertMaterial | null = null;
+  private static debugMaterial: THREE.MeshStandardMaterial | null = null;
+  private static previewMaterial: THREE.MeshStandardMaterial | null = null;
   
   // Add building state tracking
   private buildingState = {
@@ -22,18 +22,22 @@ export class BuildingService {
   }
 
   private initializeSharedResources(): void {
-    if (!BuildingService.debugMaterial) {      BuildingService.debugMaterial = new THREE.MeshLambertMaterial({
+    if (!BuildingService.debugMaterial) {      BuildingService.debugMaterial = new THREE.MeshStandardMaterial({
         color: getThemeColorAsHex('--color-building-debug', 0x00ff00),
         emissive: getThemeColorAsHex('--color-building-debug', 0x00ff00),
-        emissiveIntensity: 0.3
+        emissiveIntensity: 0.1,
+        roughness: 0.88,
+        metalness: 0
       });
         // Add shared preview material
-      BuildingService.previewMaterial = new THREE.MeshLambertMaterial({
+      BuildingService.previewMaterial = new THREE.MeshStandardMaterial({
         color: getThemeColorAsHex('--color-building-preview', 0x3b82f6),
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.5,
-        wireframe: false
+        wireframe: false,
+        roughness: 0.88,
+        metalness: 0
       });
     }
   }
@@ -70,9 +74,11 @@ export class BuildingService {
     geometry.computeVertexNormals();
     
     // Create material with proper shadow settings
-    const material = new THREE.MeshLambertMaterial({
+    const material = new THREE.MeshStandardMaterial({
       color: config.color,
-      side: THREE.DoubleSide
+      side: THREE.DoubleSide,
+      roughness: 0.88,
+      metalness: 0
     });
     
     const building = new THREE.Mesh(geometry, material);
@@ -143,12 +149,14 @@ export class BuildingService {
     geometry.rotateX(-Math.PI / 2);
     
     // Create a NEW material instance for each preview (don't share animated/changing materials)
-    const material = new THREE.MeshLambertMaterial({
+    const material = new THREE.MeshStandardMaterial({
       color: config.color,
       side: THREE.DoubleSide,
       transparent: true,
       opacity: 0.5,
-      wireframe: false
+      wireframe: false,
+      roughness: 0.88,
+      metalness: 0
     });
     
     const previewBuilding = new THREE.Mesh(geometry, material);
@@ -215,10 +223,12 @@ export class BuildingService {
 
   createDebugMarker(position: Point3D, color: number = 0x00ff00): THREE.Mesh {
     const geometry = new THREE.SphereGeometry(1.5, 16, 16);
-    const material = new THREE.MeshLambertMaterial({
+    const material = new THREE.MeshStandardMaterial({
       color,
       emissive: color,
-      emissiveIntensity: 0.3
+      emissiveIntensity: 0.1,
+      roughness: 0.9,
+      metalness: 0
     });
     
     const marker = new THREE.Mesh(geometry, material);

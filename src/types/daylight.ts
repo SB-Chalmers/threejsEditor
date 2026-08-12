@@ -17,8 +17,13 @@ export interface DaylightRoomInput {
   footprint_coordinates: [number, number][];
   orientation_offset: number;
   floor_to_floor_height: number;
+  floors: number;
   selected_floor_number: number;
+  simulate_all_floors: boolean;
   wwr?: number;
+  window_width: number;
+  window_height: number;
+  window_spacing: number;
   wall_thickness: number;
   additional_horizontal_shading_depth: number;
   additional_vertical_shading_depth: number;
@@ -36,7 +41,7 @@ export interface DaylightStudyRequest {
   context_buildings: DaylightContextBuildingInput[];
   run_sda: boolean;
   location?: string;
-  quality: 'draft' | 'full';
+  quality: 'full';
   thresholds: DaylightRunThresholds;
 }
 
@@ -69,6 +74,15 @@ export interface DaylightSdaSummary {
   passing_sensors: number;
 }
 
+export interface DaylightSensorGridRange {
+  identifier: string;
+  full_identifier: string;
+  room_identifier: string;
+  floor_number: number | null;
+  start_sensor_index: number;
+  sensor_count: number;
+}
+
 export interface DaylightStudyResult {
   study_id: string;
   df: {
@@ -79,8 +93,9 @@ export interface DaylightStudyResult {
     summary: DaylightSdaSummary;
     values: number[];
     pass: boolean[];
-  };
+  } | null;
   sensor_points?: [number, number, number][];
+  sensor_grids?: DaylightSensorGridRange[];
 }
 
 export interface DaylightApiError {
@@ -104,7 +119,14 @@ export interface DaylightSensorPoint {
   value: number;
 }
 
+export interface DaylightOverlayDataset {
+  points: DaylightSensorPoint[];
+  cellSizeX: number;
+  cellSizeZ: number;
+}
+
 export interface DaylightRunSummary {
+  inputFingerprint?: string;
   studyId: string;
   status: DaylightStudyStatus;
   stage?: string;
@@ -116,6 +138,9 @@ export interface DaylightRunSummary {
   points: DaylightSensorPoint[];
   sdaPoints?: DaylightSensorPoint[];
   sdaPassMask?: boolean[];
+  sensorGrids: DaylightSensorGridRange[];
+  /** Grid used by the submitted request. Historical results fall back to 0.5 m cells. */
+  sensorGrid?: SensorGridConfig;
   startedAt: string;
   completedAt?: string;
 }
@@ -130,10 +155,11 @@ export interface DaylightRunState {
 export interface DaylightBuildRequestOptions {
   run_sda?: boolean;
   location?: string;
-  quality?: 'draft' | 'full';
+  quality?: 'full';
   thresholds?: DaylightRunThresholds;
   sensor_grid?: Partial<SensorGridConfig>;
   selected_floor_number?: number;
+  simulate_all_floors?: boolean;
   context_buildings?: DaylightContextBuildingInput[];
 }
 

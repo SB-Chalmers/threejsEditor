@@ -11,7 +11,7 @@
  */
 
 import { BuildingData } from '../types/building';
-import { calculateSignedArea, ensureCounterClockwise } from '../utils/geometry';
+import { ensureHoneybeeCounterClockwise, getBuildingFacadeParameters } from './FacadeGeometry';
 
 // ── Config ────────────────────────────────────────────────────────────────
 
@@ -108,20 +108,23 @@ class EnergyApiService {
 
   // ── Room geometry builder ────────────────────────────────────────────────
 
-  private buildRoomFromBuilding(building: BuildingData, options: EnergyStudyOptions) {
-    const rawPoints = building.points.map(p => [p.x, p.z] as [number, number]);
-    const signedArea = calculateSignedArea(rawPoints);
-    const coords: [number, number][] = signedArea < 0 ? rawPoints : rawPoints.slice().reverse();
+  private buildRoomFromBuilding(building: BuildingData) {
+    const coords = ensureHoneybeeCounterClockwise(building.points)
+      .map(point => [point.x, point.z] as [number, number]);
+    const facade = getBuildingFacadeParameters(building);
 
     return {
       footprint_coordinates: coords,
       floor_to_floor_height: building.floorHeight ?? 3.2,
       floors: building.floors ?? 1,
       orientation_offset: 0,
-      wwr: building.window_to_wall_ratio ?? 0.4,
-      additional_horizontal_shading_depth: building.window_overhang
-        ? (building.window_overhang_depth ?? 0)
-        : 0,
+      wwr: facade.wwr,
+      window_width: facade.windowWidth,
+      window_height: facade.windowHeight,
+      window_spacing: facade.windowSpacing,
+      wall_thickness: facade.wallThickness,
+      additional_horizontal_shading_depth: facade.additionalHorizontalShadingDepth,
+      additional_vertical_shading_depth: facade.additionalVerticalShadingDepth,
     };
   }
 
@@ -132,7 +135,7 @@ class EnergyApiService {
     options: EnergyStudyOptions,
     signal?: AbortSignal
   ): Promise<EnergyStudyQueued> {
-    const room = this.buildRoomFromBuilding(building, options);
+    const room = this.buildRoomFromBuilding(building);
 
     // Resolve constructions: prefer explicitly passed options, fall back to building fields
     const constructions: EnergyStudyConstructions = {

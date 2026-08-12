@@ -4,6 +4,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { DaylightResultsDialog } from '../DaylightResultsDialog';
 import type { DaylightRunSummary } from '../../../types/daylight';
 
+const anchorClickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+
+vi.mock('../../../services/DaylightApiService', () => ({
+  daylightApiService: {
+    getStudyModelDownloadUrl: vi.fn().mockReturnValue('/api/daylight/v1/studies/study-1/model.hbjson')
+  }
+}));
+
 const makeResult = (overrides: Partial<DaylightRunSummary> = {}): DaylightRunSummary => ({
   studyId: 'study-1',
   status: 'complete',
@@ -11,6 +19,14 @@ const makeResult = (overrides: Partial<DaylightRunSummary> = {}): DaylightRunSum
   meanDF: 12,
   sda: 60,
   points: [{ x: 0, y: 0, z: 0, value: 12 }],
+  sensorGrids: [{
+    identifier: 'grid-floor-1',
+    full_identifier: 'building-room-floor-1-grid',
+    room_identifier: 'building-room-floor-1',
+    floor_number: 1,
+    start_sensor_index: 0,
+    sensor_count: 1
+  }],
   startedAt: '2025-01-01T00:00:00.000Z',
   ...overrides
 });
@@ -35,11 +51,76 @@ describe('DaylightResultsDialog', () => {
       />
     );
 
-    const selector = screen.getByLabelText(/result building/i);
+    const selector = screen.getByRole('combobox', { name: /result building/i });
     expect(selector).toBeInTheDocument();
 
     fireEvent.change(selector, { target: { value: 'building-b' } });
 
     expect(handleSelect).toHaveBeenCalledWith('building-b');
+  });
+
+  it('downloads the Honeybee model from the selected study', async () => {
+    render(
+      <DaylightResultsDialog
+        isOpen
+        onClose={() => undefined}
+        buildingName="Building A"
+        result={makeResult()}
+        onApplyVisualization={() => undefined}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /download model/i }));
+
+    expect(anchorClickSpy).toHaveBeenCalled();
+  });
+
+  it('shows only one sensor grid range at a time in the plan view', () => {
+    const result = makeResult({
+      sensorCount: 4,
+      points: [
+        { x: 0, y: 0.75, z: 0, value: 1 },
+        { x: 1, y: 0.75, z: 0, value: 2 },
+        { x: 0, y: 3.75, z: 0, value: 10 },
+        { x: 1, y: 3.75, z: 0, value: 20 }
+      ],
+      sensorGrids: [
+        {
+          identifier: 'grid-floor-1',
+          full_identifier: 'room-floor-1-grid',
+          room_identifier: 'room-floor-1',
+          floor_number: 1,
+          start_sensor_index: 0,
+          sensor_count: 2
+        },
+        {
+          identifier: 'grid-floor-2',
+          full_identifier: 'room-floor-2-grid',
+          room_identifier: 'room-floor-2',
+          floor_number: 2,
+          start_sensor_index: 2,
+          sensor_count: 2
+        }
+      ]
+    });
+
+    render(
+      <DaylightResultsDialog
+        isOpen
+        onClose={() => undefined}
+        buildingName="Building A"
+        result={result}
+        onApplyVisualization={() => undefined}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /^daylight$/i }));
+    expect(screen.getByText(/room range: 1\.00–2\.00%/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('combobox', { name: /plan view floor/i }), {
+      target: { value: '1' }
+    });
+
+    expect(screen.getByText(/room range: 10\.00–20\.00%/i)).toBeInTheDocument();
   });
 });

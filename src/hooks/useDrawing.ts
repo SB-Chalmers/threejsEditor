@@ -30,7 +30,7 @@ export const useDrawing = (
   groundPlane: THREE.Mesh | null,
   snapToGridEnabled: boolean = false,
   buildingConfig: BuildingConfig,
-  addBuilding: (mesh: THREE.Mesh, points: Point3D[], floors: number, floorHeight: number) => BuildingData | undefined
+  addBuilding: (mesh: THREE.Mesh, points: Point3D[], config: BuildingConfig) => BuildingData | undefined
 ) => {
   const [drawingState, setDrawingState] = useState<DrawingState>({
     isDrawing: false,
@@ -318,7 +318,7 @@ export const useDrawing = (
 
     // Remove frequent debug log - too noisy for production
     // logger.debug('Drawing started with fresh service states', {}, 'DrawingHook');
-  }, [clearAllPreviews, clearAllDrawingElements]);
+  }, [drawingState.isDrawing, clearAllPreviews, clearAllDrawingElements]);
 
   // Declare finishBuilding BEFORE addPoint to avoid circular dependency
   const finishBuilding = useCallback(() => {
@@ -352,8 +352,7 @@ export const useDrawing = (
         const building = addBuilding(
           buildingMesh,
           drawingState.points,
-          buildingConfig.floors,
-          buildingConfig.floorHeight
+          buildingConfig
         );
 
         if (!building) {
@@ -505,7 +504,7 @@ export const useDrawing = (
       previewLengthLabel: null,
       snapToStart: false
     }));
-  }, [drawingState.isDrawing, drawingState.points, drawingState.snapToStart, camera, groundPlane, snapToGridEnabled, finishBuilding, clearAllPreviews, validateServices]);
+  }, [drawingState.isDrawing, drawingState.points, camera, groundPlane, snapToGridEnabled, finishBuilding, clearAllPreviews, validateServices]);
 
   const stopDrawing = useCallback(() => {
     if (!drawingServiceRef.current || !buildingServiceRef.current || !textServiceRef.current) return;

@@ -141,6 +141,10 @@ export class CameraManager {
     return this.controls;
   }
 
+  setControlsEnabled(enabled: boolean): void {
+    if (this.controls) this.controls.enabled = enabled;
+  }
+
   getCurrentCameraType(): CameraType {
     return this.currentCameraType;
   }

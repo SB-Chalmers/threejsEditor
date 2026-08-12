@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Sun, Activity, Filter, Zap, Leaf, LayoutDashboard } from 'lucide-react';
+import { X, Sun, Activity, Filter, Zap, Leaf, LayoutDashboard, Download } from 'lucide-react';
 import { DaylightRunSummary, DaylightSensorPoint } from '../../types/daylight';
 import { EmbodiedCarbonResult } from '../../services/EPSMService';
 import { MonthlyHeatBalance } from '../../services/EnergyApiService';
 import { MonthlyHeatBalanceChart } from '../MonthlyHeatBalanceChart';
+import { daylightApiService } from '../../services/DaylightApiService';
 
 export interface EnergyResults {
   heatingDemand?: number;
@@ -44,26 +45,70 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
   const [tab, setTab] = useState<Tab>('overview');
   const [mode, setMode] = useState<MetricMode>('df');
   const [showPassingOnly, setShowPassingOnly] = useState(false);
+  const [selectedSensorGridIndex, setSelectedSensorGridIndex] = useState(0);
 
   // Stable ref so the effect below doesn't re-fire when the parent re-creates the callback inline
   const onApplyVisualizationRef = useRef(onApplyVisualization);
   useEffect(() => { onApplyVisualizationRef.current = onApplyVisualization; });
 
+  const handleDownloadModel = () => {
+    const link = document.createElement('a');
+    link.href = daylightApiService.getStudyModelDownloadUrl(result.studyId);
+    link.download = `daylight-${result.studyId}.hbjson`;
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const hasSda = Boolean(result.sdaPoints && result.sdaPoints.length > 0);
 
+  useEffect(() => {
+    setSelectedSensorGridIndex(0);
+  }, [result.studyId]);
+
+  const sensorGrids = useMemo(() => {
+    if (result.sensorGrids?.length) {
+      return result.sensorGrids;
+    }
+
+    // Results saved before multi-floor support have one implicit selected-floor range.
+    return [{
+      identifier: 'legacy-grid',
+      full_identifier: 'legacy-grid',
+      room_identifier: 'room',
+      floor_number: null,
+      start_sensor_index: 0,
+      sensor_count: result.points.length
+    }];
+  }, [result.sensorGrids, result.points.length]);
+
+  const activeSensorGrid = sensorGrids[Math.min(selectedSensorGridIndex, sensorGrids.length - 1)];
+
+  const floorResultArrays = useMemo(() => {
+    const start = activeSensorGrid.start_sensor_index;
+    const end = start + activeSensorGrid.sensor_count;
+
+    return {
+      dfPoints: result.points.slice(start, end),
+      sdaPoints: result.sdaPoints?.slice(start, end),
+      sdaPassMask: result.sdaPassMask?.slice(start, end)
+    };
+  }, [activeSensorGrid, result.points, result.sdaPoints, result.sdaPassMask]);
+
   const visiblePointEntries = useMemo(() => {
-    if (mode === 'df' || !result.sdaPoints) {
-      return result.points.map((point, index) => ({ point, index }));
-    }
+    const points = mode === 'sda' && floorResultArrays.sdaPoints
+      ? floorResultArrays.sdaPoints
+      : floorResultArrays.dfPoints;
+    const entries = points.map((point, index) => ({
+      point,
+      pass: floorResultArrays.sdaPassMask?.[index]
+    }));
 
-    if (!showPassingOnly || !result.sdaPassMask) {
-      return result.sdaPoints.map((point, index) => ({ point, index }));
-    }
-
-    return result.sdaPoints
-      .map((point, index) => ({ point, index }))
-      .filter(({ index }) => result.sdaPassMask?.[index]);
-  }, [mode, showPassingOnly, result]);
+    return mode === 'sda' && showPassingOnly
+      ? entries.filter(({ pass }) => pass === true)
+      : entries;
+  }, [floorResultArrays, mode, showPassingOnly]);
 
   const visiblePoints = useMemo(
     () => visiblePointEntries.map(({ point }) => point),
@@ -75,8 +120,11 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
       return;
     }
 
-    onApplyVisualizationRef.current(visiblePoints, mode);
-  }, [isOpen, selectedBuildingId, mode]);
+    const allFloorPoints = mode === 'sda' && result.sdaPoints
+      ? result.sdaPoints
+      : result.points;
+    onApplyVisualizationRef.current(allFloorPoints, mode);
+  }, [isOpen, selectedBuildingId, mode, result]);
 
   const planView = useMemo(() => {
     if (visiblePointEntries.length === 0) {
@@ -108,8 +156,8 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
 
     const spacing = Math.min(minDelta(sortedX), minDelta(sortedZ));
     const fallbackSpacing = Math.max(
-      (maxX - minX) / Math.max(1, Math.sqrt(result.points.length)),
-      (maxZ - minZ) / Math.max(1, Math.sqrt(result.points.length)),
+      (maxX - minX) / Math.max(1, Math.sqrt(floorResultArrays.dfPoints.length)),
+      (maxZ - minZ) / Math.max(1, Math.sqrt(floorResultArrays.dfPoints.length)),
       0.4
     );
     const worldCell = Number.isFinite(spacing) ? Math.max(0.1, spacing * 0.9) : fallbackSpacing;
@@ -138,8 +186,7 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
       return lerp([245, 158, 11], [239, 68, 68], Math.min(1, (v - 10) / 5));
     };
 
-    const getSdaColor = (pointIndex: number, pointValue: number): string => {
-      const pass = result.sdaPassMask?.[pointIndex];
+    const getSdaColor = (pass: boolean | undefined, pointValue: number): string => {
       if (pass === true) {
         return 'rgb(34, 197, 94)';
       }
@@ -154,12 +201,12 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
       return `rgb(${mix(34, 21, (v - 75) / 25)}, ${mix(197, 128, (v - 75) / 25)}, ${mix(94, 61, (v - 75) / 25)})`;
     };
 
-    const cells = visiblePointEntries.map(({ point, index }) => {
+    const cells = visiblePointEntries.map(({ point, pass }) => {
       const x = offsetX + (point.x - minX) * scale - cellSizePx / 2;
       const y = offsetY + (maxZ - point.z) * scale - cellSizePx / 2;
       const color = mode === 'df'
         ? getDfColorForAbsoluteValue(point.value)
-        : getSdaColor(index, point.value);
+        : getSdaColor(pass, point.value);
 
       return {
         x,
@@ -175,7 +222,7 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
       maxValue,
       cells
     };
-  }, [visiblePointEntries, mode, result.sdaPassMask]);
+  }, [visiblePointEntries, mode, floorResultArrays.dfPoints.length]);
 
   const activeLegendStats = useMemo(() => {
     if (visiblePoints.length === 0) {
@@ -191,9 +238,9 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
 
   if (!isOpen) return null;
 
-  const passingSensors = result.sdaPassMask ? result.sdaPassMask.filter(Boolean).length : 0;
-  const passingPercentage = result.sdaPassMask && result.sdaPassMask.length > 0
-    ? (passingSensors / result.sdaPassMask.length) * 100
+  const passingSensors = floorResultArrays.sdaPassMask?.filter(Boolean).length ?? 0;
+  const passingPercentage = floorResultArrays.sdaPassMask && floorResultArrays.sdaPassMask.length > 0
+    ? (passingSensors / floorResultArrays.sdaPassMask.length) * 100
     : 0;
 
   const hasEnergy = energyResults?.status === 'complete' || energyResults?.heatingDemand !== undefined;
@@ -217,8 +264,17 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
             <p className="text-xs text-gray-400 truncate">{buildingName}</p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleDownloadModel}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-600 bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-200 transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Download Honeybee model"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download model
+            </button>
             {availableResults.length > 0 && (
               <select
+                aria-label="Result building"
                 value={selectedBuildingId}
                 onChange={e => onSelectBuildingResult?.(e.target.value)}
                 className="text-xs bg-gray-800 border border-gray-600 rounded-lg px-2 py-1.5 text-white"
@@ -340,6 +396,23 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
                 >
                   <Activity className="w-4 h-4 inline mr-2" />sDA View
                 </button>
+                {sensorGrids.length > 1 && (
+                  <label className="ml-auto flex items-center gap-2 text-xs text-gray-300">
+                    Plan floor
+                    <select
+                      aria-label="Plan view floor"
+                      value={Math.min(selectedSensorGridIndex, sensorGrids.length - 1)}
+                      onChange={(event) => setSelectedSensorGridIndex(Number(event.target.value))}
+                      className="rounded-lg border border-gray-600 bg-gray-800 px-2 py-1.5 text-white"
+                    >
+                      {sensorGrids.map((grid, index) => (
+                        <option key={`${grid.full_identifier}-${index}`} value={index}>
+                          {grid.floor_number === null ? grid.identifier : `Floor ${grid.floor_number}`}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
               </div>
 
               {mode === 'sda' && hasSda && (
@@ -390,7 +463,11 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
                 <div className="bg-gray-900/70 border border-gray-700 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-semibold text-gray-100">Plan View {mode === 'df' ? 'DF Heatmap' : 'sDA Map'}</h3>
-                    <div className="text-xs text-gray-400">Top-down projection</div>
+                    <div className="text-xs text-gray-400">
+                      {activeSensorGrid.floor_number === null
+                        ? activeSensorGrid.identifier
+                        : `Floor ${activeSensorGrid.floor_number}`}
+                    </div>
                   </div>
                   <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
                     <svg viewBox={`0 0 ${planView.viewSize} ${planView.viewSize}`} className="w-full max-w-[320px] aspect-square rounded-lg border border-gray-700 bg-gray-950">
@@ -400,7 +477,7 @@ export const DaylightResultsDialog: React.FC<DaylightResultsDialogProps> = ({
                     </svg>
                     <div className="text-[10px] text-gray-500">
                       <p>Room range: {planView.minValue.toFixed(2)}–{planView.maxValue.toFixed(2)}{mode === 'df' ? '%' : '%'}</p>
-                      {hasSda && mode === 'sda' && <p className="mt-1">Passing: {passingSensors}/{result.sdaPassMask?.length} ({passingPercentage.toFixed(1)}%)</p>}
+                      {hasSda && mode === 'sda' && <p className="mt-1">Passing: {passingSensors}/{floorResultArrays.sdaPassMask?.length} ({passingPercentage.toFixed(1)}%)</p>}
                     </div>
                   </div>
                 </div>

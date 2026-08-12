@@ -15,22 +15,22 @@ interface TabsProps {
 
 export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onTabChange, className = '' }) => {
   return (
-    <div className={`fixed top-0 left-0 right-0 bg-gray-900/95 border-b border-gray-700/50 backdrop-blur-sm z-50 ${className}`}>
-      <div className="flex space-x-1 px-4">
+    <div className={`fixed top-0 left-0 right-0 h-12 bg-white border-b border-slate-200 z-50 ${className}`}>
+      <div className="flex h-full space-x-1 px-3">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             className={`
-              flex items-center space-x-2 px-4 py-3 text-sm font-medium transition-all duration-200
+              flex items-center space-x-2 px-3 text-[12px] font-medium transition-colors
               ${
                 activeTab === tab.id
-                  ? 'text-blue-400 border-b-2 border-blue-400 bg-gray-800/50'
-                  : 'text-gray-300 hover:text-white hover:bg-gray-800/30'
+                  ? 'text-blue-700 border-b-2 border-blue-600 bg-blue-50/60'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
               }
             `}
           >
-            {tab.icon && <span className="text-lg">{tab.icon}</span>}
+            {tab.icon && <span className="text-sm">{tab.icon}</span>}
             <span>{tab.label}</span>
           </button>
         ))}
@@ -46,7 +46,7 @@ interface TabContentProps {
 
 export const TabContent: React.FC<TabContentProps> = ({ children, className = '' }) => {
   return (
-    <div className={`flex-1 pt-16 ${className}`}>
+    <div className={`flex-1 pt-12 ${className}`}>
       {children}
     </div>
   );

@@ -13,7 +13,6 @@ interface KeyboardShortcutsProps {
   onSaveConfiguration: () => void;
   onImportConfiguration: () => void;
   onToggleSunController: () => void;
-  onToggleTheme: () => void;
   isDrawing: boolean;
   isInitialized: boolean;
 }
@@ -31,7 +30,6 @@ export const useKeyboardShortcuts = ({
   onSaveConfiguration,
   onImportConfiguration,
   onToggleSunController,
-  onToggleTheme,
   isDrawing,
   isInitialized
 }: KeyboardShortcutsProps) => {
@@ -39,7 +37,21 @@ export const useKeyboardShortcuts = ({
     const handleKeyDown = (event: KeyboardEvent) => {
       // Ignore if typing in input fields
       if (event.target instanceof HTMLInputElement || 
-          event.target instanceof HTMLTextAreaElement) {
+          event.target instanceof HTMLTextAreaElement ||
+          event.target instanceof HTMLSelectElement ||
+          (event.target instanceof HTMLElement && event.target.isContentEditable)) {
+        return;
+      }
+
+      const modified = event.ctrlKey || event.metaKey || event.altKey;
+      if (modified) {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+          event.preventDefault();
+          onSaveConfiguration();
+        } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'e') {
+          event.preventDefault();
+          onExport();
+        }
         return;
       }
 
@@ -57,31 +69,18 @@ export const useKeyboardShortcuts = ({
           onToggleGrid();
           break;
         case 's':
-          if (event.ctrlKey || event.metaKey) {
-            // Ctrl+S for Save Configuration
-            event.preventDefault();
-            onSaveConfiguration();
-          } else {
-            // Just S for Toggle Snap (keeping existing behavior)
-            event.preventDefault();
-            onToggleSnap();
-          }
+          event.preventDefault();
+          onToggleSnap();
           break;
         case 'f':
           event.preventDefault();
           onToggleFPS();
           break;
         case 'c':
-          if (event.ctrlKey || event.metaKey) {
-            event.preventDefault();
-            onShowConfig();
-          }
+          onShowConfig();
           break;
         case 'e':
-          if (event.ctrlKey || event.metaKey) {
-            event.preventDefault();
-            onExport();
-          }
+          onExport();
           break;
         case 'delete':
         case 'backspace':
@@ -98,18 +97,9 @@ export const useKeyboardShortcuts = ({
           event.preventDefault();
           onImportConfiguration();
           break;
-        case 't':
-          event.preventDefault();
-          onToggleTheme();
-          break;
-        case 'r':
-          // R for Sun Controller (changed from U to avoid conflict)
-          event.preventDefault();
-          onToggleSunController();
-          break;
         case 'u':
           event.preventDefault();
-          onUndoLastPoint();
+          onToggleSunController();
           break;
       }
     };
@@ -129,7 +119,6 @@ export const useKeyboardShortcuts = ({
     onSaveConfiguration,
     onImportConfiguration,
     onToggleSunController,
-    onToggleTheme,
     isDrawing,
     isInitialized
   ]);

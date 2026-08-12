@@ -1,5 +1,6 @@
 import { BuildingData } from '../types/building';
-import { calculateSignedArea, ensureCounterClockwise } from '../utils/geometry';
+import { ensureHoneybeeCounterClockwise, getBuildingFacadeParameters } from './FacadeGeometry';
+import { calculateSignedArea } from '../utils/geometry';
 import {
   DaylightApiError,
   DaylightBuildRequestOptions,
@@ -7,6 +8,7 @@ import {
   DaylightLocationsResponse,
   DaylightRunOptions,
   DaylightRunSummary,
+  DaylightSensorGridRange,
   DaylightSensorPoint,
   DaylightStudyQueued,
   DaylightStudyRequest,
@@ -79,23 +81,29 @@ class DaylightApiService {
     );
 
     const footprint = this.buildValidatedFootprint(building);
+    const facade = getBuildingFacadeParameters(building);
 
     return {
       room: {
         footprint_coordinates: footprint,
         orientation_offset: 0,
         floor_to_floor_height: building.floorHeight,
+        floors: Math.max(1, building.floors),
         selected_floor_number: selectedFloor,
-        wwr: building.window_to_wall_ratio ?? 0.3,
-        wall_thickness: 0.3,
-        additional_horizontal_shading_depth: building.window_overhang ? (building.window_overhang_depth ?? 0.5) : 0,
-        additional_vertical_shading_depth: 0,
+        simulate_all_floors: options.simulate_all_floors ?? true,
+        wwr: facade.wwr,
+        window_width: facade.windowWidth,
+        window_height: facade.windowHeight,
+        window_spacing: facade.windowSpacing,
+        wall_thickness: facade.wallThickness,
+        additional_horizontal_shading_depth: facade.additionalHorizontalShadingDepth,
+        additional_vertical_shading_depth: facade.additionalVerticalShadingDepth,
         sensor_grid
       },
       context_buildings: options.context_buildings ?? [],
       run_sda: options.run_sda ?? false,
       location: options.location,
-      quality: options.quality ?? 'draft',
+      quality: 'full',
       thresholds: options.thresholds ?? {
         da_lux: 300,
         sda_target_pct: 50
@@ -134,7 +142,7 @@ class DaylightApiService {
     }
 
     const simplifiedPoints = this.removeCollinearVertices(dedupedPoints);
-    const ccwPoints = ensureCounterClockwise(simplifiedPoints.map((point) => ({ ...point })));
+    const ccwPoints = ensureHoneybeeCounterClockwise(simplifiedPoints);
     const footprint = ccwPoints.map((point) => [point.x, point.z] as [number, number]);
 
     if (footprint.length < 3) {
@@ -265,32 +273,34 @@ class DaylightApiService {
     }
 
     const result = await this.getResult(queued.study_id, runOptions.signal);
+    this.validateResultArrays(result, request);
+
     const points =
-      result.sensor_points && result.sensor_points.length > 0
-        ? this.mapBackendSensorPoints(
-            result.sensor_points,
-            result.df.values,
-            request.room.footprint_coordinates,
-            request.room.floor_to_floor_height,
-            request.room.selected_floor_number,
-            request.room.sensor_grid.offset
-          )
+      result.sensor_points
+        ? this.mapBackendSensorPoints(result.sensor_points, result.df.values)
         : this.reconstructSensorPoints(request, result.df.values);
 
-    const sdaPoints = result.sda?.values
-      ? points
-          .slice(0, Math.min(points.length, result.sda.values.length))
-          .map((point, index) => ({
-            ...point,
-            value: result.sda!.values[index],
-          }))
+    const sdaPoints = result.sda
+      ? points.map((point, index) => ({
+          ...point,
+          value: result.sda!.values[index],
+        }))
       : undefined;
+
+    const sensorGrids: DaylightSensorGridRange[] = result.sensor_grids ?? [{
+      identifier: `floor-${request.room.selected_floor_number}`,
+      full_identifier: `floor-${request.room.selected_floor_number}`,
+      room_identifier: 'room',
+      floor_number: request.room.selected_floor_number,
+      start_sensor_index: 0,
+      sensor_count: points.length
+    }];
 
     return {
       studyId: queued.study_id,
       status: 'complete',
       stage: status.stage,
-      sensorCount: queued.sensor_count,
+      sensorCount: points.length,
       meanDF: result.df.summary.mean_df,
       sda: result.sda?.summary.sda_300_50 ?? 0,
       minDF: result.df.summary.min_df,
@@ -298,6 +308,8 @@ class DaylightApiService {
       points,
       sdaPoints,
       sdaPassMask: result.sda?.pass,
+      sensorGrids,
+      sensorGrid: { ...request.room.sensor_grid },
       startedAt: new Date().toISOString(),
       completedAt: new Date().toISOString()
     };
@@ -323,6 +335,10 @@ class DaylightApiService {
       method: 'GET',
       signal
     });
+  }
+
+  getStudyModelDownloadUrl(studyId: string): string {
+    return `${this.baseUrl}/v1/studies/${encodeURIComponent(studyId)}/model.hbjson`;
   }
 
   private async pollUntilComplete(studyId: string, runOptions: DaylightRunOptions): Promise<DaylightStudyStatusResponse> {
@@ -411,88 +427,62 @@ class DaylightApiService {
     return points;
   }
 
-  private mapBackendSensorPoints(
-    sensorPoints: [number, number, number][],
-    values: number[],
-    footprint: [number, number][],
-    floorToFloorHeight: number,
-    selectedFloor: number,
-    sensorOffset: number
-  ): DaylightSensorPoint[] {
-    type Transform = {
-      name: string;
-      map: (x: number, y: number, z: number) => Omit<DaylightSensorPoint, 'value'>;
-    };
+  private mapBackendSensorPoints(sensorPoints: [number, number, number][], values: number[]): DaylightSensorPoint[] {
+    if (sensorPoints.length !== values.length) {
+      throw new Error(
+        `Daylight API returned mismatched sensor points (${sensorPoints.length}) and values (${values.length}).`
+      );
+    }
 
-    const transforms: Transform[] = [
-      {
-        name: 'x,y,z -> x,z,y',
-        map: (x, y, z) => ({ x, y: z, z: y })
-      },
-      {
-        name: 'x,y,z -> x,z,-y',
-        map: (x, y, z) => ({ x, y: z, z: -y })
-      },
-      {
-        name: 'x,y,z -> -x,z,y',
-        map: (x, y, z) => ({ x: -x, y: z, z: y })
-      },
-      {
-        name: 'x,y,z -> -x,z,-y',
-        map: (x, y, z) => ({ x: -x, y: z, z: -y })
+    return sensorPoints.map(([x, y, z], index) => ({
+      x,
+      y: z,
+      z: y,
+      value: values[index]
+    }));
+  }
+
+  private validateResultArrays(result: DaylightStudyResult, request: DaylightStudyRequest): void {
+    const resultLength = result.df.values.length;
+
+    if (!result.sensor_points) {
+      if (request.room.simulate_all_floors || request.run_sda) {
+        throw new Error('Daylight API did not return sensor points for a study that requires ordered result arrays.');
       }
-    ];
+    } else if (result.sensor_points.length !== resultLength) {
+      throw new Error(
+        `Daylight API returned mismatched sensor points (${result.sensor_points.length}) and DF values (${resultLength}).`
+      );
+    }
 
-    const scoreTransform = (transform: Transform): number => {
-      let score = 0;
-      for (const [sx, sy, sz] of sensorPoints) {
-        const candidate = transform.map(sx, sy, sz);
-        if (this.isPointInPolygon(candidate.x, candidate.z, footprint)) {
-          score += 1;
-        }
-      }
-      return score;
-    };
+    if (request.run_sda && !result.sda) {
+      throw new Error('Daylight API did not return sDA arrays for a study that requested sDA.');
+    }
 
-    const directTransform = transforms[0];
-    const directScore = scoreTransform(directTransform);
-
-    let bestTransform = directTransform;
-    let bestScore = directScore;
-
-    // Only search alternate transforms when direct mapping quality is clearly poor.
-    const directCoverage = sensorPoints.length > 0 ? directScore / sensorPoints.length : 0;
-    if (directCoverage < 0.9) {
-      for (const transform of transforms.slice(1)) {
-        const score = scoreTransform(transform);
-
-        // Require a meaningful improvement before abandoning direct axis mapping.
-        if (score > bestScore + Math.max(5, Math.floor(sensorPoints.length * 0.02))) {
-          bestScore = score;
-          bestTransform = transform;
-        }
+    if (result.sda) {
+      if (result.sda.values.length !== resultLength || result.sda.pass.length !== resultLength) {
+        throw new Error(
+          `Daylight API returned misaligned result arrays: DF (${resultLength}), sDA values (${result.sda.values.length}), sDA pass (${result.sda.pass.length}).`
+        );
       }
     }
 
-    console.info(
-      `[DaylightApiService] Sensor mapping transform: ${bestTransform.name} (${bestScore}/${sensorPoints.length} points inside footprint)`
-    );
-
-    const pointCount = Math.min(sensorPoints.length, values.length);
-    const points: DaylightSensorPoint[] = [];
-    const targetY = (selectedFloor - 1) * floorToFloorHeight + sensorOffset;
-
-    for (let i = 0; i < pointCount; i += 1) {
-      const [x, rawY, z] = sensorPoints[i];
-      const mapped = bestTransform.map(x, rawY, z);
-      points.push({
-        ...mapped,
-        y: targetY,
-        value: values[i]
-      });
+    if (request.room.simulate_all_floors && resultLength > 0 && !result.sensor_grids?.length) {
+      throw new Error('Daylight API did not return sensor grid ranges for an all-floor study.');
     }
 
-    return points;
+    if (result.sensor_grids?.length) {
+      for (const grid of result.sensor_grids) {
+        const { start_sensor_index: start, sensor_count: count } = grid;
+        if (!Number.isInteger(start) || !Number.isInteger(count) || start < 0 || count < 0) {
+          throw new Error(`Daylight API returned an invalid sensor grid range for ${grid.full_identifier}.`);
+        }
+
+        if (start + count > resultLength) {
+          throw new Error(`Daylight API sensor grid range exceeds the result arrays for ${grid.full_identifier}.`);
+        }
+      }
+    }
   }
 
   private isPointInPolygon(x: number, z: number, polygon: [number, number][]): boolean {

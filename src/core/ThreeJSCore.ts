@@ -8,6 +8,7 @@ import { EnvironmentManager } from './EnvironmentManager';
 import { PerformanceManager } from './PerformanceManager';
 import { ContextModelLoader } from '../services/ContextModelLoader';
 import { WindowService } from '../services/WindowService';
+import { DEFAULT_FACADE_PARAMETERS } from '../services/FacadeGeometry';
 import { addThemeChangeListener, getThemeColorAsHex } from '../utils/themeColors';
 import type { SunPosition } from '../utils/sunPosition';
 
@@ -31,7 +32,7 @@ export type CoreEventListener<T extends keyof CoreEventMap> = (data: CoreEventMa
 export class ThreeJSCore {
   private container: HTMLElement;
   private config: ThreeJSCoreConfig;
-  private eventListeners = new Map<keyof CoreEventMap, Set<CoreEventListener<any>>>();
+  private eventListeners = new Map<keyof CoreEventMap, Set<(data: unknown) => void>>();
   
   private sceneManager: SceneManager;
   private cameraManager: CameraManager;
@@ -75,6 +76,7 @@ export class ThreeJSCore {
         this.sceneManager.getScene(),
         { 
           enableShadows: true,
+          enableSky: false,
           shadowMapSize: 1024, // Better interactive performance while keeping shadow quality usable
           sunLightIntensity: 1.5 // Softer light
         }
@@ -92,9 +94,9 @@ export class ThreeJSCore {
 
       // Initialize window service with default configuration
       this.windowService = new WindowService(this.sceneManager.getScene(), {
-        windowWidth: 1.2,
-        windowHeight: 1.5,
-        windowSpacing: 0.3,
+        windowWidth: DEFAULT_FACADE_PARAMETERS.windowWidth,
+        windowHeight: DEFAULT_FACADE_PARAMETERS.windowHeight,
+        windowSpacing: DEFAULT_FACADE_PARAMETERS.windowSpacing,
         offsetDistance: 0.1,
         frameThickness: 0.05,
         maxWindows: 50000
@@ -200,7 +202,8 @@ export class ThreeJSCore {
     console.log("ThreeJSCore: Updating theme colors");
     
     // Get current theme
-    const isDarkTheme = document.documentElement.classList.contains('dark-theme');    // Update colors in all managers - with error handling for each manager
+    document.documentElement.classList.remove('dark-theme');
+    const isDarkTheme = false;    // Model workspace is intentionally light-only.
     try {
       this.sceneManager.updateThemeColors();
     } catch (e) {
@@ -249,7 +252,7 @@ export class ThreeJSCore {
     
     // Update renderer clear color
     renderer.setClearColor(
-      getThemeColorAsHex('--color-scene-background', isDarkTheme ? 0x050a1c : 0xf2f2f2)
+      0xF4F6F8
     );
     
     // Enable fog with appropriate settings based on theme
@@ -269,7 +272,7 @@ export class ThreeJSCore {
   }
 
   private startAnimationLoop(): void {
-    const animate = (currentTime: number) => {
+    const animate = () => {
       if (this.isDisposed) return;
       
       this.animationId = requestAnimationFrame(animate);
@@ -321,13 +324,13 @@ export class ThreeJSCore {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, new Set());
     }
-    this.eventListeners.get(event)!.add(listener);
+    this.eventListeners.get(event)!.add(listener as (data: unknown) => void);
   }
 
   off<T extends keyof CoreEventMap>(event: T, listener: CoreEventListener<T>): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
-      listeners.delete(listener);
+      listeners.delete(listener as (data: unknown) => void);
     }
   }
 
@@ -371,6 +374,10 @@ export class ThreeJSCore {
 
   getGridVisibility(): boolean {
     return this.environmentManager.getGridVisibility();
+  }
+
+  setCameraControlsEnabled(enabled: boolean): void {
+    this.cameraManager.setControlsEnabled(enabled);
   }
 
   toggleFPSCounter(): void {
@@ -595,11 +602,15 @@ export class ThreeJSCore {
 
   // Selective focus methods for building editing
   enableBuildingFocus(buildingId: string): void {
-    this.rendererManager.enableSelectiveFocus(buildingId, this.sceneManager.getScene(), this.cameraManager.getCamera());
+    this.setSceneAppearanceMode({ kind: 'editing', buildingId });
   }
 
   disableBuildingFocus(): void {
-    this.rendererManager.disableSelectiveFocus();
+    this.setSceneAppearanceMode({ kind: 'normal' });
+  }
+
+  setSceneAppearanceMode(mode: import('./SceneAppearanceManager').SceneAppearanceMode): void {
+    this.rendererManager.setSceneAppearanceMode(this.sceneManager.getScene(), mode);
   }
 
   getCurrentCameraType(): CameraType {
@@ -609,3 +620,4 @@ export class ThreeJSCore {
 
 // Re-export types for external use
 export type { CameraType, CameraView, ViewTransitionOptions };
+export type { SceneAppearanceMode } from './SceneAppearanceManager';

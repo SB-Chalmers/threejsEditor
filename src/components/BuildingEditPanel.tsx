@@ -1,946 +1,215 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import * as THREE from 'three';
-import { X, RotateCcw, Layers, ChevronDown, Home, Wrench, Users, Wind, Info, Check } from 'lucide-react';
-import { BuildingData, BuildingConfig } from '../types/building';
-import { Tooltip } from './ui/Tooltip';
-import { MaterialCompareDialog } from './dialogs/MaterialCompareDialog';
-import { getThemeColorAsHex, addThemeChangeListener } from '../utils/themeColors';
-import { getEPSMConstructionOptions, EPSMConstructionOptions, calculateEmbodiedCarbon, EmbodiedCarbonResult } from '../services/EPSMService';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ChevronDown, RotateCcw, X } from 'lucide-react';
+import type { BuildingConfig, BuildingData, Point3D } from '../types/building';
+import { clampWwr, DEFAULT_FACADE_PARAMETERS } from '../services/FacadeGeometry';
+import { getEPSMConstructionOptions, type EPSMConstructionOptions } from '../services/EPSMService';
+import { calculateBuildingMetrics, validateFootprint } from '../utils/buildingMetrics';
 
-const getColorOptions = () => [
-  { name: 'Blue', value: getThemeColorAsHex('--color-building-blue', 0x3b82f6) },
-  { name: 'Green', value: getThemeColorAsHex('--color-building-green', 0x10b981) },
-  { name: 'Purple', value: getThemeColorAsHex('--color-building-purple', 0x8b5cf6) },
-  { name: 'Orange', value: getThemeColorAsHex('--color-building-orange', 0xf59e0b) },
-  { name: 'Red', value: getThemeColorAsHex('--color-building-red', 0xef4444) },
-  { name: 'Cyan', value: getThemeColorAsHex('--color-building-cyan', 0x06b6d4) },
-  { name: 'Pink', value: getThemeColorAsHex('--color-building-pink', 0xec4899) },
-  { name: 'Gray', value: getThemeColorAsHex('--color-building-gray', 0x6b7280) }
-];
+export type BuildingEditDraft = BuildingConfig & {
+  name: string;
+  description: string;
+  points: Point3D[];
+};
 
-// Fallback options used when EPSM is unavailable
-const FALLBACK_WALL_OPTIONS = [
-  { label: "Default Wall – U: 1.6 W/m²K, CO₂: 60 kg/m²", value: "Default Wall" },
-  { label: "Concrete – U: 1.8 W/m²K, CO₂: 80 kg/m²", value: "Concrete" },
-  { label: "Brick – U: 1.2 W/m²K, CO₂: 90 kg/m²", value: "Brick" },
-  { label: "Wood – U: 0.35 W/m²K, CO₂: 45 kg/m²", value: "Wood" },
-  { label: "Steel – U: 2.0 W/m²K, CO₂: 120 kg/m²", value: "Steel" }
-];
-const FALLBACK_FLOOR_OPTIONS = [
-  { label: "Default Floor – U: 1.5 W/m²K", value: "Default Floor" },
-  { label: "Concrete Slab – U: 1.8 W/m²K", value: "Concrete Slab" },
-  { label: "Raised Floor – U: 1.2 W/m²K", value: "Raised Floor" }
-];
-const FALLBACK_ROOF_OPTIONS = [
-  { label: "Default Roof – U: 1.4 W/m²K", value: "Default Roof" },
-  { label: "Flat Roof – U: 1.6 W/m²K", value: "Flat Roof" },
-  { label: "Pitched Roof – U: 1.1 W/m²K", value: "Pitched Roof" }
-];
-const FALLBACK_WINDOW_OPTIONS = [
-  { label: "Default Window – U: 2.8 W/m²K", value: "Default Window" },
-  { label: "Double Glazed – U: 1.6 W/m²K", value: "Double Glazed" },
-  { label: "Triple Glazed – U: 0.9 W/m²K", value: "Triple Glazed" }
-];
-const programOptions = [
-  'Office', 'Residential', 'Retail', 'School', 'Hospital'
-];
-const hvacOptions = [
-  'Default HVAC', 'VAV', 'CAV', 'Radiant', 'Split System'
-];
-const structuralOptions = [
-  { label: "Concrete – High strength, high embodied carbon", value: "Concrete" },
-  { label: "Timber – Sustainable, lower carbon footprint", value: "Timber" },
-  { label: "Masonry – Durable, good thermal mass", value: "Masonry" }
+const MUTED_COLORS = [
+  { name: 'Slate', value: 0x7C8FA3 },
+  { name: 'Teal', value: 0x6E9C9A },
+  { name: 'Sage', value: 0x879E7B },
+  { name: 'Ochre', value: 0xB89A62 },
+  { name: 'Terracotta', value: 0xB97867 },
+  { name: 'Rose', value: 0xB87B84 },
+  { name: 'Plum', value: 0x8D809B },
+  { name: 'Graphite', value: 0x747B85 },
 ];
 
-const createEditedStateFromBuilding = (building: BuildingData): BuildingConfig & { name: string; description: string } => ({
-  name: building.name || '',
-  description: building.description || '',
+const fromBuilding = (building: BuildingData): BuildingEditDraft => ({
+  name: building.name ?? '',
+  description: building.description ?? '',
+  points: building.points.map(point => ({ ...point })),
   floors: building.floors,
   floorHeight: building.floorHeight,
-  color: building.color || getThemeColorAsHex('--color-building-blue', 0x3b82f6),
-  window_to_wall_ratio: building.window_to_wall_ratio ?? 0.4,
+  color: building.color ?? 0x7C8FA3,
+  window_to_wall_ratio: clampWwr(building.window_to_wall_ratio),
   window_overhang: building.window_overhang ?? false,
-  window_overhang_depth: building.window_overhang_depth ?? 0.0,
-  wall_construction: building.wall_construction || 'Default Wall',
-  floor_construction: building.floor_construction || 'Default Floor',
-  roof_construction: building.roof_construction || 'Default Roof',
-  window_construction: building.window_construction || 'Default Window',
-  structural_system: building.structural_system || 'Concrete',
-  building_program: building.building_program || 'Office',
-  hvac_system: building.hvac_system || 'Default HVAC',
-  natural_ventilation: building.natural_ventilation ?? false
+  window_overhang_depth: building.window_overhang_depth ?? 0,
+  wall_construction: building.wall_construction ?? 'Default Wall',
+  floor_construction: building.floor_construction ?? 'Default Floor',
+  roof_construction: building.roof_construction ?? 'Default Roof',
+  window_construction: building.window_construction ?? 'Default Window',
+  structural_system: building.structural_system ?? 'Concrete',
+  building_program: building.building_program ?? 'Office',
+  hvac_system: building.hvac_system ?? 'Default HVAC',
+  natural_ventilation: building.natural_ventilation ?? false,
 });
 
 interface BuildingEditPanelProps {
   building: BuildingData;
-  onClose: () => void;
-  onPreview?: (updates: Partial<BuildingData> & { config?: BuildingConfig }) => void;
-  enableBuildingFocus?: (buildingId: string) => void;
-  disableBuildingFocus?: () => void;
+  footprintPoints?: Point3D[];
+  onPreview?: (draft: BuildingEditDraft) => void;
+  onCommit: (draft: BuildingEditDraft) => void;
+  onCancel: () => void;
 }
 
-export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({
-  building,
-  onClose,
-  onPreview,
-  enableBuildingFocus,
-  disableBuildingFocus
-}) => {  // Collapsible state
-  const [sections, setSections] = useState({
-    general: true,
-    form: false,
-    construction: false,
-    structural: false,
-    program: false,
-    hvac: false
-  });
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <label className="block space-y-1.5">
+    <span className="text-[11px] font-medium text-slate-600">{label}</span>
+    {children}
+  </label>
+);
 
-  
-  // All editable fields
-  const [edited, setEdited] = useState<BuildingConfig & { name: string; description: string }>(
-    () => createEditedStateFromBuilding(building)
-  );
+const Section = ({ title, open, onToggle, children }: { title: string; open: boolean; onToggle: () => void; children: React.ReactNode }) => (
+  <section className="border-b border-slate-200">
+    <button type="button" onClick={onToggle} className="flex h-10 w-full items-center justify-between text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">
+      {title}<ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+    </button>
+    {open && <div className="space-y-4 pb-4">{children}</div>}
+  </section>
+);
 
-  const initialEditedRef = useRef<BuildingConfig & { name: string; description: string }>(
-    createEditedStateFromBuilding(building)
-  );
-  const [themeVersion, setThemeVersion] = useState(0);
-  const previewTimeoutRef = useRef<number | null>(null);
+export const BuildingEditPanel: React.FC<BuildingEditPanelProps> = ({ building, footprintPoints, onPreview, onCommit, onCancel }) => {
+  const [edited, setEdited] = useState(() => fromBuilding(building));
+  const [open, setOpen] = useState({ identity: true, massing: false, facade: true, constructions: false, program: false, systems: false });
+  const [epsm, setEpsm] = useState<EPSMConstructionOptions | null>(null);
+  const openingRef = useRef(fromBuilding(building));
+  const timerRef = useRef<number | null>(null);
 
-  // EPSM construction options (fetched once on mount, falls back to static)
-  const [epsmOptions, setEpsmOptions] = useState<EPSMConstructionOptions | null>(null);
-  const [epsmLoading, setEpsmLoading] = useState(true);
-
-  // Live embodied carbon — recalculated whenever construction choices or options change
-  const [embodiedCarbon, setEmbodiedCarbon] = useState<EmbodiedCarbonResult | null>(null);
-
-  // Enable focus effect when panel opens
-  useEffect(() => {
-    if (enableBuildingFocus && building.id) {
-      enableBuildingFocus(building.id);
-      console.log('Building focus enabled for:', building.id);
-    }
-    
-    // Cleanup focus effect when panel unmounts
-    return () => {
-      if (disableBuildingFocus) {
-        disableBuildingFocus();
-        console.log('Building focus disabled on unmount');
-      }
-    };
-  }, [building.id, enableBuildingFocus, disableBuildingFocus]);
-
-  useEffect(() => {
-    // Listen for theme changes to refresh colors
-    const cleanup = addThemeChangeListener(() => {
-      setThemeVersion(prev => prev + 1);
-    });
-    
-    return cleanup;
+  const cancelTimer = useCallback(() => {
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    timerRef.current = null;
   }, []);
 
-  // Fetch construction options from EPSM on mount
+  const schedulePreview = useCallback((draft: BuildingEditDraft) => {
+    cancelTimer();
+    timerRef.current = window.setTimeout(() => {
+      onPreview?.(draft);
+      timerRef.current = null;
+    }, 50);
+  }, [cancelTimer, onPreview]);
+
+  const setField = <K extends keyof BuildingEditDraft>(key: K, value: BuildingEditDraft[K]) => {
+    setEdited(previous => {
+      const next = { ...previous, [key]: key === 'window_to_wall_ratio' ? clampWwr(value) : value } as BuildingEditDraft;
+      schedulePreview(next);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    cancelTimer();
+    const next = fromBuilding(building);
+    openingRef.current = next;
+    setEdited(next);
+  }, [building, cancelTimer]);
+
+  useEffect(() => {
+    if (!footprintPoints) return;
+    setEdited(previous => {
+      if (JSON.stringify(previous.points) === JSON.stringify(footprintPoints)) return previous;
+      const next = { ...previous, points: footprintPoints.map(point => ({ ...point })) };
+      onPreview?.(next);
+      return next;
+    });
+  }, [footprintPoints, onPreview]);
+
   useEffect(() => {
     const controller = new AbortController();
-    setEpsmLoading(true);
-    getEPSMConstructionOptions(controller.signal)
-      .then(opts => {
-        setEpsmOptions(opts);
-        // Patch any construction fields that aren't in EPSM
-        // (e.g. undefined or 'Default Wall' placeholder) to the first real EPSM option,
-        // then propagate to BuildingData so GWP and simulation always get valid names.
-        const isValidFor = (name: string | undefined, list: ConstructionOption[]) =>
-          !!name && list.some(o => o.value === name);
-
-        setEdited(prev => {
-          const patched = {
-            ...prev,
-            wall_construction:   (!isValidFor(prev.wall_construction,   opts.wall)   && opts.wall[0])   ? opts.wall[0].value   : prev.wall_construction,
-            floor_construction:  (!isValidFor(prev.floor_construction,  opts.floor)  && opts.floor[0])  ? opts.floor[0].value  : prev.floor_construction,
-            roof_construction:   (!isValidFor(prev.roof_construction,   opts.roof)   && opts.roof[0])   ? opts.roof[0].value   : prev.roof_construction,
-            window_construction: (!isValidFor(prev.window_construction, opts.window) && opts.window[0]) ? opts.window[0].value : prev.window_construction,
-          };
-          const changed =
-            patched.wall_construction   !== prev.wall_construction   ||
-            patched.floor_construction  !== prev.floor_construction  ||
-            patched.roof_construction   !== prev.roof_construction   ||
-            patched.window_construction !== prev.window_construction;
-          // Write back to BuildingData so GWP calc and energy sim get real names
-          if (changed) {
-            debouncedWindowUpdate(buildUpdatesFromEdited(patched));
-          }
-          return patched;
-        });
-      })
-      .catch(() => { /* fall back to static options silently */ })
-      .finally(() => setEpsmLoading(false));
+    getEPSMConstructionOptions(controller.signal).then(setEpsm).catch(() => undefined);
     return () => controller.abort();
   }, []);
 
-  // Active construction options — EPSM when available, static fallback otherwise
-  const constructionOptions = {
-    wall:   epsmOptions?.wall   ?? FALLBACK_WALL_OPTIONS,
-    floor:  epsmOptions?.floor  ?? FALLBACK_FLOOR_OPTIONS,
-    roof:   epsmOptions?.roof   ?? FALLBACK_ROOF_OPTIONS,
-    window: epsmOptions?.window ?? FALLBACK_WINDOW_OPTIONS,
+  useEffect(() => cancelTimer, [cancelTimer]);
+
+  const metrics = useMemo(() => calculateBuildingMetrics(edited.points, edited.floors, edited.floorHeight), [edited.points, edited.floors, edited.floorHeight]);
+  const footprintError = useMemo(() => validateFootprint(edited.points), [edited.points]);
+  const changed = JSON.stringify(edited) !== JSON.stringify(openingRef.current);
+  const inputClass = 'h-8 w-full rounded-md border border-slate-300 bg-white px-2.5 text-[12px] text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
+
+  const handleCancel = () => { cancelTimer(); onCancel(); };
+  const reset = () => {
+    cancelTimer();
+    const next = { ...openingRef.current, points: openingRef.current.points.map(point => ({ ...point })) };
+    setEdited(next);
+    onPreview?.(next);
+  };
+  const commit = () => {
+    cancelTimer();
+    if (!footprintError) onCommit({ ...edited, window_to_wall_ratio: clampWwr(edited.window_to_wall_ratio) });
   };
 
-  // Recalculate embodied carbon whenever construction choices or EPSM data changes
-  useEffect(() => {
-    if (!epsmOptions) { setEmbodiedCarbon(null); return; }
-
-    // Approximate surface areas from building geometry
-    const footprintArea = building.area ?? 0;
-    const floors = edited.floors ?? building.floors ?? 1;
-    const floorHeight = edited.floorHeight ?? building.floorHeight ?? 3.2;
-    const wwr = edited.window_to_wall_ratio ?? 0.4;
-
-    // Perimeter ≈ sqrt(footprintArea) × 4 (assumes roughly square footprint)
-    // A better estimate uses the actual footprint points if available.
-    const perimeter = building.points && building.points.length >= 2
-      ? building.points.reduce((sum, p, i) => {
-          const next = building.points[(i + 1) % building.points.length];
-          return sum + Math.sqrt((next.x - p.x) ** 2 + (next.z - p.z) ** 2);
-        }, 0)
-      : Math.sqrt(footprintArea) * 4;
-
-    const totalWallArea   = perimeter * floors * floorHeight;
-    const totalWindowArea = totalWallArea * wwr;
-    const totalFloorArea  = footprintArea * floors;
-    const totalRoofArea   = footprintArea;
-
-    const result = calculateEmbodiedCarbon(
-      epsmOptions,
-      {
-        wall:   edited.wall_construction   ?? 'Default Wall',
-        floor:  edited.floor_construction  ?? 'Default Floor',
-        roof:   edited.roof_construction   ?? 'Default Roof',
-        window: edited.window_construction ?? 'Default Window',
-      },
-      {
-        wallArea:   totalWallArea,
-        floorArea:  totalFloorArea,
-        roofArea:   totalRoofArea,
-        windowArea: totalWindowArea,
-      }
-    );
-    setEmbodiedCarbon(result);
-  }, [
-    epsmOptions,
-    edited.wall_construction,
-    edited.floor_construction,
-    edited.roof_construction,
-    edited.window_construction,
-    edited.floors,
-    edited.floorHeight,
-    edited.window_to_wall_ratio,
-    building.area,
-    building.points,
-  ]);
-
-  const hasChanges = JSON.stringify(edited) !== JSON.stringify(initialEditedRef.current);
-
-  const buildUpdatesFromEdited = useCallback((nextEdited: BuildingConfig & { name: string; description: string }) => ({
-    name: nextEdited.name,
-    description: nextEdited.description,
-    floors: nextEdited.floors,
-    floorHeight: nextEdited.floorHeight,
-    color: nextEdited.color,
-    window_to_wall_ratio: nextEdited.window_to_wall_ratio,
-    window_overhang: nextEdited.window_overhang,
-    window_overhang_depth: nextEdited.window_overhang_depth,
-    wall_construction: nextEdited.wall_construction,
-    floor_construction: nextEdited.floor_construction,
-    roof_construction: nextEdited.roof_construction,
-    window_construction: nextEdited.window_construction,
-    structural_system: nextEdited.structural_system,
-    building_program: nextEdited.building_program,
-    hvac_system: nextEdited.hvac_system,
-    natural_ventilation: nextEdited.natural_ventilation,
-    config: { ...nextEdited }
-  }), []);
-
-  const updateField = (field: keyof typeof edited, value: any) => {
-    setEdited((prev) => {
-      const updatedEdited = { ...prev, [field]: value };
-
-      if (
-        field === 'color' &&
-        building.mesh &&
-        building.mesh.material &&
-        building.mesh.userData.buildingId &&
-        !building.mesh.userData.isPreview &&
-        !building.mesh.userData.isDrawingElement
-      ) {
-        const material = building.mesh.material as THREE.MeshLambertMaterial;
-        material.color.setHex(value);
-      }
-
-      debouncedWindowUpdate(buildUpdatesFromEdited(updatedEdited));
-      return updatedEdited;
-    });
+  const toggle = (key: keyof typeof open) => setOpen(previous => ({ ...previous, [key]: !previous[key] }));
+  const optionsFor = (type: 'wall' | 'floor' | 'roof' | 'window', current: string | undefined) => {
+    const options = epsm?.[type] ?? [];
+    return current && !options.some(option => option.value === current) ? [{ value: current, label: `${current} (current)` }, ...options] : options;
   };
-
-  const cancelPendingPreviewUpdate = useCallback(() => {
-    if (previewTimeoutRef.current !== null) {
-      window.clearTimeout(previewTimeoutRef.current);
-      previewTimeoutRef.current = null;
-    }
-  }, []);
-
-  const handleReset = () => {
-    cancelPendingPreviewUpdate();
-    const resetEdited = { ...initialEditedRef.current };
-    setEdited(resetEdited);
-    if (onPreview) {
-      onPreview(buildUpdatesFromEdited(resetEdited));
-    }
-  };
-
-  const toggleSection = (key: keyof typeof sections) => {
-    setSections(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-  // State for comparison modal
-  const [compareModal, setCompareModal] = useState<{
-    open: boolean;
-    type: 'wall' | 'floor' | 'roof' | 'window' | 'structural';
-    currentValue: string;
-  } | null>(null);
-
-  // Stub for compare modal (not implemented)
-  const openCompareModal = (field: string) => {
-    let type: 'wall' | 'floor' | 'roof' | 'window' | 'structural' = 'wall';
-    let currentValue = '';
-    
-    // Set the correct type and value based on field
-    switch(field) {
-      case 'wall':
-        type = 'wall';
-        currentValue = edited.wall_construction || 'Default Wall';
-        break;
-      case 'floor':
-        type = 'floor';
-        currentValue = edited.floor_construction || 'Default Floor';
-        break;
-      case 'roof':
-        type = 'roof';
-        currentValue = edited.roof_construction || 'Default Roof';
-        break;
-      case 'window':
-        type = 'window';
-        currentValue = edited.window_construction || 'Default Window';
-        break;
-      case 'structural':
-        type = 'structural';
-        currentValue = edited.structural_system || 'Concrete';
-        break;
-    }
-    
-    setCompareModal({
-      open: true,
-      type,
-      currentValue
-    });
-  };
-
-  // Restore original geometry when panel is closed without saving
-  const handleClose = useCallback(() => {
-    cancelPendingPreviewUpdate();
-
-    // Disable focus effect before closing
-    if (disableBuildingFocus) {
-      disableBuildingFocus();
-      console.log('Building focus disabled on close');
-    }
-
-    // Call the original onClose handler
-    onClose();
-  }, [onClose, disableBuildingFocus, cancelPendingPreviewUpdate]);
-
-  useEffect(() => {
-    return () => {
-      cancelPendingPreviewUpdate();
-    };
-  }, [cancelPendingPreviewUpdate]);
-
-  // Debounced window update to avoid too many rapid updates
-  const debouncedWindowUpdate = useCallback((updates: Partial<BuildingData> & { config: BuildingConfig }) => {
-    cancelPendingPreviewUpdate();
-
-    previewTimeoutRef.current = window.setTimeout(() => {
-      // Always use onPreview for live updates to keep dialog open
-      if (onPreview) {
-        onPreview(updates);
-      } else {
-        // If no onPreview is available, still use onSave but ensure dialog stays open
-        // by not including closing logic
-        console.warn('No onPreview handler provided for live updates');
-      }
-      previewTimeoutRef.current = null;
-    }, 50); // Fast debounce for very responsive updates
-  }, [onPreview, cancelPendingPreviewUpdate]);
 
   return (
     <div className="fixed inset-0 z-50 pointer-events-none">
-      {/* Simplified backdrop - Three.js handles the selective focus */}
-      <div className="fixed inset-0 bg-black/20 pointer-events-auto" onClick={handleClose} />
-      {/* Drawer */}
-      <div className="fixed top-0 right-0 h-full w-full max-w-md bg-gray-900/98 shadow-2xl border-l border-gray-700/50 z-50 flex flex-col pointer-events-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-700/50 bg-gray-800/50">
-          <div>
-            <h2 className="text-lg font-semibold text-white">Edit Building</h2>
-            <p className="text-sm text-gray-400 mt-1">{building.name || 'Unnamed Building'}</p>
+      <div data-testid="building-edit-backdrop" className="fixed inset-0 bg-slate-900/10 pointer-events-auto" onClick={handleCancel} />
+      <aside className="model-inspector pointer-events-auto fixed bottom-0 right-0 top-12 z-50 flex w-[304px] flex-col border-l border-slate-200 bg-white shadow-xl">
+        <header className="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 py-3">
+          <div className="flex items-start justify-between">
+            <div><h2 className="text-[13px] font-semibold text-slate-900">Edit building</h2><p className="mt-0.5 text-[11px] text-slate-500">{edited.name || 'Untitled building'}</p></div>
+            <button type="button" aria-label="Cancel building edits" onClick={handleCancel} className="rounded p-1 text-slate-500 hover:bg-slate-100"><X className="h-4 w-4" /></button>
           </div>
-          <button 
-            onClick={handleClose} 
-            className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-700/50"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 rounded-md bg-slate-50 p-2.5">
+            <div><div className="text-[10px] text-slate-500">GFA</div><div className="text-[13px] font-semibold tabular-nums text-slate-800">{metrics.grossFloorArea.toFixed(1)} m²</div></div>
+            <div><div className="text-[10px] text-slate-500">Total height</div><div className="text-[13px] font-semibold tabular-nums text-slate-800">{metrics.totalHeight.toFixed(1)} m</div></div>
+          </div>
+        </header>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          {/* GENERAL */}
-          <Section 
-            title="General" 
-            icon={<Info className="w-4 h-4" />}
-            open={sections.general} 
-            onToggle={() => toggleSection('general')}
-          >
-            <div className="space-y-4">
-              <div>                <div className="flex items-center mb-2">
-                  <label className="block text-xs font-medium text-gray-400">
-                    Building Name
-                  </label>
-                  <Tooltip content="A descriptive name for your building.">
-                    <span className="ml-2 text-blue-400 cursor-pointer">
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </Tooltip>
-                </div>
-                <input
-                  type="text"
-                  value={edited.name}
-                  onChange={e => updateField('name', e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-400 transition-colors"
-                  placeholder="Enter building name"
-                />
-              </div>
-
-              <div>                <div className="flex items-center mb-2">
-                  <label className="block text-xs font-medium text-gray-400">
-                    Description
-                  </label>
-                  <Tooltip content="Describe the building's purpose, location, or any notes for simulation.">
-                    <span className="ml-2 text-blue-400 cursor-pointer">
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </Tooltip>
-                </div>
-                <textarea
-                  value={edited.description}
-                  onChange={e => updateField('description', e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-400 transition-colors resize-none"
-                  placeholder="Building description..."
-                  rows={3}
-                />
-              </div>
-            </div>
+        <div className="custom-scrollbar flex-1 overflow-y-auto px-4">
+          <Section title="Identity" open={open.identity} onToggle={() => toggle('identity')}>
+            <Field label="Name"><input className={inputClass} value={edited.name} onChange={event => setField('name', event.target.value)} /></Field>
+            <Field label="Description"><textarea className={`${inputClass} h-16 resize-none py-2`} value={edited.description} onChange={event => setField('description', event.target.value)} /></Field>
           </Section>
 
-          {/* FORM & MASSING */}
-          <Section 
-            title="Form & Massing" 
-            icon={<Layers className="w-4 h-4" />}
-            open={sections.form} 
-            onToggle={() => toggleSection('form')}
-          >
-            <div className="space-y-6">
-              <div>
-                <div className="flex items-center justify-between mb-2">                  <div className="flex items-center">
-                    <label className="block text-xs font-medium text-gray-400">
-                      Number of Floors
-                    </label>
-                    <Tooltip content="More floors increase usable area but also surface area for heat loss/gain.">
-                      <span className="ml-2 text-blue-400 cursor-pointer">
-                        <Info className="w-3 h-3" />
-                      </span>
-                    </Tooltip>
-                  </div>
-                  <span className="text-sm font-semibold text-white bg-gray-700 px-2 py-1 rounded">
-                    {edited.floors}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="50"
-                  value={edited.floors}
-                  onChange={e => updateField('floors', parseInt(e.target.value))}
-                  className="w-full h-2 rounded bg-gray-700 accent-blue-500 cursor-pointer"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>1</span>
-                  <span>50</span>
-                </div>
-                {edited.floors > 30 && (
-                  <div className="flex items-center mt-2 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                    <span className="text-yellow-400 mr-2">⚠️</span>
-                    <p className="text-xs text-yellow-400">Tall buildings may have higher energy use for elevators and HVAC.</p>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">                  <div className="flex items-center">
-                    <label className="block text-xs font-medium text-gray-400">
-                      Floor Height
-                    </label>
-                    <Tooltip content="Average height per floor. Higher floors increase volume. Typical: 3–4m.">
-                      <span className="ml-2 text-blue-400 cursor-pointer">
-                        <Info className="w-3 h-3" />
-                      </span>
-                    </Tooltip>
-                  </div>
-                  <span className="text-sm font-semibold text-white bg-gray-700 px-2 py-1 rounded">
-                    {edited.floorHeight}m
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="2.5"
-                  max="6"
-                  step="0.1"
-                  value={edited.floorHeight}
-                  onChange={e => updateField('floorHeight', parseFloat(e.target.value))}
-                  className="w-full h-2 rounded bg-gray-700 accent-blue-500 cursor-pointer"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>2.5m</span>
-                  <span>6.0m</span>
-                </div>
-                {edited.floorHeight > 4.5 && (
-                  <div className="flex items-center mt-2 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                    <span className="text-yellow-400 mr-2">⚠️</span>
-                    <p className="text-xs text-yellow-400">High floor heights increase heating/cooling volume.</p>
-                  </div>
-                )}
-              </div>
-
-
-
-              <div>
-                <div className="flex items-center justify-between mb-2">                  <div className="flex items-center">
-                    <label className="block text-xs font-medium text-gray-400">
-                      Window-to-Wall Ratio
-                    </label>
-                    <Tooltip content="Higher WWR increases daylight but also heat loss/gain. Typical: 30–60%.">
-                      <span className="ml-2 text-blue-400 cursor-pointer">
-                        <Info className="w-3 h-3" />
-                      </span>
-                    </Tooltip>
-                  </div><span className="text-sm font-semibold text-white bg-gray-700 px-2 py-1 rounded">
-                    {Math.round((edited.window_to_wall_ratio ?? 0.4) * 100)}%
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={edited.window_to_wall_ratio}
-                  onChange={e => updateField('window_to_wall_ratio', parseFloat(e.target.value))}
-                  className="w-full h-2 rounded bg-gray-700 accent-blue-500 cursor-pointer"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>0%</span>
-                  <span>100%</span>
-                </div>
-                {(edited.window_to_wall_ratio ?? 0.4) > 0.6 && (
-                  <div className="flex items-center mt-2 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                    <span className="text-yellow-400 mr-2">⚠️</span>
-                    <p className="text-xs text-yellow-400">High WWR may increase cooling load and glare.</p>
-                  </div>
-                )}
-                {(edited.window_to_wall_ratio ?? 0.4) < 0.2 && (
-                  <div className="flex items-center mt-2 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                    <span className="text-yellow-400 mr-2">⚠️</span>
-                    <p className="text-xs text-yellow-400">Low WWR may reduce daylight and occupant comfort.</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    checked={!!edited.window_overhang}
-                    onChange={e => updateField('window_overhang', e.target.checked)}
-                    className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
-                    id="window_overhang"
-                  />                  <label htmlFor="window_overhang" className="flex items-center text-sm text-gray-300">
-                    Window Overhang
-                    <Tooltip content="Overhangs shade windows, reducing summer heat gain.">
-                      <span className="ml-2 text-blue-400 cursor-pointer">
-                        <Info className="w-3 h-3" />
-                      </span>
-                    </Tooltip>
-                  </label>
-                </div>
-
-                {edited.window_overhang && (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-xs font-medium text-gray-400">
-                        Overhang Depth: {(edited.window_overhang_depth ?? 0.0).toFixed(2)}m
-                      </label>
-                      <Tooltip content="Depth of window overhang. Typical: 0.3–1.2m.">
-                        <span className="ml-2 text-blue-400 cursor-pointer">
-                          <Info className="w-3 h-3" />
-                        </span>
-                      </Tooltip>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="2"
-                      step="0.05"
-                      value={edited.window_overhang_depth ?? 0.0}
-                      onChange={e => updateField('window_overhang_depth', parseFloat(e.target.value))}
-                      className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer slider"
-                    />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>0m</span>
-                      <span>1m</span>
-                      <span>2m</span>
-                    </div>
-                    {(edited.window_overhang_depth ?? 0.0) > 1.2 && (
-                      <div className="flex items-center mt-2 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                        <span className="text-yellow-400 mr-2">⚠️</span>
-                        <p className="text-xs text-yellow-400">Very deep overhangs may block winter sunlight.</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-                            <div>                <div className="flex items-center mb-2">
-                  <label className="block text-xs font-medium text-gray-400">
-                    Building Color
-                  </label>
-                  <Tooltip content="Affects solar absorption. Darker colors may increase cooling loads.">
-                    <span className="ml-2 text-blue-400 cursor-pointer">
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </Tooltip>
-                </div>                <div className="grid grid-cols-4 gap-2">
-                  {getColorOptions().map(color => (
-                    <button
-                      key={`${color.value}-${themeVersion}`}
-                      onClick={() => updateField('color', color.value)}
-                      className={`w-full h-10 rounded-lg border-2 transition-all duration-200 ${
-                        edited.color === color.value 
-                          ? 'border-white scale-105 shadow-lg' 
-                          : 'border-gray-600 hover:border-gray-400 hover:scale-102'
-                      }`}
-                      style={{ backgroundColor: `#${color.value.toString(16).padStart(6, '0')}` }}
-                      title={color.name}
-                    />
-                  ))}
-                </div>
-              </div>
+          <Section title="Form & Massing" open={open.massing} onToggle={() => toggle('massing')}>
+            <Field label={`Floors · ${edited.floors}`}><input aria-label="Floors" type="range" min="1" max="50" value={edited.floors} onChange={event => setField('floors', Number(event.target.value))} className="model-range w-full" /></Field>
+            <Field label={`Floor height · ${edited.floorHeight.toFixed(1)} m`}><input aria-label="Floor height" type="range" min="2.5" max="6" step="0.1" value={edited.floorHeight} onChange={event => setField('floorHeight', Number(event.target.value))} className="model-range w-full" /></Field>
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5 text-[11px] text-slate-600">
+              Drag the solid footprint vertices in the scene. Click a midpoint to insert a vertex; select a vertex and press Delete to remove it.
+              <div className="mt-1 font-medium">{edited.points.length} vertices · {metrics.footprintArea.toFixed(1)} m² footprint</div>
             </div>
-            
-          </Section>
-
-          {/* ENVELOPE & MATERIALS */}
-          <Section 
-            title={`Envelope & Materials${epsmLoading ? ' …' : epsmOptions ? ' · EPSM' : ''}`}
-            icon={<Home className="w-4 h-4" />}
-            open={sections.construction} 
-            onToggle={() => toggleSection('construction')}
-          >
-            <div className="space-y-4">
-              {[
-                { key: 'wall_construction', compareType: 'wall' as const, label: 'Wall Construction', options: constructionOptions.wall, tooltip: 'Wall type affects insulation (U-value) and embodied carbon. Lower U = better insulation.' },
-                { key: 'floor_construction', compareType: 'floor' as const, label: 'Floor Construction', options: constructionOptions.floor, tooltip: 'Floor insulation affects heat loss to ground or unheated spaces.' },
-                { key: 'roof_construction', compareType: 'roof' as const, label: 'Roof Construction', options: constructionOptions.roof, tooltip: 'Roof insulation is critical for heat loss/gain. Lower U = better.' },
-                { key: 'window_construction', compareType: 'window' as const, label: 'Window Construction', options: constructionOptions.window, tooltip: 'Window type affects insulation and daylight. Lower U = better insulation.' }
-              ].map(({ key, compareType, label, options, tooltip }) => (
-                <div key={key}>
-                  <div className="flex items-center justify-between mb-2">                    <div className="flex items-center">
-                      <label className="block text-xs font-medium text-gray-400">
-                        {label}
-                      </label>
-                      <Tooltip content={tooltip}>
-                        <span className="ml-2 text-blue-400 cursor-pointer">
-                          <Info className="w-3 h-3" />
-                        </span>
-                      </Tooltip>
-                    </div>
-                    <button
-                      type="button"
-                      className="text-xs text-blue-400 hover:text-blue-300 underline transition-colors"
-                      onClick={() => openCompareModal(compareType)}
-                    >
-                      Compare
-                    </button>
-                  </div>
-                  <select
-                    value={edited[key as keyof typeof edited] as string}
-                    onChange={e => updateField(key as keyof typeof edited, e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-400 transition-colors"
-                  >
-                    {options.map(opt => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-
-              {/* Live embodied carbon breakdown */}
-              {embodiedCarbon && (
-                <div className="mt-4 p-3 bg-gray-800/60 border border-gray-600/50 rounded-lg space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">
-                      Embodied Carbon (A1–A3)
-                    </span>
-                    <span className="text-sm font-bold text-orange-400">
-                      {embodiedCarbon.gwp_kgco2e_per_m2_floor.toFixed(1)} kg CO₂e/m²
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-400">
-                    <span>Walls</span>
-                    <span className="text-right text-gray-300">{embodiedCarbon.wall_gwp_kgco2e.toFixed(0)} kg CO₂e</span>
-                    <span>Floor</span>
-                    <span className="text-right text-gray-300">{embodiedCarbon.floor_gwp_kgco2e.toFixed(0)} kg CO₂e</span>
-                    <span>Roof</span>
-                    <span className="text-right text-gray-300">{embodiedCarbon.roof_gwp_kgco2e.toFixed(0)} kg CO₂e</span>
-                    <span>Windows</span>
-                    <span className="text-right text-gray-300">{embodiedCarbon.window_gwp_kgco2e.toFixed(0)} kg CO₂e</span>
-                    <span className="font-medium text-gray-300">Total</span>
-                    <span className="text-right font-bold text-orange-400">{embodiedCarbon.total_gwp_kgco2e.toFixed(0)} kg CO₂e</span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">Based on EPSM construction GWP data × estimated surface areas</p>
-                </div>
-              )}
-            </div>
-          </Section>
-
-          {/* USE & OCCUPANCY */}
-          <Section 
-            title="Use & Occupancy" 
-            icon={<Users className="w-4 h-4" />}
-            open={sections.program} 
-            onToggle={() => toggleSection('program')}
-          >
+            {footprintError && <p role="alert" className="text-[11px] font-medium text-rose-600">{footprintError}</p>}
             <div>
-              <div className="flex items-center mb-2">                <label className="block text-xs font-medium text-gray-400">
-                  Building Program
-                </label>
-                <Tooltip content="The main use of the building. Affects internal heat gains, schedules, and ventilation needs.">
-                  <span className="ml-2 text-blue-400 cursor-pointer">
-                    <Info className="w-3 h-3" />
-                  </span>
-                </Tooltip>
-              </div>
-              <select
-                value={edited.building_program}
-                onChange={e => updateField('building_program', e.target.value)}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-400 transition-colors"
-              >
-                {programOptions.map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-            </div>
-          </Section>
-
-          {/* SYSTEMS & VENTILATION */}
-          <Section 
-            title="Systems & Ventilation" 
-            icon={<Wind className="w-4 h-4" />}
-            open={sections.hvac} 
-            onToggle={() => toggleSection('hvac')}
-          >
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center mb-2">                  <label className="block text-xs font-medium text-gray-400">
-                    HVAC System
-                  </label>
-                  <Tooltip content="Heating, ventilation, and air conditioning type. Impacts energy use and comfort.">
-                    <span className="ml-2 text-blue-400 cursor-pointer">
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </Tooltip>
-                </div>
-                <select
-                  value={edited.hvac_system}
-                  onChange={e => updateField('hvac_system', e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-400 transition-colors"
-                >
-                  {hvacOptions.map(opt => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
-                  checked={!!edited.natural_ventilation}
-                  onChange={e => updateField('natural_ventilation', e.target.checked)}
-                  className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
-                  id="natural_ventilation"
-                />                  <label htmlFor="natural_ventilation" className="flex items-center text-sm text-gray-300">
-                  Natural Ventilation
-                  <Tooltip content="Allows fresh air through operable windows. Can reduce cooling needs.">
-                    <span className="ml-2 text-blue-400 cursor-pointer">
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </Tooltip>
-                </label>
+              <div className="mb-2 text-[11px] font-medium text-slate-600">Building color</div>
+              <div className="grid grid-cols-4 gap-2">
+                {MUTED_COLORS.map(color => <button key={color.name} type="button" aria-label={color.name} title={color.name} onClick={() => setField('color', color.value)} className={`h-7 rounded-md border-2 ${edited.color === color.value ? 'border-blue-600 ring-2 ring-blue-100' : 'border-white ring-1 ring-slate-200'}`} style={{ backgroundColor: `#${color.value.toString(16).padStart(6, '0')}` }} />)}
               </div>
             </div>
           </Section>
 
-          {/* STRUCTURAL SYSTEM */}
-          <Section 
-            title="Structural System" 
-            icon={<Wrench className="w-4 h-4" />}
-            open={sections.structural} 
-            onToggle={() => toggleSection('structural')}
-          >
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center mb-2">                  <label className="block text-xs font-medium text-gray-400">
-                    Primary Structure
-                  </label>
-                  <Tooltip content="The main load-bearing system of the building. Affects embodied carbon, construction time, and spans possible.">
-                    <span className="ml-2 text-blue-400 cursor-pointer">
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </Tooltip>
-                </div>
-                <div className="relative">
-                  <select
-                    value={edited.structural_system}
-                    onChange={e => updateField('structural_system', e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-400 transition-colors"
-                  >
-                    {structuralOptions.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>                  <Tooltip content="Compare options">
-                    <button 
-                      onClick={() => openCompareModal('structural')}
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-blue-400 hover:text-blue-300 transition-colors"
-                    >
-                      <Info className="w-4 h-4" />
-                    </button>
-                  </Tooltip>
-                </div>
-              </div>
-            </div>
+          <Section title="Façade" open={open.facade} onToggle={() => toggle('facade')}>
+            <Field label={`Window-to-wall ratio · ${Math.round((edited.window_to_wall_ratio ?? DEFAULT_FACADE_PARAMETERS.wwr) * 100)}%`}><input aria-label="Window-to-wall ratio" type="range" min="0" max="0.95" step="0.01" value={edited.window_to_wall_ratio} onChange={event => setField('window_to_wall_ratio', Number(event.target.value))} className="model-range w-full" /></Field>
+            <label className="flex items-center gap-2 text-[11px] text-slate-700"><input type="checkbox" checked={edited.window_overhang ?? false} onChange={event => setField('window_overhang', event.target.checked)} /> Additional window overhang</label>
+            <Field label={`Additional depth · ${(edited.window_overhang_depth ?? 0).toFixed(2)} m (total ${((edited.window_overhang ? edited.window_overhang_depth ?? 0 : 0) + DEFAULT_FACADE_PARAMETERS.wallThickness).toFixed(2)} m)`}><input aria-label="Additional overhang depth" type="range" min="0" max="2" step="0.05" value={edited.window_overhang_depth ?? 0} onChange={event => setField('window_overhang_depth', Number(event.target.value))} className="model-range w-full" /></Field>
+            <p className="text-[10px] leading-4 text-slate-500">A {DEFAULT_FACADE_PARAMETERS.wallThickness.toFixed(2)} m wall-thickness overhang and side fins are always included.</p>
+          </Section>
+
+          <Section title="Constructions" open={open.constructions} onToggle={() => toggle('constructions')}>
+            {(['wall', 'floor', 'roof', 'window'] as const).map(type => {
+              const key = `${type}_construction` as const;
+              const current = edited[key];
+              return <Field key={type} label={`${type[0].toUpperCase()}${type.slice(1)}`}><select className={inputClass} value={current} onChange={event => setField(key, event.target.value)}>{optionsFor(type, current).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></Field>;
+            })}
+          </Section>
+
+          <Section title="Program" open={open.program} onToggle={() => toggle('program')}>
+            <Field label="Building program"><select className={inputClass} value={edited.building_program} onChange={event => setField('building_program', event.target.value)}>{['Office', 'Residential', 'Retail', 'School', 'Hospital'].map(value => <option key={value}>{value}</option>)}</select></Field>
+            <Field label="Structural system"><select className={inputClass} value={edited.structural_system} onChange={event => setField('structural_system', event.target.value)}>{['Concrete', 'Timber', 'Masonry'].map(value => <option key={value}>{value}</option>)}</select></Field>
+          </Section>
+
+          <Section title="Systems" open={open.systems} onToggle={() => toggle('systems')}>
+            <Field label="HVAC"><select className={inputClass} value={edited.hvac_system} onChange={event => setField('hvac_system', event.target.value)}>{['Default HVAC', 'VAV', 'CAV', 'Radiant', 'Split System'].map(value => <option key={value}>{value}</option>)}</select></Field>
+            <label className="flex items-center gap-2 text-[11px] text-slate-700"><input type="checkbox" checked={edited.natural_ventilation ?? false} onChange={event => setField('natural_ventilation', event.target.checked)} /> Natural ventilation</label>
           </Section>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-700/50 bg-gray-800/30">
-          <button
-            onClick={handleReset}
-            disabled={!hasChanges}
-            className="flex items-center space-x-2 px-4 py-2 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-gray-700/50"
-            title="Reset to default values"
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span className="text-sm font-medium">Reset</span>
-          </button>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={handleClose}
-              className="px-4 py-2 text-gray-300 hover:text-white transition-colors rounded-lg hover:bg-gray-700/50 text-sm font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleClose}
-              className="flex items-center space-x-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200 font-medium text-sm shadow-lg"
-            >
-              <Check className="w-4 h-4" />
-              <span>Done</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Material Comparison Dialog */}
-        {compareModal && compareModal.open && (
-          <MaterialCompareDialog
-            title={`Compare ${compareModal.type.charAt(0).toUpperCase() + compareModal.type.slice(1)} Options`}
-            options={
-              compareModal.type === 'wall' ? constructionOptions.wall :
-              compareModal.type === 'floor' ? constructionOptions.floor :
-              compareModal.type === 'roof' ? constructionOptions.roof :
-              compareModal.type === 'window' ? constructionOptions.window :
-              compareModal.type === 'structural' ? structuralOptions.map(opt => ({ ...opt })) : 
-              []
-            }
-            currentValue={compareModal.currentValue}
-            onClose={() => setCompareModal(prev => prev ? { ...prev, open: false } : null)}
-            onSelect={(value) => {
-              updateField(
-                compareModal.type === 'wall' ? 'wall_construction' :
-                compareModal.type === 'floor' ? 'floor_construction' :
-                compareModal.type === 'roof' ? 'roof_construction' :
-                compareModal.type === 'window' ? 'window_construction' :
-                compareModal.type === 'structural' ? 'structural_system' : 
-                'wall_construction',
-                value
-              );
-              setCompareModal(prev => prev ? { ...prev, open: false } : null);
-            }}
-            type={compareModal.type}
-          />
-        )}
-      </div>
+        <footer className="sticky bottom-0 flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3">
+          <button type="button" onClick={reset} disabled={!changed} className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-40"><RotateCcw className="h-3.5 w-3.5" /> Reset</button>
+          <div className="flex gap-2"><button type="button" onClick={handleCancel} className="h-8 rounded-md px-3 text-[11px] font-semibold text-slate-600 hover:bg-slate-100">Cancel</button><button type="button" onClick={commit} disabled={Boolean(footprintError)} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-blue-600 px-3 text-[11px] font-semibold text-white hover:bg-blue-700 disabled:bg-slate-300"><Check className="h-3.5 w-3.5" /> Done</button></div>
+        </footer>
+      </aside>
     </div>
   );
 };
-
-// Collapsible section helper
-const Section: React.FC<{ 
-  title: string; 
-  icon: React.ReactNode;
-  open: boolean; 
-  onToggle: () => void; 
-  children: React.ReactNode 
-}> = ({ title, icon, open, onToggle, children }) => (
-  <div className="bg-gray-900/50 rounded-lg shadow-md shadow-black/20 overflow-hidden">
-    <button
-      type="button"
-      className="flex items-center w-full text-left p-4 hover:bg-gray-800/50 transition-colors duration-200 focus:outline-none focus:bg-gray-800/50"
-      onClick={onToggle}
-    >
-      <div className="flex items-center flex-1">
-        <div className="text-blue-400 mr-3">
-          {icon}
-        </div>
-        <h3 className="text-sm font-semibold uppercase text-white tracking-wide">
-          {title}
-        </h3>
-      </div>
-      <div className="text-gray-400 transition-transform duration-200" style={{transform: open ? 'rotate(180deg)' : 'rotate(0deg)'}}>
-        <ChevronDown className="w-4 h-4" />
-      </div>
-    </button>
-    {open && (
-      <div className="p-4 pt-0 transition-all duration-200">
-        {children}
-      </div>
-    )}
-  </div>
-);

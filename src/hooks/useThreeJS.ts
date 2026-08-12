@@ -21,10 +21,12 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 // No need to import THREE directly in this hook
 import { ThreeJSCore } from '../core/ThreeJSCore';
 import type { CameraType, CameraView, ViewTransitionOptions } from '../core/ThreeJSCore';
+import type { SceneAppearanceMode } from '../core/ThreeJSCore';
 import type { SunPosition } from '../utils/sunPosition';
 
 export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGrid: boolean = true) => {
   const coreRef = useRef<ThreeJSCore | null>(null);
+  const initialShowGridRef = useRef(showGrid);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [initializationError, setInitializationError] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
           });
           
           // Set initial grid visibility after initialization
-          if (!showGrid) {
+          if (!initialShowGridRef.current) {
             core.toggleGrid();
           }
           setIsInitialized(true);
@@ -220,6 +222,13 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
       console.warn('Cannot disable building focus - core not initialized');
     }
   }, []);
+  const setSceneAppearanceMode = useCallback((mode: SceneAppearanceMode) => {
+    if (!coreRef.current) return;
+    coreRef.current.setSceneAppearanceMode(mode);
+  }, []);
+  const setCameraControlsEnabled = useCallback((enabled: boolean) => {
+    coreRef.current?.setCameraControlsEnabled(enabled);
+  }, []);
 
   return {
     scene: coreRef.current?.getScene() || null,
@@ -242,6 +251,8 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     updateSunPosition,
     enableBuildingFocus,
     disableBuildingFocus,
+    setSceneAppearanceMode,
+    setCameraControlsEnabled,
     debugHelpers: {
       toggleShadowHelper: () => {},
       toggleShadowQuality: () => {},

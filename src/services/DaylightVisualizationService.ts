@@ -1,164 +1,154 @@
 import * as THREE from 'three';
-import { DaylightSensorPoint } from '../types/daylight';
+import {
+  DaylightOverlayDataset,
+  DaylightRunSummary,
+  DaylightSensorPoint,
+} from '../types/daylight';
 
-const OVERLAY_VISUAL_LIFT_METERS = 0.08;
+const HISTORICAL_CELL_SIZE_METERS = 0.5;
 
 export const getOverlayPointsForResults = (
   resultsByBuildingId: Record<string, DaylightRunSummary> | undefined,
   mode: 'df' | 'sda' = 'df'
 ): DaylightSensorPoint[] => {
-  if (!resultsByBuildingId) {
-    return [];
-  }
+  if (!resultsByBuildingId) return [];
+  return Object.values(resultsByBuildingId).flatMap((result) =>
+    mode === 'sda' && result.sdaPoints?.length ? result.sdaPoints : result.points
+  );
+};
+
+/** Preserve each result's backend point order and exact submitted grid dimensions. */
+export const getOverlayDatasetsForResults = (
+  resultsByBuildingId: Record<string, DaylightRunSummary> | undefined,
+  mode: 'df' | 'sda' = 'df'
+): DaylightOverlayDataset[] => {
+  if (!resultsByBuildingId) return [];
 
   return Object.values(resultsByBuildingId).flatMap((result) => {
-    if (mode === 'sda' && result.sdaPoints?.length) {
-      return result.sdaPoints;
-    }
+    const points = mode === 'sda' && result.sdaPoints?.length
+      ? result.sdaPoints
+      : result.points;
+    if (points.length === 0) return [];
 
-    return result.points;
+    return [{
+      points,
+      cellSizeX: result.sensorGrid?.x_dim ?? HISTORICAL_CELL_SIZE_METERS,
+      cellSizeZ: result.sensorGrid?.y_dim ?? HISTORICAL_CELL_SIZE_METERS,
+    }];
   });
 };
 
-/**
- * Returns one array of points per building so each group can be rendered
- * with its own cell-size estimate, avoiding cross-building distance artefacts.
- */
+/** @deprecated Use getOverlayDatasetsForResults so cell dimensions are retained. */
 export const getOverlayGroupsForResults = (
   resultsByBuildingId: Record<string, DaylightRunSummary> | undefined,
   mode: 'df' | 'sda' = 'df'
-): DaylightSensorPoint[][] => {
-  if (!resultsByBuildingId) {
-    return [];
-  }
+): DaylightSensorPoint[][] => getOverlayDatasetsForResults(resultsByBuildingId, mode)
+  .map((dataset) => dataset.points);
 
-  return Object.values(resultsByBuildingId)
-    .map((result) => (mode === 'sda' && result.sdaPoints?.length ? result.sdaPoints : result.points))
-    .filter((pts) => pts.length > 0);
-};
-
-class DaylightVisualizationService {
+export class DaylightVisualizationService {
   private overlayGroup: THREE.Group | null = null;
+  private visible = false;
 
-  /**
-   * Render a flat array of sensor points. Use renderSensorPointGroups when
-   * points come from multiple buildings to avoid cell-size estimation errors.
-   */
-  renderSensorPoints(scene: THREE.Scene, points: DaylightSensorPoint[]): void {
-    this.clear(scene);
-
-    if (points.length === 0) {
-      return;
-    }
-
-    const cellSize = this.estimateCellSize(points);
-
-    const group = new THREE.Group();
-    group.name = 'daylight-sensor-overlay';
-
-    const geometry = new THREE.PlaneGeometry(cellSize, cellSize);
-
-    points.forEach((point) => {
-      const color = this.getColorForDfAbsolute(point.value);
-
-      const material = new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 0.9,
-        depthWrite: false,
-        depthTest: false
-      });
-
-      const marker = new THREE.Mesh(geometry.clone(), material);
-      marker.position.set(point.x, point.y + OVERLAY_VISUAL_LIFT_METERS, point.z);
-      marker.rotation.x = -Math.PI / 2;
-      marker.renderOrder = 200;
-      group.add(marker);
-    });
-
-    scene.add(group);
-    this.overlayGroup = group;
+  get isVisible(): boolean {
+    return this.visible;
   }
 
-  /**
-   * Render points from multiple buildings, each group using its own estimated
-   * cell size but sharing a global colour normalisation range.
-   */
-  renderSensorPointGroups(scene: THREE.Scene, groups: DaylightSensorPoint[][], mode: 'df' | 'sda' = 'df'): void {
+  renderDatasets(
+    scene: THREE.Scene,
+    datasets: DaylightOverlayDataset[],
+    mode: 'df' | 'sda' = 'df'
+  ): void {
     this.clear(scene);
-
-    const allPoints = groups.flat();
-    if (allPoints.length === 0) {
-      return;
-    }
+    if (!datasets.some((dataset) => dataset.points.length > 0)) return;
 
     const group = new THREE.Group();
     group.name = 'daylight-sensor-overlay';
+    group.userData.analysisRole = 'daylight-overlay';
+    group.userData.isDaylightOverlay = true;
 
-    groups.forEach((buildingPoints) => {
-      if (buildingPoints.length === 0) {
-        return;
-      }
+    datasets.forEach((dataset, datasetIndex) => {
+      if (dataset.points.length === 0) return;
 
-      const cellSize = this.estimateCellSize(buildingPoints);
-      const geometry = new THREE.PlaneGeometry(cellSize, cellSize);
-
-      buildingPoints.forEach((point) => {
-        const color = mode === 'sda'
-          ? this.getColorForSdaAbsolute(point.value)
-          : this.getColorForDfAbsolute(point.value);
-
-        const material = new THREE.MeshBasicMaterial({
-          color,
-          transparent: true,
-          opacity: 0.9,
-          depthWrite: false,
-          depthTest: false
-        });
-
-        const marker = new THREE.Mesh(geometry.clone(), material);
-        marker.position.set(point.x, point.y + OVERLAY_VISUAL_LIFT_METERS, point.z);
-        marker.rotation.x = -Math.PI / 2;
-        marker.renderOrder = 200;
-        group.add(marker);
+      const geometry = new THREE.PlaneGeometry(dataset.cellSizeX, dataset.cellSizeZ);
+      const material = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: false,
+        opacity: 1,
+        depthTest: true,
+        depthWrite: true,
+        side: THREE.DoubleSide,
+        toneMapped: false,
       });
+      const mesh = new THREE.InstancedMesh(geometry, material, dataset.points.length);
+      mesh.name = `daylight-sensor-dataset-${datasetIndex}`;
+      mesh.userData.analysisRole = 'daylight-overlay';
+      mesh.userData.isDaylightOverlay = true;
+
+      const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+      const scale = new THREE.Vector3(1, 1, 1);
+      dataset.points.forEach((point, index) => {
+        const matrix = new THREE.Matrix4().compose(
+          new THREE.Vector3(point.x, point.y, point.z),
+          rotation,
+          scale
+        );
+        mesh.setMatrixAt(index, matrix);
+        mesh.setColorAt(index, mode === 'sda'
+          ? this.getColorForSdaAbsolute(point.value)
+          : this.getColorForDfAbsolute(point.value));
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      group.add(mesh);
     });
 
     scene.add(group);
     this.overlayGroup = group;
+    this.setVisible(scene, true);
+  }
+
+  renderSensorPoints(scene: THREE.Scene, points: DaylightSensorPoint[]): void {
+    this.renderDatasets(scene, [{
+      points,
+      cellSizeX: HISTORICAL_CELL_SIZE_METERS,
+      cellSizeZ: HISTORICAL_CELL_SIZE_METERS,
+    }]);
+  }
+
+  renderSensorPointGroups(
+    scene: THREE.Scene,
+    groups: DaylightSensorPoint[][],
+    mode: 'df' | 'sda' = 'df'
+  ): void {
+    this.renderDatasets(scene, groups.map((points) => ({
+      points,
+      cellSizeX: HISTORICAL_CELL_SIZE_METERS,
+      cellSizeZ: HISTORICAL_CELL_SIZE_METERS,
+    })), mode);
+  }
+
+  setVisible(_scene: THREE.Scene, visible: boolean): void {
+    if (this.overlayGroup) this.overlayGroup.visible = visible;
+    this.visible = Boolean(this.overlayGroup && visible);
   }
 
   clear(scene: THREE.Scene): void {
     if (!this.overlayGroup) {
+      this.visible = false;
       return;
     }
 
     this.overlayGroup.traverse((object) => {
-      if (!(object instanceof THREE.Mesh)) {
-        return;
-      }
-
+      if (!(object instanceof THREE.Mesh)) return;
       object.geometry.dispose();
-
-      if (Array.isArray(object.material)) {
-        object.material.forEach((material) => material.dispose());
-      } else {
-        object.material.dispose();
-      }
+      if (Array.isArray(object.material)) object.material.forEach((material) => material.dispose());
+      else object.material.dispose();
     });
-
     scene.remove(this.overlayGroup);
     this.overlayGroup = null;
+    this.visible = false;
   }
 
-  /**
-   * DF colour scale anchored to CIBSE/BRE absolute thresholds:
-   *   < 1%   dark navy → blue   — very poor / inadequate
-   *   1–2%   blue → cyan        — below target
-   *   2–5%   cyan → green       — target zone (≥ 2% is standard for offices)
-   *   5–10%  green → amber      — well-daylit, monitor glare
-   *   10%+   amber → red        — overlit / glare risk
-   */
   private getColorForDfAbsolute(dfPercent: number): THREE.Color {
     const v = Math.max(0, dfPercent);
     if (v < 1) return this.interpolateColor(new THREE.Color('#1e3a8a'), new THREE.Color('#1d4ed8'), v);
@@ -168,47 +158,8 @@ class DaylightVisualizationService {
     return this.interpolateColor(new THREE.Color('#f59e0b'), new THREE.Color('#ef4444'), Math.min(1, (v - 10) / 5));
   }
 
-  /**
-   * sDA colour — binary pass / fail matching the result-view heatmap.
-   * Threshold: 50 % (matches backend sda_target_pct default and sdaPassMask).
-   *   ≥ 50 %  → green  (#22c55e)  — passes sDA300/50
-   *   < 50 %  → red    (#ef4444)  — fails
-   */
   private getColorForSdaAbsolute(sdaPercent: number): THREE.Color {
-    return sdaPercent >= 50
-      ? new THREE.Color('#22c55e')
-      : new THREE.Color('#ef4444');
-  }
-
-  private estimateCellSize(points: DaylightSensorPoint[]): number {
-    if (points.length < 2) {
-      return 0.4;
-    }
-
-    const epsilon = 1e-6;
-    const sortedX = [...new Set(points.map((point) => point.x))].sort((a, b) => a - b);
-    const sortedZ = [...new Set(points.map((point) => point.z))].sort((a, b) => a - b);
-
-    const minDelta = (values: number[]): number => {
-      let best = Number.POSITIVE_INFINITY;
-      for (let i = 1; i < values.length; i += 1) {
-        const delta = values[i] - values[i - 1];
-        if (delta > epsilon && delta < best) {
-          best = delta;
-        }
-      }
-      return Number.isFinite(best) ? best : Number.POSITIVE_INFINITY;
-    };
-
-    const dx = minDelta(sortedX);
-    const dz = minDelta(sortedZ);
-    const spacing = Math.min(dx, dz);
-
-    if (!Number.isFinite(spacing)) {
-      return 0.4;
-    }
-
-    return Math.max(0.1, spacing * 0.9);
+    return sdaPercent >= 50 ? new THREE.Color('#22c55e') : new THREE.Color('#ef4444');
   }
 
   private interpolateColor(start: THREE.Color, end: THREE.Color, t: number): THREE.Color {

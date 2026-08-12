@@ -18,7 +18,7 @@ export interface DesignMetrics {
   totalEnergy?: number;
 }
 
-export type DaylightRunStatus = 'queued' | 'running' | 'complete' | 'failed';
+export type DaylightRunStatus = 'idle' | 'queued' | 'running' | 'complete' | 'failed';
 
 export interface DaylightRunMetadata {
   studyId?: string;
@@ -27,12 +27,13 @@ export interface DaylightRunMetadata {
   error?: string;
   sensorCount?: number;
   meanDF?: number;
-  updatedAt: string;
+  updatedAt?: string;
 }
 
 export type EnergyRunStatus = 'idle' | 'queued' | 'running' | 'complete' | 'failed';
 
 export interface EnergyRunMetadata {
+  inputFingerprint?: string;
   studyId?: string;
   status: EnergyRunStatus;
   stage?: string;

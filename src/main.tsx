@@ -1,14 +1,14 @@
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { initializeTheme, waitForThemeColors, debugThemeColors } from './utils/themeColors';
+import { waitForThemeColors, debugThemeColors } from './utils/themeColors';
 import { logger } from './utils/logger';
 import './theme-colors.css';
 
 // Initialize theme system and wait for CSS to load
 async function startApp() {
-  const initialTheme = initializeTheme();
-  logger.info('Application starting', { theme: initialTheme });
+  document.documentElement.classList.remove('dark-theme');
+  logger.info('Application starting', { theme: 'light' });
   
   // Wait for theme colors to be available
   const colorsLoaded = await waitForThemeColors();

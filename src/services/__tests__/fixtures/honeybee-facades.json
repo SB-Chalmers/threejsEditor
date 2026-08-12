@@ -1,0 +1,63 @@
+[
+  {
+    "name": "rect-0.2",
+    "footprint": [[0, 0], [10, 0], [10, 8], [0, 8]],
+    "floorHeight": 3,
+    "wwr": 0.2,
+    "edges": [
+      { "count": 14, "firstCenter": [0.714285714, 0, 1.125], "width": 0.571428571, "height": 0.75 },
+      { "count": 10, "firstCenter": [10, 0.8, 1.125], "width": 0.64, "height": 0.75 },
+      { "count": 14, "firstCenter": [9.285714286, 8, 1.125], "width": 0.571428571, "height": 0.75 },
+      { "count": 10, "firstCenter": [0, 7.2, 1.125], "width": 0.64, "height": 0.75 }
+    ]
+  },
+  {
+    "name": "rect-0.4",
+    "footprint": [[0, 0], [10, 0], [10, 8], [0, 8]],
+    "floorHeight": 3,
+    "wwr": 0.4,
+    "edges": [
+      { "count": 14, "firstCenter": [0.714285714, 0, 1.125], "width": 1.142857143, "height": 0.75 },
+      { "count": 10, "firstCenter": [10, 0.8, 1.125], "width": 1.28, "height": 0.75 },
+      { "count": 14, "firstCenter": [9.285714286, 8, 1.125], "width": 1.142857143, "height": 0.75 },
+      { "count": 10, "firstCenter": [0, 7.2, 1.125], "width": 1.28, "height": 0.75 }
+    ]
+  },
+  {
+    "name": "rect-0.95",
+    "footprint": [[0, 0], [10, 0], [10, 8], [0, 8]],
+    "floorHeight": 3,
+    "wwr": 0.95,
+    "edges": [
+      { "count": 1, "firstCenter": [5, 0, 1.515918367], "width": 9.8, "height": 2.908163265 },
+      { "count": 1, "firstCenter": [10, 4, 1.515918367], "width": 7.84, "height": 2.908163265 },
+      { "count": 1, "firstCenter": [5, 8, 1.515918367], "width": 9.8, "height": 2.908163265 },
+      { "count": 1, "firstCenter": [0, 4, 1.515918367], "width": 7.84, "height": 2.908163265 }
+    ]
+  },
+  {
+    "name": "rect-short-height",
+    "footprint": [[0, 0], [10, 0], [10, 8], [0, 8]],
+    "floorHeight": 2.5,
+    "wwr": 0.4,
+    "edges": [
+      { "count": 14, "firstCenter": [0.714285714, 0, 0.875], "width": 0.952380952, "height": 0.75 },
+      { "count": 10, "firstCenter": [10, 0.8, 0.875], "width": 1.066666667, "height": 0.75 },
+      { "count": 14, "firstCenter": [9.285714286, 8, 0.875], "width": 0.952380952, "height": 0.75 },
+      { "count": 10, "firstCenter": [0, 7.2, 0.875], "width": 1.066666667, "height": 0.75 }
+    ]
+  },
+  {
+    "name": "irregular-0.4",
+    "footprint": [[0, 0], [4, 0], [5, 2], [2, 5], [0, 3]],
+    "floorHeight": 3,
+    "wwr": 0.4,
+    "edges": [
+      { "count": 6, "firstCenter": [0.666666667, 0, 1.125], "width": 1.066666667, "height": 0.75 },
+      { "count": 2, "firstCenter": [4.5, 1, 1.125], "width": 1.788854382, "height": 0.75 },
+      { "count": 6, "firstCenter": [4.5, 2.5, 1.125], "width": 1.13137085, "height": 0.75 },
+      { "count": 4, "firstCenter": [1.5, 4.5, 1.125], "width": 1.13137085, "height": 0.75 },
+      { "count": 4, "firstCenter": [0, 2.25, 1.125], "width": 1.2, "height": 0.75 }
+    ]
+  }
+]

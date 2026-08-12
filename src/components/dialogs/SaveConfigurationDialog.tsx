@@ -13,21 +13,15 @@ export const SaveConfigurationDialog: React.FC<SaveConfigurationDialogProps> = (
   onSave
 }) => {
   const [configName, setConfigName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!configName.trim()) return;
-    
-    setIsLoading(true);
-    try {
-      await onSave(configName.trim());
-      setConfigName('');
-      onClose();
-    } catch (error) {
+    const name = configName.trim();
+    setConfigName('');
+    onClose();
+    void onSave(name).catch((error) => {
       console.error('Failed to save and run configuration:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -41,24 +35,25 @@ export const SaveConfigurationDialog: React.FC<SaveConfigurationDialogProps> = (
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
-      <div className="bg-gray-900 rounded-2xl border border-gray-700/50 shadow-2xl w-full max-w-md mx-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/15 backdrop-blur-sm">
+      <div className="mx-4 w-full max-w-sm rounded-xl border border-slate-200 bg-white shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
-          <h2 className="text-lg font-semibold text-white">Save And Run Configuration</h2>
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <h2 className="text-[13px] font-semibold text-slate-900">Save and run studies</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            className="rounded p-1 text-slate-500 hover:bg-slate-100"
+            aria-label="Close"
           >
-            <X className="w-5 h-5 text-gray-400" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-4">
+        <div className="space-y-3 p-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Configuration Name
+            <label className="mb-1.5 block text-[11px] font-medium text-slate-600">
+              Design name
             </label>
             <input
               type="text"
@@ -66,32 +61,31 @@ export const SaveConfigurationDialog: React.FC<SaveConfigurationDialogProps> = (
               onChange={(e) => setConfigName(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Enter a name for this design..."
-              className="w-full px-3 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="h-8 w-full rounded-md border border-slate-300 bg-white px-2.5 text-[12px] text-slate-800 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               autoFocus
             />
           </div>
 
-          <div className="text-sm text-gray-400">
-            This will save the current building configuration, run daylight simulation, and plot sensor results on your model.
+          <div className="text-[11px] leading-4 text-slate-500">
+            Daylight and energy run in parallel. Each result appears as soon as it is ready.
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-700/50">
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
-            disabled={isLoading}
+            className="h-8 rounded-md px-3 text-[11px] font-semibold text-slate-600 hover:bg-slate-100"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            disabled={!configName.trim() || isLoading}
-            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors"
+            disabled={!configName.trim()}
+            className="flex h-8 items-center gap-1.5 rounded-md bg-blue-600 px-3 text-[11px] font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            <Save className="w-4 h-4" />
-            <span>{isLoading ? 'Running Daylight...' : 'Save And Run Configuration'}</span>
+            <Save className="h-3.5 w-3.5" />
+            <span>Save and run</span>
           </button>
         </div>
       </div>

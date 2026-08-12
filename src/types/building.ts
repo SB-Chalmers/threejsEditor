@@ -17,9 +17,9 @@ export interface BuildingConfig {
   description?: string; // Add this line
 
   // Form properties
-  window_to_wall_ratio?: number; // Float between 0.0 and 1.0
-  window_overhang?: boolean; // True/false
-  window_overhang_depth?: number; // 0.0 to 2.0 m
+  window_to_wall_ratio?: number; // Clamped to 0.0–0.95
+  window_overhang?: boolean; // Enables additional horizontal overhang depth
+  window_overhang_depth?: number; // Stored additional depth; ignored while disabled
 
   // Construction properties
   wall_construction?: string; // From pre-selected dropdown
@@ -36,6 +36,13 @@ export interface BuildingConfig {
   // HVAC properties
   hvac_system?: string; // From pre-selected dropdown
   natural_ventilation?: boolean; // True/false
+}
+
+export interface BuildingMetrics {
+  footprintArea: number;
+  grossFloorArea: number;
+  perimeter: number;
+  totalHeight: number;
 }
 
 export interface DrawingState {
@@ -55,7 +62,11 @@ export interface BuildingData {
   id: string;
   mesh: THREE.Mesh;
   points: Point3D[];
-  area: number;
+  /** Canonical plan area. Derived from `points`; never trusted from imports. */
+  footprintArea: number;
+  /** @deprecated Legacy import compatibility only. Use `footprintArea`. */
+  area?: number;
+  metrics: BuildingMetrics;
   floors: number;
   floorHeight: number;
   createdAt: Date;

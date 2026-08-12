@@ -1,9 +1,8 @@
+@import './theme-colors.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Import theme colors */
-@import './theme-colors.css';
 
 /* Custom slider styles for better visibility */
 .slider::-webkit-slider-thumb {
@@ -154,4 +153,89 @@ kbd {
   padding: 0.25rem 0.5rem;
   border: 1px solid var(--color-kbd-border);
   box-shadow: 0 1px 2px 0 var(--color-kbd-shadow);
+}
+
+html, body, #root {
+  min-width: 320px;
+  background: #F4F6F8;
+  color: #273444;
+}
+
+.model-range {
+  accent-color: #2563eb;
+}
+
+.model-daylight-legend {
+  right: 320px;
+  bottom: 58px;
+}
+
+.model-progress-card {
+  right: 320px;
+  top: 12px;
+}
+
+@media (max-width: 1023px) {
+  .model-inspector,
+  .model-drawing-inspector {
+    width: 288px;
+  }
+
+  .model-daylight-legend,
+  .model-progress-card {
+    right: 12px;
+  }
+
+  .model-status-label {
+    display: none;
+  }
+}
+
+@media (max-width: 719px) {
+  .model-tool-rail {
+    left: 50%;
+    top: auto;
+    bottom: 52px;
+    transform: translateX(-50%);
+  }
+
+  .model-tool-rail > div {
+    flex-direction: row;
+  }
+
+  .model-tool-rail .h-px {
+    width: 1px;
+    height: 24px;
+    margin: 6px 2px;
+  }
+
+  .model-inspector,
+  .model-drawing-inspector {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: min(55vh, 460px);
+    border-left: 0;
+    border-top: 1px solid #e2e8f0;
+    border-radius: 14px 14px 0 0;
+  }
+
+  .model-daylight-legend {
+    right: 8px;
+    bottom: 102px;
+    min-width: 210px;
+  }
+
+  .model-progress-card {
+    top: 8px;
+    right: 8px;
+    width: min(296px, calc(100vw - 16px));
+  }
+
+  .model-context-hint {
+    top: 8px;
+    width: calc(100% - 16px);
+    justify-content: space-between;
+  }
 }

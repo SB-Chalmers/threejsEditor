@@ -52,7 +52,7 @@ export const BuildingTooltip: React.FC<BuildingTooltipProps> = ({
       
       {/* Tooltip */}
       <div
-        className="fixed z-50 bg-gray-900/95 backdrop-blur-sm rounded-lg shadow-2xl border border-gray-600 p-4 min-w-64 pointer-events-auto"
+        className="fixed z-50 bg-white rounded-lg shadow-xl border border-slate-200 p-3 min-w-60 pointer-events-auto"
         style={{
           left: Math.min(Math.max(position.x - 140, 10), window.innerWidth - 280),
           top: Math.max(Math.min(position.y - 120, window.innerHeight - 200), 10),
@@ -64,8 +64,8 @@ export const BuildingTooltip: React.FC<BuildingTooltipProps> = ({
             className="w-4 h-4 rounded"
             style={{ backgroundColor: `#${(building.color || getThemeColorAsHex('--color-building-default')).toString(16).padStart(6, '0')}` }}
           />
-          <Building className="w-4 h-4 text-gray-400" />
-          <span className="text-white font-medium text-sm">
+          <Building className="w-4 h-4 text-slate-400" />
+          <span className="text-slate-900 font-medium text-[12px]">
             {building.name || 'Unnamed Building'}
           </span>
         </div>
@@ -73,8 +73,8 @@ export const BuildingTooltip: React.FC<BuildingTooltipProps> = ({
         {/* Building Info */}
         <div className="space-y-2 mb-4">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Total Area:</span>
-            <span className="text-green-400 font-medium">{building.area.toFixed(1)} m²</span>
+            <span className="text-slate-500">GFA:</span>
+            <span className="text-slate-900 font-medium">{building.metrics.grossFloorArea.toFixed(1)} m²</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">Floors:</span>

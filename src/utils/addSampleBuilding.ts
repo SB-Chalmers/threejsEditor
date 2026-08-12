@@ -1,8 +1,8 @@
 import { Point3D, BuildingConfig, BuildingData } from '../types/building';
 import { BuildingService } from '../services/BuildingService';
-import { WindowService } from '../services/WindowService';
-import { getThemeColorAsHex } from './themeColors';
 import { ensureCounterClockwise } from './geometry';
+import { DEFAULT_FACADE_PARAMETERS } from '../services/FacadeGeometry';
+import { calculateBuildingMetrics } from './buildingMetrics';
 
 /**
  * Configuration options for creating a sample building
@@ -40,27 +40,15 @@ function createRectanglePoints(centerX: number = 0, centerZ: number = 0, width: 
 /**
  * Calculate polygon area using shoelace formula
  */
-function calculatePolygonArea(points: Point3D[]): number {
-  let area = 0;
-  const n = points.length;
-  
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
-    area += points[i].x * points[j].z;
-    area -= points[j].x * points[i].z;
-  }
-  
-  return Math.abs(area) / 2;
-}
-
 /**
  * Creates a simple sample building for startup.
  */
 export function addSampleBuilding(
   buildingService: BuildingService,
-  windowService: WindowService | null = null,
+  _windowService: unknown = null,
   config: SampleBuildingConfig = {}
 ): BuildingData | null {
+  void _windowService;
   try {
     // Default configuration
     const {
@@ -71,10 +59,10 @@ export function addSampleBuilding(
       depth = 5,
       floors = 6,
       floorHeight = 3.5,
-      color = getThemeColorAsHex('--color-building-sample', 0xFFFFFF),
+      color = 0x7C8FA3,
       name = 'Welcome Room',
       description = 'A 10m x 5m starter room building',
-      windowToWallRatio = 0.4
+      windowToWallRatio = DEFAULT_FACADE_PARAMETERS.wwr
     } = config;
 
     // Backward compatibility: if radius is provided by legacy callers, convert to a rectangle size.
@@ -94,11 +82,11 @@ export function addSampleBuilding(
       enableShadows: true,
       window_to_wall_ratio: windowToWallRatio,
       window_overhang: false,
-      window_overhang_depth: 0.5,
-      wall_construction: 'Concrete Block',
-      floor_construction: 'Concrete Slab',
-      roof_construction: 'Built-up Roof',
-      window_construction: 'Double Glazed',
+      window_overhang_depth: 0,
+      wall_construction: 'Default Wall',
+      floor_construction: 'Default Floor',
+      roof_construction: 'Default Roof',
+      window_construction: 'Default Window',
       structural_system: 'Concrete',
       building_program: 'Office',
       hvac_system: 'VAV',
@@ -109,7 +97,7 @@ export function addSampleBuilding(
     const buildingMesh = buildingService.createBuilding(points, buildingConfig);
     
     // Calculate area for building data
-    const area = calculatePolygonArea(points);
+    const metrics = calculateBuildingMetrics(points, floors, floorHeight);
     
     // Generate unique building ID
     const buildingId = `debug_building_${Date.now()}`;
@@ -131,7 +119,8 @@ export function addSampleBuilding(
       id: buildingId,
       mesh: buildingMesh,
       points,
-      area,
+      footprintArea: metrics.footprintArea,
+      metrics,
       floors,
       floorHeight,
       createdAt: new Date(),
@@ -153,21 +142,6 @@ export function addSampleBuilding(
       natural_ventilation: buildingConfig.natural_ventilation
     };
 
-    // Add windows if window service is available
-    if (windowService) {
-      const windowConfig = {
-        windowWidth: 2.0,
-        windowHeight: 1.5,
-        windowSpacing: 1.0,
-        frameThickness: 0.1,
-        offsetDistance: 0.1,
-        maxWindows: 50000
-      };
-      
-      windowService.addBuildingWindows(building, windowConfig);
-      console.log(`Added windows to sample building: ${building.id}`);
-    }
-
     console.log('Sample building created:', {
       id: building.id,
       name: building.name,
@@ -175,8 +149,8 @@ export function addSampleBuilding(
       width: resolvedWidth,
       depth: resolvedDepth,
       floors,
-      area: area.toFixed(2),
-      hasWindows: !!windowService
+      grossFloorArea: metrics.grossFloorArea.toFixed(2),
+      hasWindows: false
     });
 
     return building;

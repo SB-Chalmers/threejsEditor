@@ -8,12 +8,34 @@ import { createShapeFromPoints, calculateCentroid, ensureCounterClockwise } from
 import { getThemeColorAsHex } from '../utils/themeColors';
 import { WindowService } from '../services/WindowService';
 import { logger } from '../utils/logger';
+import { clampWwr, DEFAULT_FACADE_PARAMETERS } from '../services/FacadeGeometry';
+import { calculateBuildingMetrics } from '../utils/buildingMetrics';
 
 interface BuildingStats {
   count: number;
-  totalArea: number;
+  totalGrossFloorArea: number;
   totalFloors: number;
 }
+
+const mergeBuildingConfig = (building: BuildingData, config: BuildingConfig): BuildingData => ({
+  ...building,
+  floors: config.floors,
+  floorHeight: config.floorHeight,
+  color: config.color,
+  name: config.name ?? building.name,
+  description: config.description ?? building.description,
+  window_to_wall_ratio: clampWwr(config.window_to_wall_ratio),
+  window_overhang: config.window_overhang ?? false,
+  window_overhang_depth: config.window_overhang_depth ?? 0,
+  wall_construction: config.wall_construction,
+  floor_construction: config.floor_construction,
+  roof_construction: config.roof_construction,
+  window_construction: config.window_construction,
+  structural_system: config.structural_system,
+  building_program: config.building_program,
+  hvac_system: config.hvac_system,
+  natural_ventilation: config.natural_ventilation
+});
 
 export const useBuildingManager = (
   scene: THREE.Scene | null, 
@@ -28,11 +50,24 @@ export const useBuildingManager = (
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
   const buildingsRef = useRef<BuildingData[]>([]);
+  const selectedBuildingRef = useRef<BuildingData | null>(null);
+  const hoveredBuildingRef = useRef<BuildingData | null>(null);
   // Keep buildingsRef in sync with buildings state
   useEffect(() => {
     buildingsRef.current = buildings;
     logger.debug('Buildings collection updated', { count: buildings.length, ids: buildings.map(b => b.id) }, 'BuildingManager');
   }, [buildings]);
+
+  useEffect(() => { selectedBuildingRef.current = selectedBuilding; }, [selectedBuilding]);
+  useEffect(() => { hoveredBuildingRef.current = hoveredBuilding; }, [hoveredBuilding]);
+
+  const refreshOutlineVisibility = useCallback((selectedId: string | null, hoveredId: string | null) => {
+    buildingsRef.current.forEach(building => {
+      if (building.footprintOutline) {
+        building.footprintOutline.visible = building.id === selectedId || building.id === hoveredId;
+      }
+    });
+  }, []);
 
   // Handle window resize for Line2 materials
   useEffect(() => {
@@ -67,7 +102,7 @@ export const useBuildingManager = (
     }
 
     const geometry = new THREE.ShapeGeometry(shape);    const material = new THREE.MeshBasicMaterial({ 
-      color: getThemeColorAsHex('--color-building-footprint', 0x00ffaa),
+      color: 0x2563EB,
       transparent: true,
       opacity: 0.3,
       side: THREE.DoubleSide,
@@ -77,7 +112,7 @@ export const useBuildingManager = (
     const footprint = new THREE.Mesh(geometry, material);
     footprint.rotation.x = -Math.PI / 2; // Lay flat on ground
     footprint.position.y = 0.05; // Slightly above ground
-    footprint.visible = true;
+    footprint.visible = false;
     footprint.frustumCulled = false;
     
     scene.add(footprint);
@@ -158,13 +193,13 @@ export const useBuildingManager = (
     scene.add(floorGroup);
     return floorGroup;
   };
-  const addBuilding = useCallback((mesh: THREE.Mesh, points: Point3D[], floors: number, floorHeight: number) => {
+  const addBuilding = useCallback((mesh: THREE.Mesh, points: Point3D[], config: BuildingConfig) => {
     if (!scene) return;
 
     // Ensure points are in anti-clockwise order for consistent storage
     const normalizedPoints = ensureCounterClockwise(points);
     
-    const area = calculatePolygonArea(normalizedPoints);
+    const metrics = calculateBuildingMetrics(normalizedPoints, config.floors, config.floorHeight);
     
     // Use existing building ID if it exists, otherwise create a new one
     const existingBuildingId = mesh.userData?.buildingId;
@@ -200,15 +235,27 @@ export const useBuildingManager = (
       id: buildingId,
       mesh,
       points: normalizedPoints,
-      area,
-      floors,
-      floorHeight,
+      footprintArea: metrics.footprintArea,
+      metrics,
+      floors: config.floors,
+      floorHeight: config.floorHeight,
       createdAt: new Date(),
-      name: mesh.userData?.name || `Building ${buildingIdCounter.current}`, // Use existing name if available
-      description: mesh.userData?.description || '',
-      color: (mesh.material as THREE.MeshLambertMaterial).color.getHex(),
+      name: config.name ?? mesh.userData?.name ?? `Building ${buildingIdCounter.current}`,
+      description: config.description ?? mesh.userData?.description ?? '',
+      color: config.color ?? (mesh.material as THREE.MeshStandardMaterial).color.getHex(),
       footprintOutline: null,
-      floorLines: null
+      floorLines: null,
+      window_to_wall_ratio: clampWwr(config.window_to_wall_ratio),
+      window_overhang: config.window_overhang ?? false,
+      window_overhang_depth: config.window_overhang_depth ?? 0,
+      wall_construction: config.wall_construction,
+      floor_construction: config.floor_construction,
+      roof_construction: config.roof_construction,
+      window_construction: config.window_construction,
+      structural_system: config.structural_system,
+      building_program: config.building_program,
+      hvac_system: config.hvac_system,
+      natural_ventilation: config.natural_ventilation
     };
 
     // Create footprint outline for selection with proper userData
@@ -226,11 +273,11 @@ export const useBuildingManager = (
     building.footprintOutline.updateMatrixWorld(true);
 
     // Create floor lines if building has more than 1 floor
-    if (floors > 1) {
-      building.floorLines = createFloorLines(points, floors, floorHeight, scene, buildingId);
+    if (config.floors > 1) {
+      building.floorLines = createFloorLines(normalizedPoints, config.floors, config.floorHeight, scene, buildingId);
     }    // Add windows to the building using WindowService (only if not already added)
     if (windowService && !windowService.getBuildingWindowCount(buildingId)) {
-      windowService.addBuildingWindows(building, getWindowConfig(building));
+      windowService.addBuildingWindows(building, getWindowConfig());
       logger.debug('Added windows to building', { buildingId: building.id, windowCount: windowService.getBuildingWindowCount(building.id) }, 'BuildingManager');
     } else if (windowService && windowService.getBuildingWindowCount(buildingId) > 0) {
       logger.debug('Building already has windows', { buildingId: building.id, windowCount: windowService.getBuildingWindowCount(buildingId) }, 'BuildingManager');
@@ -273,175 +320,126 @@ export const useBuildingManager = (
     }, 'BuildingManager');
 
     return building;
-  }, [scene]);
-  const updateBuilding = useCallback((id: string, updates: Partial<BuildingData> & { config?: BuildingConfig }) => {
-    if (!scene) return;
+  }, [scene, windowService]);
+  const applyBuildingVisual = useCallback((building: BuildingData, config: BuildingConfig): BuildingData => {
+    if (!scene) return building;
 
-    setBuildings(prev => prev.map(building => {
-      if (building.id !== id) return building;
-
-      const updatedBuilding = { ...building, ...updates };
-      
-      // If config is provided, update the 3D mesh
-      if (updates.config) {
-        const config = updates.config;
-        
-        // Always update material color immediately for responsive feedback
-        const material = building.mesh.material as THREE.MeshLambertMaterial;
-        material.color.setHex(config.color);
-        
-        // Update geometry if height changed
-        const newHeight = config.floors * config.floorHeight;
-        const currentHeight = building.floors * building.floorHeight;
-        
-        if (newHeight !== currentHeight || config.floors !== building.floors || config.floorHeight !== building.floorHeight) {
-          // Remove old mesh
-          scene.remove(building.mesh);
-          building.mesh.geometry.dispose();
-          
-          // Remove old floor lines
-          if (building.floorLines) {
-            scene.remove(building.floorLines);
-            building.floorLines.children.forEach(child => {
-              if (child.geometry) child.geometry.dispose();
-              if (child.material) (child.material as THREE.Material).dispose();
-            });
-          }
-          
-          // Create new geometry with updated height
-          const centroid = calculateCentroid(building.points);
-          const shape = createShapeFromPoints(building.points, centroid);
-          
-          const extrudeSettings = {
-            depth: newHeight,
-            bevelEnabled: false,
-            steps: 1
-          };
-
-          const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-          geometry.rotateX(-Math.PI / 2);
-          
-          // Update mesh
-          building.mesh.geometry = geometry;
-          building.mesh.position.set(centroid.x, 0, centroid.z);
-          
-          // Re-add to scene
-          scene.add(building.mesh);
-          
-          // Reapply color after geometry change
-          const newMaterial = building.mesh.material as THREE.MeshLambertMaterial;
-          newMaterial.color.setHex(config.color);
-
-          // Create new floor lines if building has more than 1 floor
-          if (config.floors > 1) {
-            updatedBuilding.floorLines = createFloorLines(building.points, config.floors, config.floorHeight, scene, building.id);
-          } else {
-            updatedBuilding.floorLines = null;
-          }
-        }
-        
-        // Update building data
-        updatedBuilding.floors = config.floors;
-        updatedBuilding.floorHeight = config.floorHeight;
-        updatedBuilding.color = config.color;
-        updatedBuilding.name = config.name || updatedBuilding.name;
-        updatedBuilding.description = config.description || updatedBuilding.description;
-        
-        // Update window properties from config
-        if (config.window_to_wall_ratio !== undefined) {
-          updatedBuilding.window_to_wall_ratio = config.window_to_wall_ratio;
-          logger.debug('Updated building WWR', { 
-            buildingId: updatedBuilding.id, 
-            wwrPercent: (config.window_to_wall_ratio * 100).toFixed(1) 
-          }, 'BuildingManager');
-        }
-        if (config.window_overhang !== undefined) {
-          updatedBuilding.window_overhang = config.window_overhang;
-        }
-        if (config.window_overhang_depth !== undefined) {
-          updatedBuilding.window_overhang_depth = config.window_overhang_depth;
-        }
-
-        // Update windows when building geometry or window properties change
-        if (windowService) {
-          // Use smooth window updates for better live preview experience
-          const windowConfig = getWindowConfig(updatedBuilding);
-          const existingWindowCount = windowService.getBuildingWindowCount(updatedBuilding.id);
-          if (existingWindowCount > 0) {
-            // Use smooth animation for existing buildings with windows
-            windowService.updateBuildingWindowsSmooth(updatedBuilding, windowConfig, 150);
-          } else {
-            // Use regular update for buildings without windows
-            windowService.updateBuildingWindows(updatedBuilding, windowConfig);
-          }
-          logger.debug('Updated windows for building', { 
-            buildingId: updatedBuilding.id, 
-            windowCount: windowService.getBuildingWindowCount(updatedBuilding.id) 
-          }, 'BuildingManager');
-        }
-      }
-
-      return updatedBuilding;
-    }));
-
-    // Update buildingsRef to keep it in sync
-    buildingsRef.current = buildingsRef.current.map(building => {
-      if (building.id !== id) return building;
-      return { ...building, ...updates };
+    const visualOwner = buildingsRef.current.find(item => item.id === building.id) ?? building;
+    const metrics = calculateBuildingMetrics(building.points, config.floors, config.floorHeight);
+    const updatedBuilding = {
+      ...mergeBuildingConfig(building, config),
+      footprintArea: metrics.footprintArea,
+      metrics,
+    };
+    const centroid = calculateCentroid(building.points);
+    const shape = createShapeFromPoints(building.points, centroid);
+    const geometry = new THREE.ExtrudeGeometry(shape, {
+      depth: config.floors * config.floorHeight,
+      bevelEnabled: false,
+      steps: 1
     });
+    geometry.rotateX(-Math.PI / 2);
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    geometry.computeVertexNormals();
 
-    // Update selected building if it's the one being updated
-    if (selectedBuilding?.id === id) {
-      setSelectedBuilding(prev => prev ? { ...prev, ...updates } : null);
+    building.mesh.geometry.dispose();
+    building.mesh.geometry = geometry;
+    building.mesh.position.set(centroid.x, 0, centroid.z);
+    (building.mesh.material as THREE.MeshStandardMaterial).color.setHex(config.color);
+
+    if (visualOwner.footprintOutline) {
+      scene.remove(visualOwner.footprintOutline);
+      visualOwner.footprintOutline.geometry.dispose();
+      (visualOwner.footprintOutline.material as THREE.Material).dispose();
     }
-  }, [scene, selectedBuilding, windowService]);
+    updatedBuilding.footprintOutline = createFootprintOutline(building.points, scene);
+    updatedBuilding.footprintOutline.userData = {
+      buildingId: building.id,
+      isFootprint: true,
+      interactive: true,
+      parentBuildingId: building.id,
+    };
+    updatedBuilding.footprintOutline.visible =
+      selectedBuildingRef.current?.id === building.id || hoveredBuildingRef.current?.id === building.id;
+    visualOwner.footprintOutline = updatedBuilding.footprintOutline;
+
+    if (visualOwner.floorLines) {
+      scene.remove(visualOwner.floorLines);
+      visualOwner.floorLines.children.forEach(child => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) (child.material as THREE.Material).dispose();
+      });
+    }
+    updatedBuilding.floorLines = config.floors > 1
+      ? createFloorLines(building.points, config.floors, config.floorHeight, scene, building.id)
+      : null;
+    visualOwner.floorLines = updatedBuilding.floorLines;
+
+    if (windowService) {
+      windowService.updateBuildingWindows(updatedBuilding, getWindowConfig());
+    }
+    scene.updateMatrixWorld(true);
+    return updatedBuilding;
+  }, [scene, windowService]);
+
+  const previewBuilding = useCallback((id: string, config: BuildingConfig, points?: Point3D[]) => {
+    const canonical = buildingsRef.current.find(building => building.id === id);
+    if (!canonical) return;
+    applyBuildingVisual(points ? { ...canonical, points } : canonical, config);
+  }, [applyBuildingVisual]);
+
+  const restoreBuildingPreview = useCallback((id: string) => {
+    const canonical = buildingsRef.current.find(building => building.id === id);
+    if (!canonical) return;
+    applyBuildingVisual(canonical, {
+      floors: canonical.floors,
+      floorHeight: canonical.floorHeight,
+      color: canonical.color ?? getThemeColorAsHex('--color-building-default', 0x63666f),
+      name: canonical.name,
+      description: canonical.description,
+      window_to_wall_ratio: canonical.window_to_wall_ratio,
+      window_overhang: canonical.window_overhang,
+      window_overhang_depth: canonical.window_overhang_depth,
+      wall_construction: canonical.wall_construction,
+      floor_construction: canonical.floor_construction,
+      roof_construction: canonical.roof_construction,
+      window_construction: canonical.window_construction,
+      structural_system: canonical.structural_system,
+      building_program: canonical.building_program,
+      hvac_system: canonical.hvac_system,
+      natural_ventilation: canonical.natural_ventilation
+    });
+  }, [applyBuildingVisual]);
+
+  const updateBuilding = useCallback((id: string, updates: Partial<BuildingData> & { config?: BuildingConfig }) => {
+    const canonical = buildingsRef.current.find(building => building.id === id);
+    if (!canonical) return;
+
+    const { config, ...dataUpdates } = updates;
+    const updatedBuilding = config
+      ? applyBuildingVisual({ ...canonical, ...dataUpdates }, config)
+      : { ...canonical, ...dataUpdates };
+    const nextBuildings = buildingsRef.current.map(building => building.id === id ? updatedBuilding : building);
+    buildingsRef.current = nextBuildings;
+    setBuildings(nextBuildings);
+    setSelectedBuilding(previous => previous?.id === id ? updatedBuilding : previous);
+  }, [applyBuildingVisual]);
 
   const selectBuilding = useCallback((building: BuildingData | null) => {
-    // Reset previous selection
-    if (selectedBuilding) {
-      const material = selectedBuilding.mesh.material as THREE.MeshLambertMaterial;      // Restore original color and remove selection effects
-      material.emissive.setHex(getThemeColorAsHex('--color-building-emissive', 0x000000));
-      if (typeof selectedBuilding.color === 'number') {
-        material.color.setHex(selectedBuilding.color);
-      }
-      material.transparent = false;
-      material.opacity = 1.0;
-    }
-
-    // Apply selection to new building (but only if it's not a preview)
-    if (building && !building.mesh.userData.isPreview && !building.mesh.userData.isDrawingElement) {
-      const material = building.mesh.material as THREE.MeshLambertMaterial;      // Set selection color (orange with transparency)
-      material.color.setHex(getThemeColorAsHex('--color-building-highlight', 0xffa500)); // Use CSS variable
-      material.transparent = true;
-      material.opacity = 0.6; // More visible than before
-      material.emissive.setHex(getThemeColorAsHex('--color-building-highlight-emissive', 0x332200)); // Use CSS variable
-    }
-
+    // Selection is logical state. SceneAppearanceManager owns every material override.
+    selectedBuildingRef.current = building;
     setSelectedBuilding(building);
-  }, [selectedBuilding]);
+    refreshOutlineVisibility(building?.id ?? null, hoveredBuildingRef.current?.id ?? null);
+  }, [refreshOutlineVisibility]);
 
   const hoverBuilding = useCallback((building: BuildingData | null) => {
-    // Reset previous hover (only if not selected)
-    if (hoveredBuilding && hoveredBuilding !== selectedBuilding) {
-      const material = hoveredBuilding.mesh.material as THREE.MeshLambertMaterial;
-      material.emissive.setHex(getThemeColorAsHex('--color-building-emissive', 0x000000));
-      // Restore original color properly
-      if (typeof hoveredBuilding.color === 'number') {
-        material.color.setHex(hoveredBuilding.color);
-      }
-      material.transparent = false;
-      material.opacity = 1.0;
-    }
-
-    // Apply hover to new building (only if not selected)
-    if (building && building !== selectedBuilding && !building.mesh.userData.isPreview) {
-      const material = building.mesh.material as THREE.MeshLambertMaterial;
-      material.emissive.setHex(getThemeColorAsHex('--color-building-hover-emissive', 0x444444)); // Use CSS variable
-      logger.debug('Hovering building', { buildingId: building.id, buildingName: building.name }, 'BuildingManager');
-    }
-
+    // Hover is deliberately material-free so it cannot corrupt editing/analysis snapshots.
+    hoveredBuildingRef.current = building;
     setHoveredBuilding(building);
-  }, [hoveredBuilding, selectedBuilding]);
+    if (scene) scene.userData.hoveredBuildingId = building?.id ?? null;
+    refreshOutlineVisibility(selectedBuildingRef.current?.id ?? null, building?.id ?? null);
+  }, [scene, refreshOutlineVisibility]);
 
   const showBuildingTooltip = useCallback((building: BuildingData, screenPosition: { x: number; y: number }) => {
     setBuildingTooltip({
@@ -525,16 +523,18 @@ export const useBuildingManager = (
                                  userData.isFloorLine;
 
           // Check for generic drawing objects (Points, Lines that might be footprint elements)
+          const objectMaterial = Array.isArray(child.material) ? child.material[0] : child.material;
+          const materialColor = objectMaterial && 'color' in objectMaterial
+            ? (objectMaterial as THREE.Material & { color: THREE.Color }).color
+            : null;
           const isGenericDrawingObject = (child instanceof THREE.Points && 
                                         (userData.type === 'footprint' || 
                                          userData.isPoint || 
-                                         child.material && (child.material as any).color && 
-                                         (child.material as any).color.getHex() === getThemeColorAsHex('--color-drawing-footprint-point', 0xffff00))) || // Yellow points
+                                         materialColor?.getHex() === getThemeColorAsHex('--color-drawing-footprint-point', 0xffff00))) || // Yellow points
                                        (child instanceof THREE.Line && 
                                         (userData.type === 'footprint' || 
                                          userData.isLine ||
-                                         child.material && (child.material as any).color &&
-                                         (child.material as any).color.getHex() === getThemeColorAsHex('--color-drawing-footprint-line', 0x00ff00))); // Green lines
+                                         materialColor?.getHex() === getThemeColorAsHex('--color-drawing-footprint-line', 0x00ff00))); // Green lines
 
           // Check for any mesh that might be a preview
           const isPreviewMesh = child instanceof THREE.Mesh && 
@@ -641,7 +641,7 @@ export const useBuildingManager = (
     if (hoveredBuilding?.id === id) {
       setHoveredBuilding(null);
     }
-  }, [scene, selectedBuilding, hoveredBuilding, buildingTooltip]);  const clearAllBuildings = useCallback(() => {
+  }, [scene, selectedBuilding, hoveredBuilding, buildingTooltip, windowService]);  const clearAllBuildings = useCallback(() => {
     if (!scene) return;
 
     // Clear all windows at once - more efficient than removing per building
@@ -724,7 +724,8 @@ export const useBuildingManager = (
         name: building.name,
         description: building.description,
         points: building.points,
-        area: building.area,
+        footprintArea: building.metrics.footprintArea,
+        grossFloorArea: building.metrics.grossFloorArea,
         floors: building.floors,
         floorHeight: building.floorHeight,
         color: building.color,
@@ -732,22 +733,25 @@ export const useBuildingManager = (
         createdAt: building.createdAt.toISOString(),
         
         // Form properties
-        window_to_wall_ratio: building.window_to_wall_ratio || 0.4,
-        window_overhang: building.window_overhang || false,
-        window_overhang_depth: building.window_overhang_depth || 0.0,
+        window_to_wall_ratio: clampWwr(building.window_to_wall_ratio),
+        window_overhang: building.window_overhang ?? false,
+        window_overhang_depth: building.window_overhang_depth ?? 0,
         
         // Construction properties
-        wall_construction: building.wall_construction || 'Default Wall',
-        floor_construction: building.floor_construction || 'Default Floor',
-        roof_construction: building.roof_construction || 'Default Roof',
-        window_construction: building.window_construction || 'Default Window',
+        wall_construction: building.wall_construction ?? 'Default Wall',
+        floor_construction: building.floor_construction ?? 'Default Floor',
+        roof_construction: building.roof_construction ?? 'Default Roof',
+        window_construction: building.window_construction ?? 'Default Window',
+
+        // Structural properties
+        structural_system: building.structural_system ?? 'Concrete',
         
         // Program properties
-        building_program: building.building_program || 'Office',
+        building_program: building.building_program ?? 'Office',
         
         // HVAC properties
-        hvac_system: building.hvac_system || 'Default HVAC',
-        natural_ventilation: building.natural_ventilation || false
+        hvac_system: building.hvac_system ?? 'Default HVAC',
+        natural_ventilation: building.natural_ventilation ?? false
       }))
     };
 
@@ -841,6 +845,7 @@ export const useBuildingManager = (
         console.log('Found building for ID:', buildingId, !!building);
 
         if (building) {
+          containerElement.style.cursor = event.type === 'mousemove' ? 'pointer' : containerElement.style.cursor;
           if (event.type === 'click' || event.type === 'mouseup') {
             // Handle click - show tooltip
             console.log('Showing tooltip for building click:', building.id);
@@ -871,6 +876,7 @@ export const useBuildingManager = (
         console.log('Intersected mesh has no buildingId or parentBuildingId');
       }
     } else {
+      if (event.type === 'mousemove') containerElement.style.cursor = 'default';
       console.log('No intersections found');
       // No intersections - handle accordingly
       if (event.type === 'mousemove') {
@@ -891,7 +897,7 @@ export const useBuildingManager = (
   const buildingStats: BuildingStats = useMemo(() => {
     const stats = {
       count: buildings.length,
-      totalArea: buildings.reduce((sum, building) => sum + building.area, 0),
+      totalGrossFloorArea: buildings.reduce((sum, building) => sum + building.metrics.grossFloorArea, 0),
       totalFloors: buildings.reduce((sum, building) => sum + building.floors, 0)
     };
     
@@ -900,10 +906,10 @@ export const useBuildingManager = (
   }, [buildings]);
   
   // Helper function to get window configuration from building data
-  const getWindowConfig = (building: BuildingData) => ({
-    windowWidth: 1.2,
-    windowHeight: 1.5,
-    windowSpacing: 0.3,      
+  const getWindowConfig = () => ({
+    windowWidth: DEFAULT_FACADE_PARAMETERS.windowWidth,
+    windowHeight: DEFAULT_FACADE_PARAMETERS.windowHeight,
+    windowSpacing: DEFAULT_FACADE_PARAMETERS.windowSpacing,
     offsetDistance: 0.1,
     frameThickness: 0.05
   });
@@ -915,6 +921,8 @@ export const useBuildingManager = (
     buildingTooltip,
     addBuilding,
     updateBuilding,
+    previewBuilding,
+    restoreBuildingPreview,
     selectBuilding,
     hoverBuilding,
     deleteBuilding,
@@ -925,18 +933,4 @@ export const useBuildingManager = (
     showBuildingTooltip,
     hideBuildingTooltip
   };
-};
-
-// Helper function to calculate polygon area using shoelace formula
-const calculatePolygonArea = (points: Point3D[]): number => {
-  if (points.length < 3) return 0;
-
-  let area = 0;
-  for (let i = 0; i < points.length; i++) {
-    const j = (i + 1) % points.length;
-    area += points[i].x * points[j].z;
-    area -= points[j].x * points[i].z;
-  }
-  
-  return Math.abs(area) / 2;
 };
