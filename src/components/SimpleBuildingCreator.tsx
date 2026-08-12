@@ -35,6 +35,7 @@ import { calculateBuildingMetrics } from '../utils/buildingMetrics';
 import { DrawingInspector } from './model/DrawingInspector';
 import { SimulationProgressCard, type SimulationTaskState } from './model/SimulationProgressCard';
 import { DaylightLegend } from './model/DaylightLegend';
+import { DesignGraphOverviewCard } from './model/DesignGraphOverviewCard';
 import { simulationCoordinator } from '../services/SimulationCoordinator';
 
 type DaylightLegendState = {
@@ -1189,6 +1190,8 @@ export const SimpleBuildingCreator: React.FC = () => {
             )}
 
             {daylightLegend && <DaylightLegend {...daylightLegend} onToggle={handleToggleDaylightVisibility} />}
+
+            <DesignGraphOverviewCard onOpenGraph={handleOpenDesignGraph} />
 
             {simulationProgress && <SimulationProgressCard daylight={simulationProgress.daylight} energy={simulationProgress.energy} onDismiss={() => setSimulationProgress(null)} onRetry={() => void handleSaveConfigurationConfirm(lastRunNameRef.current)} />}
 

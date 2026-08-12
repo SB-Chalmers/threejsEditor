@@ -52,38 +52,38 @@ export const BuildingTooltip: React.FC<BuildingTooltipProps> = ({
       
       {/* Tooltip */}
       <div
-        className="fixed z-50 bg-white rounded-lg shadow-xl border border-slate-200 p-3 min-w-60 pointer-events-auto"
+        className="fixed z-50 min-w-64 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xl pointer-events-auto"
         style={{
           left: Math.min(Math.max(position.x - 140, 10), window.innerWidth - 280),
           top: Math.max(Math.min(position.y - 120, window.innerHeight - 200), 10),
         }}
       >
         {/* Header */}
-        <div className="flex items-center space-x-2 mb-3">
+        <div className="mb-3 flex items-center gap-2">
           <div 
             className="w-4 h-4 rounded"
             style={{ backgroundColor: `#${(building.color || getThemeColorAsHex('--color-building-default')).toString(16).padStart(6, '0')}` }}
           />
           <Building className="w-4 h-4 text-slate-400" />
-          <span className="text-slate-900 font-medium text-[12px]">
+          <span className="text-[12px] font-semibold text-slate-900">
             {building.name || 'Unnamed Building'}
           </span>
         </div>
 
         {/* Building Info */}
-        <div className="space-y-2 mb-4">
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-500">GFA:</span>
-            <span className="text-slate-900 font-medium">{building.metrics.grossFloorArea.toFixed(1)} m²</span>
+        <div className="mb-4 space-y-2 rounded-lg border border-slate-200 bg-slate-50/70 px-2.5 py-2">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-slate-600">GFA</span>
+            <span className="font-semibold text-slate-900">{building.metrics.grossFloorArea.toFixed(1)} m²</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Floors:</span>
-            <span className="text-blue-400 font-medium">{building.floors}</span>
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-slate-600">Floors</span>
+            <span className="font-semibold text-slate-900">{building.floors}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Height:</span>
-            <span className="text-purple-400 font-medium">
-              {(building.floors * building.floorHeight).toFixed(1)}m
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-slate-600">Height</span>
+            <span className="font-semibold text-slate-900">
+              {(building.floors * building.floorHeight).toFixed(1)} m
             </span>
           </div>
         </div>
@@ -93,24 +93,24 @@ export const BuildingTooltip: React.FC<BuildingTooltipProps> = ({
           {hasDaylightResult && (
             <button
               onClick={handleViewResult}
-              className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-sm transition-colors"
+              className="flex h-8 items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-2.5 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-700"
             >
-              <Eye className="w-3 h-3" />
+              <Eye className="h-3.5 w-3.5" />
               <span>View Result</span>
             </button>
           )}
           <button
             onClick={handleEdit}
-            className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors"
+            className="flex h-8 items-center justify-center gap-1.5 rounded-md bg-blue-600 px-2.5 text-[11px] font-semibold text-white transition-colors hover:bg-blue-700"
           >
-            <Edit className="w-3 h-3" />
+            <Edit className="h-3.5 w-3.5" />
             <span>Edit</span>
           </button>
           <button
             onClick={handleDelete}
-            className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors"
+            className="flex h-8 items-center justify-center gap-1.5 rounded-md bg-rose-600 px-2.5 text-[11px] font-semibold text-white transition-colors hover:bg-rose-700"
           >
-            <Trash2 className="w-3 h-3" />
+            <Trash2 className="h-3.5 w-3.5" />
             <span>Delete</span>
           </button>
         </div>

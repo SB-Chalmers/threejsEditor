@@ -19,10 +19,12 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
   onRunEnergySimulation,
   energySimAvailable = false,
 }) => {
+  const GRAPH_WIDTH = 600;
+  const GRAPH_HEIGHT = 400;
+
   const svgRef = useRef<SVGSVGElement>(null);
   const [graph, setGraph] = useState<DesignExplorationGraph>(designExplorationService.getGraph());
   const [selectedNode, setSelectedNode] = useState<DesignNode | null>(null);
-  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
   useEffect(() => {
     const handleGraphUpdate = (updatedGraph: DesignExplorationGraph) => {
@@ -42,8 +44,8 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
-    const width = 600;
-    const height = 400;
+    const width = GRAPH_WIDTH;
+    const height = GRAPH_HEIGHT;
 
     // Card dimensions
     const CW = 148; // card width
@@ -96,9 +98,7 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
       .data(graph.nodes)
       .enter().append("g")
       .style("cursor", "pointer")
-      .on("click", (_event, d: DesignNode) => setSelectedNode(d))
-      .on("mouseover", (_event, d: DesignNode) => setHoveredNode(d.id))
-      .on("mouseout", () => setHoveredNode(null));
+      .on("click", (_event, d: DesignNode) => setSelectedNode(d));
 
     // Card background rect (re-selectable stroke for selected/current state)
     nodeElements.append("rect")
@@ -108,11 +108,11 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
       .attr("height", CH)
       .attr("rx", 8)
       .attr("fill", (d: DesignNode) =>
-        d.id === graph.currentNodeId ? "#0c2a1e" : "#0f172a")
+        d.id === graph.currentNodeId ? "#dcfce7" : "#ffffff")
       .attr("stroke", (d: DesignNode) =>
-        d.id === selectedNode?.id ? "#60a5fa"
-        : d.id === graph.currentNodeId ? "#10b981"
-        : "#334155")
+        d.id === selectedNode?.id ? "#3b82f6"
+        : d.id === graph.currentNodeId ? "#22c55e"
+        : "#cbd5e1")
       .attr("stroke-width", (d: DesignNode) =>
         d.id === selectedNode?.id || d.id === graph.currentNodeId ? 2 : 1);
 
@@ -122,7 +122,7 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
       .attr("x", 0)
       .attr("y", -CHH + 16)
       .attr("text-anchor", "middle")
-      .attr("fill", (d: DesignNode) => d.id === graph.currentNodeId ? "#6ee7b7" : "#f1f5f9")
+      .attr("fill", (d: DesignNode) => d.id === graph.currentNodeId ? "#166534" : "#0f172a")
       .attr("font-size", "11px")
       .attr("font-weight", "600")
       .style("pointer-events", "none");
@@ -131,7 +131,7 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
     nodeElements.append("line")
       .attr("x1", -CHW + 8).attr("x2", CHW - 8)
       .attr("y1", -CHH + 22).attr("y2", -CHH + 22)
-      .attr("stroke", "#1e293b").attr("stroke-width", 1);
+      .attr("stroke", "#e2e8f0").attr("stroke-width", 1);
 
     // Metric badges via foreignObject
     nodeElements.each(function(d: DesignNode) {
@@ -156,14 +156,14 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
         .style("gap", "3px")
         .style("height", "100%")
         .html(`
-          <span style="display:flex;align-items:center;gap:4px;background:#172554;color:#93c5fd;font-size:9px;font-family:ui-sans-serif,system-ui,sans-serif;border-radius:4px;padding:2px 5px;white-space:nowrap">
-            <span style="opacity:0.7">☀ sDA</span><span style="margin-left:auto;font-weight:600">${sdaStr}</span>
+          <span style="display:flex;align-items:center;gap:4px;background:#e0f2fe;color:#0c4a6e;font-size:9px;font-family:ui-sans-serif,system-ui,sans-serif;border-radius:4px;padding:2px 5px;white-space:nowrap">
+            <span style="opacity:0.8">sDA</span><span style="margin-left:auto;font-weight:700">${sdaStr}</span>
           </span>
-          <span style="display:flex;align-items:center;gap:4px;background:#052e16;color:#86efac;font-size:9px;font-family:ui-sans-serif,system-ui,sans-serif;border-radius:4px;padding:2px 5px;white-space:nowrap">
-            <span style="opacity:0.7">⚡ Energy</span><span style="margin-left:auto;font-weight:600">${enrgStr}</span>
+          <span style="display:flex;align-items:center;gap:4px;background:#dcfce7;color:#14532d;font-size:9px;font-family:ui-sans-serif,system-ui,sans-serif;border-radius:4px;padding:2px 5px;white-space:nowrap">
+            <span style="opacity:0.8">Energy</span><span style="margin-left:auto;font-weight:700">${enrgStr}</span>
           </span>
-          <span style="display:flex;align-items:center;gap:4px;background:#2d1b0a;color:#fdba74;font-size:9px;font-family:ui-sans-serif,system-ui,sans-serif;border-radius:4px;padding:2px 5px;white-space:nowrap">
-            <span style="opacity:0.7">🌿 GWP</span><span style="margin-left:auto;font-weight:600">${gwpStr}</span>
+          <span style="display:flex;align-items:center;gap:4px;background:#fff7ed;color:#9a3412;font-size:9px;font-family:ui-sans-serif,system-ui,sans-serif;border-radius:4px;padding:2px 5px;white-space:nowrap">
+            <span style="opacity:0.8">GWP</span><span style="margin-left:auto;font-weight:700">${gwpStr}</span>
           </span>
         `);
     });
@@ -179,7 +179,11 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
       nodeElements.attr("transform", (d: any) => `translate(${d.x},${d.y})`);
     });
 
-  }, [isOpen, graph, hoveredNode, selectedNode]);
+    return () => {
+      simulation.stop();
+    };
+
+  }, [isOpen, graph, selectedNode]);
 
   const handleReinstateConfiguration = () => {
     if (selectedNode && selectedNode.id !== graph.currentNodeId) {
@@ -191,16 +195,17 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
-      <div className="bg-gray-900 rounded-2xl border border-gray-700/50 shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/20 backdrop-blur-sm p-4">
+      <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
-          <h2 className="text-xl font-semibold text-white">Design Exploration Graph</h2>
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <h2 className="text-[16px] font-semibold text-slate-900">Design exploration graph</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            aria-label="Close"
           >
-            <X className="w-5 h-5 text-gray-400" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
@@ -209,71 +214,71 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
           <div className="flex-1 relative">
             <svg
               ref={svgRef}
-              width="600"
-              height="400"
-              className="w-full h-full bg-gray-950/50"
+              width={GRAPH_WIDTH}
+              height={GRAPH_HEIGHT}
+              className="h-full w-full bg-slate-50"
             />
-            <div className="absolute top-4 left-4 text-xs text-gray-400">
+            <div className="absolute left-4 top-4 rounded-md border border-slate-200 bg-white/90 px-2.5 py-1 text-[11px] text-slate-500 shadow-sm">
               Use mouse wheel to zoom • Drag to pan • Click nodes to select
             </div>
           </div>
 
           {/* Node Details Panel */}
-          <div className="w-[340px] shrink-0 border-l border-gray-700/50 bg-gray-900/50 min-w-0 flex flex-col">
+          <div className="flex min-w-0 w-[340px] shrink-0 flex-col border-l border-slate-200 bg-slate-50/60">
             {selectedNode ? (
-              <div className="p-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
                 <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-white break-words leading-tight">{selectedNode.name}</h3>
-                  <p className="text-sm text-gray-400">
+                  <h3 className="break-words text-[14px] font-semibold leading-tight text-slate-900">{selectedNode.name}</h3>
+                  <p className="text-[11px] text-slate-500">
                     {selectedNode.timestamp.toLocaleDateString()} at {selectedNode.timestamp.toLocaleTimeString()}
                   </p>
                   {selectedNode.id === graph.currentNodeId && (
-                    <span className="inline-block mt-2 px-2 py-1 bg-green-600/20 text-green-400 text-xs rounded-full">
+                    <span className="mt-1 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
                       Current Design
                     </span>
                   )}
                 </div>
 
-                <div className="space-y-3 rounded-lg border border-gray-800 bg-gray-900/50 p-3">
-                  <h4 className="text-sm font-medium text-gray-300">Performance Metrics</h4>
+                <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3">
+                  <h4 className="text-[12px] font-semibold text-slate-800">Performance Metrics</h4>
                   
                   <div className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-2 items-start">
-                    <span className="text-sm text-gray-400">Embodied Carbon:</span>
-                    <span className="text-sm text-orange-300 text-right break-words">
+                    <span className="text-[11px] text-slate-500">Embodied Carbon:</span>
+                    <span className="text-[11px] font-semibold text-amber-700 text-right break-words">
                       {selectedNode.metrics.globalWarmingPotential > 0
                         ? `${selectedNode.metrics.globalWarmingPotential.toFixed(1)} kg CO₂e/m²`
-                        : <span className="text-gray-500 italic">not computed</span>
+                        : <span className="text-slate-400 italic">not computed</span>
                       }
                     </span>
 
-                    <span className="text-sm text-gray-400">Daylight Autonomy:</span>
-                    <span className="text-sm text-white text-right break-words">
+                    <span className="text-[11px] text-slate-500">Daylight Autonomy:</span>
+                    <span className="text-[11px] font-semibold text-slate-800 text-right break-words">
                       {selectedNode.metrics.spatialDaylightAutonomy > 0
                         ? `${selectedNode.metrics.spatialDaylightAutonomy}%`
-                        : <span className="text-gray-500 italic">not run</span>
+                        : <span className="text-slate-400 italic">not run</span>
                       }
                     </span>
 
                     {selectedNode.metrics.heatingDemand !== undefined && (
                       <>
-                        <span className="text-sm text-gray-400">Heating Demand:</span>
-                        <span className="text-sm text-blue-300 text-right">
+                        <span className="text-[11px] text-slate-500">Heating Demand:</span>
+                        <span className="text-[11px] font-semibold text-blue-700 text-right">
                           {selectedNode.metrics.heatingDemand.toFixed(1)} kWh/m²/yr
                         </span>
                       </>
                     )}
                     {selectedNode.metrics.coolingDemand !== undefined && (
                       <>
-                        <span className="text-sm text-gray-400">Cooling Demand:</span>
-                        <span className="text-sm text-blue-300 text-right">
+                        <span className="text-[11px] text-slate-500">Cooling Demand:</span>
+                        <span className="text-[11px] font-semibold text-blue-700 text-right">
                           {selectedNode.metrics.coolingDemand.toFixed(1)} kWh/m²/yr
                         </span>
                       </>
                     )}
                     {selectedNode.metrics.totalEnergy !== undefined && (
                       <>
-                        <span className="text-sm text-gray-400">Total Energy:</span>
-                        <span className="text-sm font-semibold text-blue-300 text-right">
+                        <span className="text-[11px] text-slate-500">Total Energy:</span>
+                        <span className="text-[11px] font-semibold text-blue-700 text-right">
                           {selectedNode.metrics.totalEnergy.toFixed(1)} kWh/m²/yr
                         </span>
                       </>
@@ -282,37 +287,37 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
                 </div>
 
                 {selectedNode.daylightRun && (
-                  <div className="space-y-3 rounded-lg border border-gray-800 bg-gray-900/50 p-3">
-                    <h4 className="text-sm font-medium text-gray-300">Daylight Run</h4>
+                  <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3">
+                    <h4 className="text-[12px] font-semibold text-slate-800">Daylight Run</h4>
 
                     <div className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-2 items-start">
-                      <span className="text-sm text-gray-400">Status:</span>
-                      <span className="text-sm text-white capitalize text-right break-words">{selectedNode.daylightRun.status}</span>
+                      <span className="text-[11px] text-slate-500">Status:</span>
+                      <span className="text-[11px] font-semibold text-slate-800 capitalize text-right break-words">{selectedNode.daylightRun.status}</span>
 
                       {selectedNode.daylightRun.studyId && (
                         <>
-                          <span className="text-sm text-gray-400">Study ID:</span>
-                          <span className="text-xs text-white text-right break-all">{selectedNode.daylightRun.studyId}</span>
+                          <span className="text-[11px] text-slate-500">Study ID:</span>
+                          <span className="text-[11px] text-slate-700 text-right break-all">{selectedNode.daylightRun.studyId}</span>
                         </>
                       )}
 
                       {selectedNode.daylightRun.sensorCount !== undefined && (
                         <>
-                          <span className="text-sm text-gray-400">Sensors:</span>
-                          <span className="text-sm text-white text-right">{selectedNode.daylightRun.sensorCount}</span>
+                          <span className="text-[11px] text-slate-500">Sensors:</span>
+                          <span className="text-[11px] font-semibold text-slate-800 text-right">{selectedNode.daylightRun.sensorCount}</span>
                         </>
                       )}
 
                       {selectedNode.daylightRun.meanDF !== undefined && (
                         <>
-                          <span className="text-sm text-gray-400">Mean DF:</span>
-                          <span className="text-sm text-white text-right">{selectedNode.daylightRun.meanDF.toFixed(2)}%</span>
+                          <span className="text-[11px] text-slate-500">Mean DF:</span>
+                          <span className="text-[11px] font-semibold text-slate-800 text-right">{selectedNode.daylightRun.meanDF.toFixed(2)}%</span>
                         </>
                       )}
                     </div>
 
                     {selectedNode.daylightRun.error && (
-                      <div className="text-xs text-red-300 bg-red-900/30 border border-red-700/30 rounded p-2 break-words max-h-28 overflow-y-auto">
+                      <div className="max-h-28 overflow-y-auto break-words rounded border border-rose-200 bg-rose-50 p-2 text-[11px] text-rose-700">
                         {selectedNode.daylightRun.error}
                       </div>
                     )}
@@ -320,82 +325,82 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
                 )}
 
                 {/* Energy Simulation card */}
-                <div className="space-y-3 rounded-lg border border-gray-800 bg-gray-900/50 p-3">
+                <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium text-gray-300">Energy Simulation</h4>
+                    <h4 className="text-[12px] font-semibold text-slate-800">Energy Simulation</h4>
                     {(!selectedNode.energyRun || selectedNode.energyRun.status === 'idle' || selectedNode.energyRun.status === 'failed') && (
                       <button
                         onClick={() => onRunEnergySimulation?.(selectedNode.id)}
                         disabled={!energySimAvailable}
-                        className="flex items-center space-x-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white text-xs rounded transition-colors"
+                        className="flex h-7 items-center gap-1 rounded-md bg-blue-600 px-2.5 text-[11px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500"
                         title={energySimAvailable ? 'Run EnergyPlus via EPSM' : 'Energy simulation backend not yet available'}
                       >
-                        <Zap className="w-3 h-3" />
+                        <Zap className="h-3.5 w-3.5" />
                         <span>Run</span>
                       </button>
                     )}
                   </div>
 
                   {!selectedNode.energyRun || selectedNode.energyRun.status === 'idle' ? (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-[11px] text-slate-500">
                       {energySimAvailable
                         ? 'Click Run to submit an EnergyPlus simulation via EPSM.'
                         : 'Energy simulation backend is not yet available.'}
                     </p>
                   ) : selectedNode.energyRun.status === 'queued' || selectedNode.energyRun.status === 'running' ? (
-                    <div className="flex items-center space-x-2 text-sm text-blue-300">
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                    <div className="flex items-center gap-2 text-[11px] font-medium text-blue-700">
+                      <Loader2 className="h-4 w-4 animate-spin" />
                       <span className="capitalize">{selectedNode.energyRun.stage ?? selectedNode.energyRun.status}…</span>
                     </div>
                   ) : selectedNode.energyRun.status === 'failed' ? (
-                    <div className="text-xs text-red-300 bg-red-900/30 border border-red-700/30 rounded p-2">
+                    <div className="rounded border border-rose-200 bg-rose-50 p-2 text-[11px] text-rose-700">
                       {selectedNode.energyRun.error ?? 'Simulation failed'}
                     </div>
                   ) : null}
                 </div>
 
-                <div className="space-y-3 rounded-lg border border-gray-800 bg-gray-900/50 p-3">
-                  <h4 className="text-sm font-medium text-gray-300">Snapshot</h4>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-400">Buildings:</span>
-                    <span className="text-white font-medium">{selectedNode.buildings.length}</span>
+                <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3">
+                  <h4 className="text-[12px] font-semibold text-slate-800">Snapshot</h4>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500">Buildings:</span>
+                    <span className="font-semibold text-slate-800">{selectedNode.buildings.length}</span>
                   </div>
                 </div>
 
                 {selectedNode.id !== graph.currentNodeId && (
                   <button
                     onClick={handleReinstateConfiguration}
-                    className="w-full flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg transition-colors"
+                    className="flex h-9 w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-[11px] font-semibold text-white transition-colors hover:bg-blue-700"
                   >
-                    <RotateCcw className="w-4 h-4" />
+                    <RotateCcw className="h-4 w-4" />
                     <span>Reinstate Configuration</span>
                   </button>
                 )}
               </div>
             ) : (
-              <div className="text-center text-gray-400 mt-16 px-5">
-                <div className="text-lg mb-2">Select a node</div>
-                <p className="text-sm">Click on any node in the graph to view its details and metrics</p>
+              <div className="mt-16 px-5 text-center text-slate-500">
+                <div className="mb-2 text-[14px] font-semibold text-slate-700">Select a node</div>
+                <p className="text-[11px]">Click a node in the graph to view details and metrics.</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-700/50 bg-gray-900/30">
-          <div className="flex items-center justify-between text-sm text-gray-400">
+        <div className="border-t border-slate-200 bg-slate-50/80 px-5 py-3">
+          <div className="flex items-center justify-between text-[11px] text-slate-500">
             <span>{graph.nodes.length} design configurations saved</span>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-3 bg-emerald-900 border border-emerald-500 rounded"></div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-4 rounded border border-emerald-500 bg-emerald-100"></div>
                 <span>Current</span>
               </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-3 bg-slate-900 border border-slate-600 rounded"></div>
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-4 rounded border border-slate-300 bg-white"></div>
                 <span>Saved</span>
               </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-3 bg-slate-900 border border-blue-400 rounded"></div>
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-4 rounded border border-blue-500 bg-white"></div>
                 <span>Selected</span>
               </div>
             </div>

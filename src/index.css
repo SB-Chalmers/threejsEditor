@@ -175,6 +175,12 @@ html, body, #root {
   top: 12px;
 }
 
+.model-graph-overview {
+  left: 8px;
+  right: auto;
+  bottom: 12px;
+}
+
 @media (max-width: 1023px) {
   .model-inspector,
   .model-drawing-inspector {
@@ -184,6 +190,12 @@ html, body, #root {
   .model-daylight-legend,
   .model-progress-card {
     right: 12px;
+  }
+
+  .model-graph-overview {
+    left: 8px;
+    right: auto;
+    bottom: 12px;
   }
 
   .model-status-label {
@@ -231,6 +243,14 @@ html, body, #root {
     top: 8px;
     right: 8px;
     width: min(296px, calc(100vw - 16px));
+  }
+
+  .model-graph-overview {
+    left: 8px;
+    right: auto;
+    /* On mobile the tool rail moves to the bottom center, so lift the card to avoid overlap. */
+    bottom: 116px;
+    width: min(204px, calc(100vw - 16px));
   }
 
   .model-context-hint {
