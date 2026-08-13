@@ -3,13 +3,15 @@ import * as THREE from 'three';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
-import { Point3D, BuildingData, BuildingConfig, BuildingTooltipData } from '../types/building';
+import { Point3D, BuildingData, BuildingConfig, BuildingModel, BuildingTooltipData } from '../types/building';
 import { createShapeFromPoints, calculateCentroid, ensureCounterClockwise } from '../utils/geometry';
 import { getThemeColorAsHex } from '../utils/themeColors';
 import { WindowService } from '../services/WindowService';
+import { BuildingService } from '../services/BuildingService';
 import { logger } from '../utils/logger';
 import { clampWwr, DEFAULT_FACADE_PARAMETERS } from '../services/FacadeGeometry';
 import { calculateBuildingMetrics } from '../utils/buildingMetrics';
+import { buildingConfigFromModel, cloneBuildingModels } from '../utils/buildingModel';
 
 interface BuildingStats {
   count: number;
@@ -43,23 +45,29 @@ export const useBuildingManager = (
   windowService: WindowService | null = null
 ) => {
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
-  const [selectedBuilding, setSelectedBuilding] = useState<BuildingData | null>(null);
-  const [hoveredBuilding, setHoveredBuilding] = useState<BuildingData | null>(null);
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
+  const [hoveredBuildingId, setHoveredBuildingId] = useState<string | null>(null);
   const [buildingTooltip, setBuildingTooltip] = useState<BuildingTooltipData | null>(null);
+  const [workspaceRevision, setWorkspaceRevision] = useState(0);
   const buildingIdCounter = useRef(0);
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
   const buildingsRef = useRef<BuildingData[]>([]);
-  const selectedBuildingRef = useRef<BuildingData | null>(null);
-  const hoveredBuildingRef = useRef<BuildingData | null>(null);
+  const selectedBuildingIdRef = useRef<string | null>(null);
+  const hoveredBuildingIdRef = useRef<string | null>(null);
+  const selectedBuilding = useMemo(
+    () => buildings.find(building => building.id === selectedBuildingId) ?? null,
+    [buildings, selectedBuildingId]
+  );
+  const hoveredBuilding = useMemo(
+    () => buildings.find(building => building.id === hoveredBuildingId) ?? null,
+    [buildings, hoveredBuildingId]
+  );
   // Keep buildingsRef in sync with buildings state
   useEffect(() => {
     buildingsRef.current = buildings;
     logger.debug('Buildings collection updated', { count: buildings.length, ids: buildings.map(b => b.id) }, 'BuildingManager');
   }, [buildings]);
-
-  useEffect(() => { selectedBuildingRef.current = selectedBuilding; }, [selectedBuilding]);
-  useEffect(() => { hoveredBuildingRef.current = hoveredBuilding; }, [hoveredBuilding]);
 
   const refreshOutlineVisibility = useCallback((selectedId: string | null, hoveredId: string | null) => {
     buildingsRef.current.forEach(building => {
@@ -328,6 +336,7 @@ export const useBuildingManager = (
     const metrics = calculateBuildingMetrics(building.points, config.floors, config.floorHeight);
     const updatedBuilding = {
       ...mergeBuildingConfig(building, config),
+      mesh: visualOwner.mesh,
       footprintArea: metrics.footprintArea,
       metrics,
     };
@@ -343,10 +352,12 @@ export const useBuildingManager = (
     geometry.computeBoundingSphere();
     geometry.computeVertexNormals();
 
-    building.mesh.geometry.dispose();
-    building.mesh.geometry = geometry;
-    building.mesh.position.set(centroid.x, 0, centroid.z);
-    (building.mesh.material as THREE.MeshStandardMaterial).color.setHex(config.color);
+    visualOwner.mesh.geometry.dispose();
+    visualOwner.mesh.geometry = geometry;
+    visualOwner.mesh.position.set(centroid.x, 0, centroid.z);
+    (visualOwner.mesh.material as THREE.MeshStandardMaterial).color.setHex(config.color);
+    visualOwner.mesh.updateMatrix();
+    visualOwner.mesh.updateMatrixWorld(true);
 
     if (visualOwner.footprintOutline) {
       scene.remove(visualOwner.footprintOutline);
@@ -361,7 +372,7 @@ export const useBuildingManager = (
       parentBuildingId: building.id,
     };
     updatedBuilding.footprintOutline.visible =
-      selectedBuildingRef.current?.id === building.id || hoveredBuildingRef.current?.id === building.id;
+      selectedBuildingIdRef.current === building.id || hoveredBuildingIdRef.current === building.id;
     visualOwner.footprintOutline = updatedBuilding.footprintOutline;
 
     if (visualOwner.floorLines) {
@@ -414,7 +425,7 @@ export const useBuildingManager = (
 
   const updateBuilding = useCallback((id: string, updates: Partial<BuildingData> & { config?: BuildingConfig }) => {
     const canonical = buildingsRef.current.find(building => building.id === id);
-    if (!canonical) return;
+    if (!canonical) return undefined;
 
     const { config, ...dataUpdates } = updates;
     const updatedBuilding = config
@@ -423,22 +434,26 @@ export const useBuildingManager = (
     const nextBuildings = buildingsRef.current.map(building => building.id === id ? updatedBuilding : building);
     buildingsRef.current = nextBuildings;
     setBuildings(nextBuildings);
-    setSelectedBuilding(previous => previous?.id === id ? updatedBuilding : previous);
+    return updatedBuilding;
   }, [applyBuildingVisual]);
+
+  const getBuildings = useCallback((): BuildingData[] => [...buildingsRef.current], []);
 
   const selectBuilding = useCallback((building: BuildingData | null) => {
     // Selection is logical state. SceneAppearanceManager owns every material override.
-    selectedBuildingRef.current = building;
-    setSelectedBuilding(building);
-    refreshOutlineVisibility(building?.id ?? null, hoveredBuildingRef.current?.id ?? null);
+    const buildingId = building?.id ?? null;
+    selectedBuildingIdRef.current = buildingId;
+    setSelectedBuildingId(buildingId);
+    refreshOutlineVisibility(buildingId, hoveredBuildingIdRef.current);
   }, [refreshOutlineVisibility]);
 
   const hoverBuilding = useCallback((building: BuildingData | null) => {
     // Hover is deliberately material-free so it cannot corrupt editing/analysis snapshots.
-    hoveredBuildingRef.current = building;
-    setHoveredBuilding(building);
-    if (scene) scene.userData.hoveredBuildingId = building?.id ?? null;
-    refreshOutlineVisibility(selectedBuildingRef.current?.id ?? null, building?.id ?? null);
+    const buildingId = building?.id ?? null;
+    hoveredBuildingIdRef.current = buildingId;
+    setHoveredBuildingId(buildingId);
+    if (scene) scene.userData.hoveredBuildingId = buildingId;
+    refreshOutlineVisibility(selectedBuildingIdRef.current, buildingId);
   }, [scene, refreshOutlineVisibility]);
 
   const showBuildingTooltip = useCallback((building: BuildingData, screenPosition: { x: number; y: number }) => {
@@ -635,13 +650,15 @@ export const useBuildingManager = (
     // Update refs
     buildingsRef.current = buildingsRef.current.filter(b => b.id !== id);
 
-    if (selectedBuilding?.id === id) {
-      setSelectedBuilding(null);
+    if (selectedBuildingIdRef.current === id) {
+      selectedBuildingIdRef.current = null;
+      setSelectedBuildingId(null);
     }
-    if (hoveredBuilding?.id === id) {
-      setHoveredBuilding(null);
+    if (hoveredBuildingIdRef.current === id) {
+      hoveredBuildingIdRef.current = null;
+      setHoveredBuildingId(null);
     }
-  }, [scene, selectedBuilding, hoveredBuilding, buildingTooltip, windowService]);  const clearAllBuildings = useCallback(() => {
+  }, [scene, buildingTooltip, windowService]);  const clearAllBuildings = useCallback(() => {
     if (!scene) return;
 
     // Clear all windows at once - more efficient than removing per building
@@ -709,17 +726,55 @@ export const useBuildingManager = (
       }
     });
 
-    // Clear both ref and state    buildingsRef.current = [];
+    // Clear canonical refs before publishing the empty workspace.
+    buildingsRef.current = [];
+    selectedBuildingIdRef.current = null;
+    hoveredBuildingIdRef.current = null;
     setBuildings([]);
-    setSelectedBuilding(null);
-    setHoveredBuilding(null);
+    setSelectedBuildingId(null);
+    setHoveredBuildingId(null);
+    setBuildingTooltip(null);
+    setWorkspaceRevision(previous => previous + 1);
   }, [scene, windowService]);
 
+  const captureSnapshot = useCallback((): BuildingModel[] =>
+    cloneBuildingModels(buildingsRef.current), []);
+
+  const getBuilding = useCallback((buildingId: string): BuildingData | undefined =>
+    buildingsRef.current.find(building => building.id === buildingId), []);
+
+  const replaceWorkspace = useCallback((models: readonly BuildingModel[]): BuildingData[] => {
+    if (!scene) return [];
+
+    clearAllBuildings();
+    const buildingService = new BuildingService(scene);
+
+    models.forEach(model => {
+      const config = buildingConfigFromModel(model);
+      const mesh = buildingService.createBuilding(model.points, config);
+      mesh.userData = {
+        ...mesh.userData,
+        buildingId: model.id,
+        name: model.name,
+        description: model.description,
+      };
+      const runtimeBuilding = addBuilding(mesh, model.points, config);
+      if (runtimeBuilding) {
+        runtimeBuilding.createdAt = new Date(model.createdAt);
+      }
+    });
+
+    const rebuilt = [...buildingsRef.current];
+    setBuildings(rebuilt);
+    return rebuilt;
+  }, [addBuilding, clearAllBuildings, scene]);
+
   const exportBuildings = useCallback(() => {
+    const currentBuildings = buildingsRef.current;
     const exportData = {
       version: '2.1',
       createdAt: new Date().toISOString(),
-      buildings: buildings.map(building => ({
+      buildings: currentBuildings.map(building => ({
         id: building.id,
         name: building.name,
         description: building.description,
@@ -767,7 +822,7 @@ export const useBuildingManager = (
     document.body.removeChild(link);
     
     URL.revokeObjectURL(url);
-  }, [buildings]);
+  }, []);
 
   // Handle building and footprint interaction via mouse events
   const handleBuildingInteraction = useCallback((event: MouseEvent, containerElement: HTMLElement) => {
@@ -859,7 +914,7 @@ export const useBuildingManager = (
             };
           } else if (event.type === 'mousemove') {
             // Handle hover - only if not already hovered
-            if (building !== hoveredBuilding) {
+            if (building.id !== hoveredBuildingIdRef.current) {
               console.log('Hovering building:', building.id);
               hoverBuilding(building);
             }
@@ -881,7 +936,7 @@ export const useBuildingManager = (
       // No intersections - handle accordingly
       if (event.type === 'mousemove') {
         // Clear hover when not over any building
-        if (hoveredBuilding) {
+        if (hoveredBuildingIdRef.current) {
           console.log('Clearing hover');
           hoverBuilding(null);
         }
@@ -892,7 +947,7 @@ export const useBuildingManager = (
     }
 
     return null;
-  }, [scene, camera, hoveredBuilding, hoverBuilding, showBuildingTooltip, worldToScreen]);
+  }, [scene, camera, hoverBuilding, showBuildingTooltip, worldToScreen]);
 
   const buildingStats: BuildingStats = useMemo(() => {
     const stats = {
@@ -928,6 +983,11 @@ export const useBuildingManager = (
     deleteBuilding,
     clearAllBuildings,
     exportBuildings,
+    getBuildings,
+    getBuilding,
+    captureSnapshot,
+    replaceWorkspace,
+    workspaceRevision,
     buildingStats,
     handleBuildingInteraction,
     showBuildingTooltip,

@@ -1,4 +1,4 @@
-import { BuildingData } from './building';
+import { BuildingModel } from './building';
 import { DaylightRunSummary } from './daylight';
 import { EmbodiedCarbonResult } from '../services/EPSMService';
 import { MonthlyHeatBalance } from '../services/EnergyApiService';
@@ -45,7 +45,7 @@ export interface DesignNode {
   id: string;
   timestamp: Date;
   name: string;
-  buildings: BuildingData[];
+  buildings: BuildingModel[];
   metrics: DesignMetrics;
   daylightRun?: DaylightRunMetadata;
   daylightResultsByBuildingId?: Record<string, DaylightRunSummary>;

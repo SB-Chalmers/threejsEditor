@@ -58,9 +58,9 @@ export interface DrawingState {
   snapToStart: boolean;
 }
 
-export interface BuildingData {
+/** Pure building state used by the workspace, simulations, and graph snapshots. */
+export interface BuildingModel {
   id: string;
-  mesh: THREE.Mesh;
   points: Point3D[];
   /** Canonical plan area. Derived from `points`; never trusted from imports. */
   footprintArea: number;
@@ -73,9 +73,7 @@ export interface BuildingData {
   name?: string;
   description?: string;
   color?: number;
-  footprintOutline?: THREE.Mesh | null;
-  floorLines?: THREE.Group | null; // Add this line
-  
+
   // Form properties
   window_to_wall_ratio?: number;
   window_overhang?: boolean;
@@ -96,6 +94,13 @@ export interface BuildingData {
   // HVAC properties
   hvac_system?: string;
   natural_ventilation?: boolean;
+}
+
+/** Runtime projection of a BuildingModel into the Three.js scene. */
+export interface BuildingData extends BuildingModel {
+  mesh: THREE.Mesh;
+  footprintOutline?: THREE.Mesh | null;
+  floorLines?: THREE.Group | null;
 }
 
 export interface BuildingTooltipData {

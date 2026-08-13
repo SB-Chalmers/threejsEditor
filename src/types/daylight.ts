@@ -1,4 +1,4 @@
-import { BuildingData } from './building';
+import { BuildingModel } from './building';
 
 export type DaylightStudyStatus = 'queued' | 'running' | 'complete' | 'failed';
 
@@ -170,6 +170,6 @@ export interface DaylightRunOptions {
 }
 
 export interface DaylightBuildingSelection {
-  building: BuildingData;
+  building: BuildingModel;
   selectedFloor: number;
 }

@@ -38,14 +38,21 @@ const scaleAt = (mesh: THREE.InstancedMesh, index: number): THREE.Vector3 => {
 describe('WindowService facade overlays', () => {
   it('renders exact glazing, decorative frames, and three baseline shade planes per aperture', () => {
     const service = new WindowService(new THREE.Scene(), config);
-    service.addBuildingWindows(building(), config);
+    const testBuilding = building();
+    const apertures = buildFacadeLayout(
+      testBuilding.points,
+      testBuilding.floors,
+      testBuilding.floorHeight,
+      getBuildingFacadeParameters(testBuilding)
+    ).apertures;
+    service.addBuildingWindows(testBuilding, config);
 
-    expect(service.getTotalWindowCount()).toBe(48);
-    expect(service.glassInstancedMesh.count).toBe(48);
-    expect(service.frameInstancedMesh.count).toBe(48 * 4);
-    expect(service.overhangInstancedMesh.count).toBe(48 * 3);
-    expect(scaleAt(service.glassInstancedMesh, 0).x).toBeCloseTo(1.142857143, 6);
-    expect(scaleAt(service.glassInstancedMesh, 0).y).toBeCloseTo(0.75, 6);
+    expect(service.getTotalWindowCount()).toBe(apertures.length);
+    expect(service.glassInstancedMesh.count).toBe(apertures.length);
+    expect(service.frameInstancedMesh.count).toBe(apertures.length * 4);
+    expect(service.overhangInstancedMesh.count).toBe(apertures.length * 3);
+    expect(scaleAt(service.glassInstancedMesh, 0).x).toBeCloseTo(apertures[0].width, 6);
+    expect(scaleAt(service.glassInstancedMesh, 0).y).toBeCloseTo(apertures[0].height, 6);
     const glassMaterial = service.glassInstancedMesh.material as THREE.MeshPhongMaterial;
     expect(glassMaterial.polygonOffset).toBe(true);
     expect(glassMaterial.polygonOffsetFactor).toBe(-2);

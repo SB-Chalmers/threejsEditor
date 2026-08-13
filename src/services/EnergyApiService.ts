@@ -10,7 +10,7 @@
  *   GET    /v1/energy/studies/{study_id}/result
  */
 
-import { BuildingData } from '../types/building';
+import { BuildingModel } from '../types/building';
 import { ensureHoneybeeCounterClockwise, getBuildingFacadeParameters } from './FacadeGeometry';
 
 // ── Config ────────────────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ class EnergyApiService {
 
   // ── Room geometry builder ────────────────────────────────────────────────
 
-  private buildRoomFromBuilding(building: BuildingData) {
+  private buildRoomFromBuilding(building: BuildingModel) {
     const coords = ensureHoneybeeCounterClockwise(building.points)
       .map(point => [point.x, point.z] as [number, number]);
     const facade = getBuildingFacadeParameters(building);
@@ -131,7 +131,7 @@ class EnergyApiService {
   // ── API calls ────────────────────────────────────────────────────────────
 
   async startStudy(
-    building: BuildingData,
+    building: BuildingModel,
     options: EnergyStudyOptions,
     signal?: AbortSignal
   ): Promise<EnergyStudyQueued> {
@@ -176,7 +176,7 @@ class EnergyApiService {
    * Mirrors DaylightApiService.runStudyForBuilding() pattern.
    */
   async runEnergyStudy(
-    building: BuildingData,
+    building: BuildingModel,
     options: EnergyStudyOptions,
     callbacks: EnergyRunCallbacks = {},
     signal?: AbortSignal

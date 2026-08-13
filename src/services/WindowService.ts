@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { BuildingData } from '../types/building';
+import { BuildingModel } from '../types/building';
 import { getThemeColorAsHex } from '../utils/themeColors';
+import { cloneBuildingModel } from '../utils/buildingModel';
 import {
   buildFacadeLayout,
   getBuildingFacadeParameters,
@@ -23,7 +24,7 @@ interface WindowMaterials {
 }
 
 interface BuildingWindowRecord {
-  building: BuildingData;
+  building: BuildingModel;
   config: WindowConfig;
 }
 
@@ -113,7 +114,7 @@ export class WindowService {
     };
   }
 
-  addBuildingWindows(building: BuildingData, config: WindowConfig): void {
+  addBuildingWindows(building: BuildingModel, config: WindowConfig): void {
     if (!building.points || building.points.length < 3) {
       return;
     }
@@ -124,15 +125,15 @@ export class WindowService {
     this.rebuildInstances();
   }
 
-  updateBuildingWindows(building: BuildingData, config: WindowConfig): void {
+  updateBuildingWindows(building: BuildingModel, config: WindowConfig): void {
     this.addBuildingWindows(building, config);
   }
 
-  updateBuildingWindowsEfficient(building: BuildingData, config: WindowConfig): void {
+  updateBuildingWindowsEfficient(building: BuildingModel, config: WindowConfig): void {
     this.addBuildingWindows(building, config);
   }
 
-  updateBuildingWindowsSmooth(building: BuildingData, config: WindowConfig, _duration = 300): void {
+  updateBuildingWindowsSmooth(building: BuildingModel, config: WindowConfig, _duration = 300): void {
     void _duration;
     this.addBuildingWindows(building, config);
   }
@@ -172,11 +173,8 @@ export class WindowService {
     return this.totalWindowCount;
   }
 
-  private snapshotBuilding(building: BuildingData): BuildingData {
-    return {
-      ...building,
-      points: building.points.map((point) => ({ ...point }))
-    };
+  private snapshotBuilding(building: BuildingModel): BuildingModel {
+    return cloneBuildingModel(building);
   }
 
   private rebuildInstances(): void {

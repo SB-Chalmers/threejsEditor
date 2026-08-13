@@ -1,8 +1,9 @@
 import { DaylightRunMetadata, DesignNode, DesignExplorationGraph, DesignMetrics, EnergyRunMetadata } from '../types/designExploration';
-import { BuildingData } from '../types/building';
+import { BuildingModel } from '../types/building';
 import { DaylightRunSummary } from '../types/daylight';
+import { cloneBuildingModels } from '../utils/buildingModel';
 
-class DesignExplorationService {
+export class DesignExplorationService {
   private graph: DesignExplorationGraph = {
     nodes: [],
     edges: [],
@@ -42,7 +43,7 @@ class DesignExplorationService {
 
   // Save current configuration as a new node
   saveConfiguration(
-    buildings: BuildingData[],
+    buildings: readonly BuildingModel[],
     name?: string,
     metricsOverride?: Partial<DesignMetrics>,
     daylightRun?: DaylightRunMetadata,
@@ -56,7 +57,7 @@ class DesignExplorationService {
       id: nodeId,
       timestamp: new Date(),
       name: name || `Design ${this.graph.nodes.length}`,
-      buildings: this.cloneBuildings(buildings),
+      buildings: cloneBuildingModels(buildings),
       metrics: {
         ...baseMetrics,
         ...(metricsOverride || {})
@@ -76,7 +77,7 @@ class DesignExplorationService {
     this.graph.currentNodeId = nodeId;
     this.notifyListeners();
     
-    return newNode;
+    return this.cloneNode(newNode);
   }
 
   updateNode(
@@ -122,7 +123,7 @@ class DesignExplorationService {
   updateNodeSnapshot(
     nodeId: string,
     updates: {
-      buildings?: BuildingData[];
+      buildings?: readonly BuildingModel[];
       metrics?: Partial<DesignMetrics>;
       daylightRun?: DaylightRunMetadata;
       daylightResultsByBuildingId?: Record<string, DaylightRunSummary>;
@@ -135,7 +136,7 @@ class DesignExplorationService {
     }
 
     if (updates.buildings) {
-      node.buildings = this.cloneBuildings(updates.buildings);
+      node.buildings = cloneBuildingModels(updates.buildings);
     }
 
     if (updates.metrics) {
@@ -181,16 +182,19 @@ class DesignExplorationService {
     };
   }
 
-  // Clone buildings data (without Three.js objects)
-  private cloneBuildings(buildings: BuildingData[]): BuildingData[] {
-    return buildings.map(building => ({
-      ...building,
-      points: building.points.map(point => ({ ...point })),
-      metrics: { ...building.metrics },
-      mesh: building.mesh, // Keep reference for now, might need to serialize differently
-      footprintOutline: building.footprintOutline,
-      floorLines: building.floorLines
-    }));
+  private cloneNode(node: DesignNode): DesignNode {
+    return {
+      ...node,
+      timestamp: new Date(node.timestamp),
+      buildings: cloneBuildingModels(node.buildings),
+      metrics: { ...node.metrics },
+      daylightRun: node.daylightRun ? { ...node.daylightRun } : undefined,
+      daylightResultsByBuildingId: node.daylightResultsByBuildingId
+        ? { ...node.daylightResultsByBuildingId }
+        : undefined,
+      energyRun: node.energyRun ? { ...node.energyRun } : undefined,
+      position: node.position ? { ...node.position } : undefined,
+    };
   }
 
   // Reinstate a configuration
@@ -202,18 +206,23 @@ class DesignExplorationService {
     // Don't persist to storage - graph resets on page reload
     this.notifyListeners();
     
-    return node;
+    return this.cloneNode(node);
   }
 
   // Get current graph
   getGraph(): DesignExplorationGraph {
-    return { ...this.graph };
+    return {
+      nodes: this.graph.nodes.map(node => this.cloneNode(node)),
+      edges: this.graph.edges.map(edge => ({ ...edge })),
+      currentNodeId: this.graph.currentNodeId,
+    };
   }
 
   // Get current node
   getCurrentNode(): DesignNode | null {
     if (!this.graph.currentNodeId) return null;
-    return this.graph.nodes.find(n => n.id === this.graph.currentNodeId) || null;
+    const node = this.graph.nodes.find(n => n.id === this.graph.currentNodeId);
+    return node ? this.cloneNode(node) : null;
   }
 
   // Add listener for graph changes

@@ -5,10 +5,11 @@ import { useDrawing } from '../hooks/useDrawing';
 import { useClickHandler } from '../hooks/useClickHandler';
 import { useBuildingManager } from '../hooks/useBuildingManager';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useBuildingEditSession } from '../hooks/useBuildingEditSession';
 import { LeftToolbar } from './LeftToolbar';
 import { BottomToolbar } from './BottomToolbar';
 import { FloatingInstructions } from './FloatingInstructions';
-import { BuildingEditPanel, type BuildingEditDraft } from './BuildingEditPanel';
+import { BuildingEditPanel } from './BuildingEditPanel';
 import { BuildingTooltip } from './BuildingTooltip';
 import { SunController } from './SunController';
 import { DesignGraphDialog } from './DesignGraphDialog';
@@ -17,7 +18,7 @@ import { ImportConfigDialog } from './dialogs/ImportConfigDialog';
 import { DaylightResultsDialog } from './dialogs/DaylightResultsDialog';
 import { Tabs, TabContent } from './ui/Tabs';
 import { WeatherAndLocationTab } from './WeatherAndLocationTab';
-import { BuildingConfig, BuildingData } from '../types/building';
+import { BuildingConfig, BuildingData, BuildingModel } from '../types/building';
 import type { CameraType, CameraView } from '../core/ThreeJSCore';
 import type { SunPosition } from '../utils/sunPosition';
 import { addSampleBuilding } from '../utils/addSampleBuilding';
@@ -29,9 +30,8 @@ import { daylightVisualizationService, getOverlayDatasetsForResults } from '../s
 import { getEPSMConstructionOptions, getCachedEPSMOptions, computePortfolioEmbodiedCarbon, calculateEmbodiedCarbon, resolveEnergyConstructions } from '../services/EPSMService';
 import { DaylightRunSummary } from '../types/daylight';
 import { createEnergyInputFingerprint, retainValidDaylightResults } from '../services/SimulationFingerprint';
-import { clampWwr, DEFAULT_FACADE_PARAMETERS } from '../services/FacadeGeometry';
+import { DEFAULT_FACADE_PARAMETERS } from '../services/FacadeGeometry';
 import { FootprintEditorService } from '../services/FootprintEditorService';
-import { calculateBuildingMetrics } from '../utils/buildingMetrics';
 import { DrawingInspector } from './model/DrawingInspector';
 import { SimulationProgressCard, type SimulationTaskState } from './model/SimulationProgressCard';
 import { DaylightLegend } from './model/DaylightLegend';
@@ -59,7 +59,6 @@ export const SimpleBuildingCreator: React.FC = () => {
   const [showImportConfigDialog, setShowImportConfigDialog] = useState(false);
   const [showDaylightResultsDialog, setShowDaylightResultsDialog] = useState(false);
   const [activeResultsBuildingId, setActiveResultsBuildingId] = useState<string | null>(null);
-  const [footprintEditPoints, setFootprintEditPoints] = useState<BuildingData['points'] | null>(null);
   const [isSaveAndRunInProgress, setIsSaveAndRunInProgress] = useState(false);
   const [simulationProgress, setSimulationProgress] = useState<{ daylight: SimulationTaskState; energy: SimulationTaskState } | null>(null);
   const [daylightResultsByBuildingId, setDaylightResultsByBuildingId] = useState<Record<string, DaylightRunSummary>>({});
@@ -126,6 +125,11 @@ export const SimpleBuildingCreator: React.FC = () => {
     restoreBuildingPreview,
     clearAllBuildings, 
     exportBuildings, 
+    getBuildings,
+    getBuilding,
+    captureSnapshot,
+    replaceWorkspace,
+    workspaceRevision,
     buildingStats, 
     deleteBuilding, 
     handleBuildingInteraction,
@@ -133,6 +137,14 @@ export const SimpleBuildingCreator: React.FC = () => {
     hideBuildingTooltip
   } = useBuildingManager(scene, camera as THREE.PerspectiveCamera | null, windowService);
   selectedBuildingRef.current = selectedBuilding;
+
+  const buildingEdit = useBuildingEditSession({
+    workspaceRevision,
+    getBuilding,
+    previewBuilding,
+    updateBuilding,
+    restoreBuildingPreview,
+  });
 
   const showDaylightAnalysis = React.useCallback((
     results: Record<string, DaylightRunSummary>,
@@ -172,7 +184,8 @@ export const SimpleBuildingCreator: React.FC = () => {
   }, [scene, setSceneAppearanceMode, updateDaylightLegend]);
 
   const beginBuildingEdit = React.useCallback((building: BuildingData) => {
-    if (building.mesh.userData.isPreview || building.mesh.userData.isDrawingElement) return;
+    const liveBuilding = getBuilding(building.id) ?? building;
+    if (liveBuilding.mesh.userData.isPreview || liveBuilding.mesh.userData.isDrawingElement) return;
 
     suspendedAnalysisModeRef.current = daylightLegend?.isVisible
       ? daylightLegend.mode
@@ -187,12 +200,14 @@ export const SimpleBuildingCreator: React.FC = () => {
       );
     }
     setSceneAppearanceMode({ kind: 'normal' });
-    setFootprintEditPoints(building.points.map(point => ({ ...point })));
-    selectBuilding(building);
-    setSceneAppearanceMode({ kind: 'editing', buildingId: building.id });
+    selectBuilding(liveBuilding);
+    buildingEdit.open(liveBuilding.id);
+    setSceneAppearanceMode({ kind: 'editing', buildingId: liveBuilding.id });
   }, [
+    buildingEdit.open,
     daylightLegend,
     daylightResultsByBuildingId,
+    getBuilding,
     scene,
     selectBuilding,
     setSceneAppearanceMode,
@@ -200,15 +215,14 @@ export const SimpleBuildingCreator: React.FC = () => {
   ]);
 
   useEffect(() => {
-    const building = selectedBuildingRef.current;
-    if (!building || !scene || !camera || !containerRef.current) return;
+    if (!buildingEdit.buildingId || !buildingEdit.draft || !scene || !camera || !containerRef.current) return;
     const editor = new FootprintEditorService({
       scene,
       camera,
       element: containerRef.current,
-      points: building.points,
+      points: buildingEdit.draft.points,
       snapToGrid,
-      onChange: setFootprintEditPoints,
+      onChange: buildingEdit.updateFootprint,
       onDragStateChange: dragging => setCameraControlsEnabled(!dragging),
     });
     footprintEditorRef.current = editor;
@@ -216,11 +230,11 @@ export const SimpleBuildingCreator: React.FC = () => {
       editor.dispose();
       if (footprintEditorRef.current === editor) footprintEditorRef.current = null;
     };
-  }, [selectedBuilding?.id, scene, camera, snapToGrid, setCameraControlsEnabled]);
+  }, [buildingEdit.buildingId, buildingEdit.token, buildingEdit.updateFootprint, scene, camera, snapToGrid, setCameraControlsEnabled]);
 
   useEffect(() => {
-    if (footprintEditPoints) footprintEditorRef.current?.setPoints(footprintEditPoints);
-  }, [footprintEditPoints]);
+    if (buildingEdit.draft) footprintEditorRef.current?.setPoints(buildingEdit.draft.points);
+  }, [buildingEdit.draft]);
 
   // Initialize drawing functionality
   const { 
@@ -340,6 +354,7 @@ export const SimpleBuildingCreator: React.FC = () => {
 
   const handleImportConfigConfirm = (config: unknown) => {
     try {
+      buildingEdit.discard();
       setSceneAppearanceMode({ kind: 'normal' });
       if (scene) daylightVisualizationService.clear(scene);
       setDaylightLegend(null);
@@ -423,9 +438,9 @@ export const SimpleBuildingCreator: React.FC = () => {
   };
 
   const runDaylightSimulation = React.useCallback(async (
-    targetBuilding: BuildingData,
+    targetBuilding: BuildingModel,
     configurationName: string,
-    buildingsForSnapshot?: BuildingData[],
+    buildingsForSnapshot?: BuildingModel[],
     options?: { recordInGraph?: boolean; useGhosting?: boolean; location?: string }
   ) => {
     const snapshotBuildings = buildingsForSnapshot && buildingsForSnapshot.length > 0
@@ -598,7 +613,9 @@ export const SimpleBuildingCreator: React.FC = () => {
   }, [scene, buildings, daylightResultsByBuildingId, setSceneAppearanceMode, showDaylightAnalysis]);
 
   const handleSaveConfigurationConfirm = async (name: string) => {
-    const targetBuilding = selectedBuilding || buildings[0];
+    const runSnapshot = captureSnapshot();
+    const targetBuilding = runSnapshot.find(building => building.id === selectedBuildingRef.current?.id)
+      ?? runSnapshot[0];
     if (!targetBuilding) {
       throw new Error('At least one building is required to run daylight analysis.');
     }
@@ -618,7 +635,7 @@ export const SimpleBuildingCreator: React.FC = () => {
     energyAbortControllerRef.current = new AbortController();
     let energyResult: Awaited<ReturnType<typeof energyApiService.runEnergyStudy>> | null = null;
 
-    const daylightPromise = runDaylightSimulation(targetBuilding, name, buildings, { location });
+    const daylightPromise = runDaylightSimulation(targetBuilding, name, runSnapshot, { location });
     const energyPromise = (async () => {
       if (!location) throw new Error('Energy requires a configured simulation location.');
       setSimulationProgress(previous => previous ? { ...previous, energy: { status: 'queued', message: 'Submitting energy study…' } } : previous);
@@ -691,7 +708,18 @@ export const SimpleBuildingCreator: React.FC = () => {
   };
 
   const handleReinstateConfiguration = (nodeId: string) => {
+    runAbortControllerRef.current?.abort();
+    energyAbortControllerRef.current?.abort();
+
     const node = designExplorationService.reinstateConfiguration(nodeId);
+
+    // Reset transient UI/editing state so reinstatement is deterministic.
+    stopDrawing();
+    clearAllDrawingElements();
+    buildingEdit.discard();
+    setShowBuildingConfig(false);
+    hideBuildingTooltip();
+
     setSceneAppearanceMode({ kind: 'normal' });
     if (scene) daylightVisualizationService.clear(scene);
     suspendedAnalysisModeRef.current = null;
@@ -700,90 +728,27 @@ export const SimpleBuildingCreator: React.FC = () => {
     setActiveResultsBuildingId(null);
     setDaylightLegend(null);
     if (node && scene) {
-      // Clear current buildings
-      clearAllBuildings();
-      
-      // Recreate buildings from saved data
-      const buildingService = new BuildingService(scene);
-      
-      node.buildings.forEach(buildingData => {
-        try {
-          // Create building config from saved data
-          const buildingConfig: BuildingConfig = {
-            floors: buildingData.floors,
-            floorHeight: buildingData.floorHeight,
-            color: buildingData.color ?? 0x7C8FA3,
-            name: buildingData.name,
-            description: buildingData.description,
-            window_to_wall_ratio: buildingData.window_to_wall_ratio,
-            window_overhang: buildingData.window_overhang,
-            window_overhang_depth: buildingData.window_overhang_depth,
-            wall_construction: buildingData.wall_construction,
-            floor_construction: buildingData.floor_construction,
-            roof_construction: buildingData.roof_construction,
-            window_construction: buildingData.window_construction,
-            structural_system: buildingData.structural_system,
-            building_program: buildingData.building_program,
-            hvac_system: buildingData.hvac_system,
-            natural_ventilation: buildingData.natural_ventilation
-          };
-
-          // Create the 3D mesh
-          const mesh = buildingService.createBuilding(buildingData.points, buildingConfig);
-          
-          // Set the original building ID to maintain consistency
-          mesh.userData = {
-            ...mesh.userData,
-            buildingId: buildingData.id,
-            name: buildingData.name,
-            description: buildingData.description
-          };
-
-          // Add the building back to the manager
-          addBuilding(mesh, buildingData.points, buildingConfig);
-          
-        } catch (error) {
-          console.error('Failed to recreate building:', buildingData.id, error);
-        }
-      });
+      replaceWorkspace(node.buildings);
 
       const reinstatedResults = node.daylightResultsByBuildingId || {};
       setDaylightResultsByBuildingId(reinstatedResults);
 
       suspendedAnalysisModeRef.current = null;
-      showDaylightAnalysis(reinstatedResults, 'df');
+      refreshHiddenDaylightAnalysis(reinstatedResults, 'df');
+      setSceneAppearanceMode({ kind: 'normal' });
 
       console.log('Configuration reinstated:', node.name, `(${node.buildings.length} buildings)`);
     }
     setShowDesignGraphDialog(false);
   };
 
-  const handlePreviewBuilding = (draft: BuildingEditDraft) => {
-    if (selectedBuilding) {
-      setFootprintEditPoints(draft.points.map(point => ({ ...point })));
-      previewBuilding(selectedBuilding.id, draft, draft.points);
-    }
-  };
-
-  const handleCommitBuilding = (draft: BuildingEditDraft) => {
-    if (!selectedBuilding) return;
-    const committedBuilding: BuildingData = {
-      ...selectedBuilding,
-      ...draft,
-      footprintArea: calculateBuildingMetrics(draft.points, draft.floors, draft.floorHeight).footprintArea,
-      metrics: calculateBuildingMetrics(draft.points, draft.floors, draft.floorHeight),
-      window_to_wall_ratio: clampWwr(draft.window_to_wall_ratio)
-    };
-    const committedBuildings = buildings.map(building =>
-      building.id === selectedBuilding.id ? committedBuilding : building
-    );
-
-    const retained = retainValidDaylightResults(daylightResultsByBuildingId, committedBuildings);
+  const handleCommitBuilding = () => {
     const resumeMode = suspendedAnalysisModeRef.current;
     suspendedAnalysisModeRef.current = null;
     setSceneAppearanceMode({ kind: 'normal' });
-    updateBuilding(selectedBuilding.id, { points: draft.points, config: draft });
-    setFootprintEditPoints(null);
+    const updatedBuilding = buildingEdit.commit();
+    if (!updatedBuilding) return;
+    const retained = retainValidDaylightResults(daylightResultsByBuildingId, getBuildings());
     selectBuilding(null);
     setDaylightResultsByBuildingId(retained);
 
@@ -805,8 +770,7 @@ export const SimpleBuildingCreator: React.FC = () => {
     const resumeMode = suspendedAnalysisModeRef.current;
     suspendedAnalysisModeRef.current = null;
     setSceneAppearanceMode({ kind: 'normal' });
-    if (selectedBuilding) restoreBuildingPreview(selectedBuilding.id);
-    setFootprintEditPoints(null);
+    buildingEdit.cancel();
     selectBuilding(null);
     if (resumeMode) showDaylightAnalysis(daylightResultsByBuildingId, resumeMode);
   };
@@ -839,6 +803,9 @@ export const SimpleBuildingCreator: React.FC = () => {
   };
 
   const handleDeleteBuilding = (buildingId: string) => {
+    if (buildingEdit.buildingId === buildingId) {
+      buildingEdit.discard();
+    }
     setSceneAppearanceMode({ kind: 'normal' });
     deleteBuilding(buildingId);
     const nextResults = { ...daylightResultsByBuildingId };
@@ -857,6 +824,7 @@ export const SimpleBuildingCreator: React.FC = () => {
   };
 
   const handleClearAll = () => {
+    buildingEdit.discard();
     setSceneAppearanceMode({ kind: 'normal' });
     selectBuilding(null);
     clearAllBuildings();
@@ -1125,7 +1093,7 @@ export const SimpleBuildingCreator: React.FC = () => {
         onTabChange={handleTabChange}
       />
       
-      <TabContent className="flex-1 relative">
+      <TabContent className="relative">
         {/* Three.js Container - Always mounted but conditionally visible */}
         <div 
           ref={containerRef} 
@@ -1139,7 +1107,7 @@ export const SimpleBuildingCreator: React.FC = () => {
         
         {/* Weather Tab Content */}
         {activeTab === 'weather' && (
-          <div className="absolute inset-0 z-10 pt-16">
+          <div className="absolute inset-0 z-10 overflow-y-auto">
             <WeatherAndLocationTab />
           </div>
         )}
@@ -1214,12 +1182,13 @@ export const SimpleBuildingCreator: React.FC = () => {
             />
 
             {/* Building Edit Panel */}
-            {selectedBuilding && (
+            {buildingEdit.draft && buildingEdit.baseDraft && (
               <BuildingEditPanel
-                key={selectedBuilding.id}
-                building={selectedBuilding}
-                footprintPoints={footprintEditPoints ?? undefined}
-                onPreview={handlePreviewBuilding}
+                key={`${buildingEdit.buildingId}-${buildingEdit.token}`}
+                draft={buildingEdit.draft}
+                baseDraft={buildingEdit.baseDraft}
+                onChange={buildingEdit.updateDraft}
+                onReset={buildingEdit.reset}
                 onCommit={handleCommitBuilding}
                 onCancel={handleCancelBuilding}
               />

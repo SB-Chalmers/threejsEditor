@@ -1,4 +1,4 @@
-import type { BuildingData } from '../types/building';
+import type { BuildingModel } from '../types/building';
 import type { DaylightRunState, DaylightRunSummary } from '../types/daylight';
 import type { EPSMConstructionOptions, ResolvedEnergyConstructions } from './EPSMService';
 import { resolveEnergyConstructions } from './EPSMService';
@@ -7,14 +7,14 @@ import { energyApiService, type EnergyRunCallbacks, type EnergyStudyResult } fro
 import { createDaylightInputFingerprint } from './SimulationFingerprint';
 
 interface DaylightStudySetOptions {
-  buildings: BuildingData[];
+  buildings: BuildingModel[];
   location?: string;
   signal: AbortSignal;
-  onStatus?: (building: BuildingData, status: DaylightRunState) => void;
+  onStatus?: (building: BuildingModel, status: DaylightRunState) => void;
 }
 
 interface EnergyStudyOptions {
-  building: BuildingData;
+  building: BuildingModel;
   location: string;
   epsm: EPSMConstructionOptions | null;
   signal: AbortSignal;

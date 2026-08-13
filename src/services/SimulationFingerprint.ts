@@ -1,4 +1,4 @@
-import type { BuildingData } from '../types/building';
+import type { BuildingModel } from '../types/building';
 import type { DaylightRunSummary } from '../types/daylight';
 import { ensureHoneybeeCounterClockwise, getBuildingFacadeParameters } from './FacadeGeometry';
 
@@ -23,23 +23,23 @@ const hash = (value: unknown): string => {
   return `v1-${(state >>> 0).toString(16).padStart(8, '0')}`;
 };
 
-const footprintInput = (building: BuildingData) => ensureHoneybeeCounterClockwise(building.points)
+const footprintInput = (building: BuildingModel) => ensureHoneybeeCounterClockwise(building.points)
   .map(point => [point.x, point.z]);
 
-const massingInput = (building: BuildingData) => ({
+const massingInput = (building: BuildingModel) => ({
   footprint: footprintInput(building),
   floors: building.floors,
   floorHeight: building.floorHeight
 });
 
-const facadeInput = (building: BuildingData) => ({
+const facadeInput = (building: BuildingModel) => ({
   ...massingInput(building),
   ...getBuildingFacadeParameters(building)
 });
 
 export const createDaylightInputFingerprint = (
-  target: BuildingData,
-  allBuildings: BuildingData[]
+  target: BuildingModel,
+  allBuildings: BuildingModel[]
 ): string => hash({
   target: facadeInput(target),
   context: allBuildings
@@ -48,7 +48,7 @@ export const createDaylightInputFingerprint = (
     .sort((left, right) => stableSerialize(left).localeCompare(stableSerialize(right)))
 });
 
-export const createEnergyInputFingerprint = (building: BuildingData): string => hash({
+export const createEnergyInputFingerprint = (building: BuildingModel): string => hash({
   facade: facadeInput(building),
   wallConstruction: building.wall_construction ?? null,
   floorConstruction: building.floor_construction ?? null,
@@ -62,7 +62,7 @@ export const createEnergyInputFingerprint = (building: BuildingData): string => 
 
 export const retainValidDaylightResults = (
   results: Record<string, DaylightRunSummary>,
-  buildings: BuildingData[]
+  buildings: BuildingModel[]
 ): Record<string, DaylightRunSummary> => Object.fromEntries(
   Object.entries(results).filter(([buildingId, result]) => {
     const target = buildings.find(building => building.id === buildingId);

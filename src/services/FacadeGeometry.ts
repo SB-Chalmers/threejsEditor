@@ -1,4 +1,4 @@
-import type { BuildingData, Point3D } from '../types/building';
+import type { BuildingModel, Point3D } from '../types/building';
 
 export const DEFAULT_FACADE_PARAMETERS: FacadeParameters = {
   wwr: 0.4,
@@ -58,7 +58,7 @@ export const clampWwr = (value: number | undefined): number => {
   return Math.max(0, Math.min(MAX_WWR, resolved));
 };
 
-export const getBuildingFacadeParameters = (building: BuildingData): FacadeParameters => ({
+export const getBuildingFacadeParameters = (building: BuildingModel): FacadeParameters => ({
   ...DEFAULT_FACADE_PARAMETERS,
   wwr: clampWwr(building.window_to_wall_ratio),
   additionalHorizontalShadingDepth: building.window_overhang

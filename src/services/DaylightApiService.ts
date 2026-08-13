@@ -1,4 +1,4 @@
-import { BuildingData } from '../types/building';
+import { BuildingModel } from '../types/building';
 import { ensureHoneybeeCounterClockwise, getBuildingFacadeParameters } from './FacadeGeometry';
 import { calculateSignedArea } from '../utils/geometry';
 import {
@@ -67,7 +67,7 @@ class DaylightApiService {
   }
 
   buildRequestFromBuilding(
-    building: BuildingData,
+    building: BuildingModel,
     options: DaylightBuildRequestOptions = {}
   ): DaylightStudyRequest {
     const sensor_grid: SensorGridConfig = {
@@ -111,7 +111,7 @@ class DaylightApiService {
     };
   }
 
-  buildContextBuilding(building: BuildingData): DaylightContextBuildingInput {
+  buildContextBuilding(building: BuildingModel): DaylightContextBuildingInput {
     return {
       footprint_coordinates: this.buildValidatedFootprint(building),
       floors: Math.max(1, building.floors),
@@ -119,7 +119,7 @@ class DaylightApiService {
     };
   }
 
-  private buildValidatedFootprint(building: BuildingData): [number, number][] {
+  private buildValidatedFootprint(building: BuildingModel): [number, number][] {
     const dedupedPoints = building.points.filter((point, index, points) => {
       if (!Number.isFinite(point.x) || !Number.isFinite(point.z)) {
         return false;
@@ -168,13 +168,13 @@ class DaylightApiService {
     return footprint;
   }
 
-  private removeCollinearVertices(points: BuildingData['points']): BuildingData['points'] {
+  private removeCollinearVertices(points: BuildingModel['points']): BuildingModel['points'] {
     if (points.length < 4) {
       return [...points];
     }
 
     const epsilon = 1e-9;
-    const cleaned: BuildingData['points'] = [];
+    const cleaned: BuildingModel['points'] = [];
 
     for (let i = 0; i < points.length; i += 1) {
       const prev = points[(i - 1 + points.length) % points.length];
@@ -238,7 +238,7 @@ class DaylightApiService {
   }
 
   async runStudyForBuilding(
-    building: BuildingData,
+    building: BuildingModel,
     options: DaylightBuildRequestOptions = {},
     runOptions: DaylightRunOptions = {}
   ): Promise<DaylightRunSummary> {

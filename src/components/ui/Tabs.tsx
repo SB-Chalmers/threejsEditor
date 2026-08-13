@@ -15,7 +15,7 @@ interface TabsProps {
 
 export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onTabChange, className = '' }) => {
   return (
-    <div className={`fixed top-0 left-0 right-0 h-12 bg-white border-b border-slate-200 z-50 ${className}`}>
+    <div className={`relative z-50 h-12 shrink-0 bg-white border-b border-slate-200 ${className}`}>
       <div className="flex h-full space-x-1 px-3">
         {tabs.map((tab) => (
           <button
@@ -46,7 +46,7 @@ interface TabContentProps {
 
 export const TabContent: React.FC<TabContentProps> = ({ children, className = '' }) => {
   return (
-    <div className={`flex-1 pt-12 ${className}`}>
+    <div className={`min-h-0 flex-1 ${className}`}>
       {children}
     </div>
   );
