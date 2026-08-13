@@ -18,7 +18,7 @@ import { ImportConfigDialog } from './dialogs/ImportConfigDialog';
 import { DaylightResultsDialog } from './dialogs/DaylightResultsDialog';
 import { Tabs, TabContent } from './ui/Tabs';
 import { WeatherAndLocationTab } from './WeatherAndLocationTab';
-import { BuildingConfig, BuildingData, BuildingModel } from '../types/building';
+import { BuildingConfig, BuildingData, BuildingModel, DEFAULT_BUILDING_COLOR } from '../types/building';
 import type { CameraType, CameraView } from '../core/ThreeJSCore';
 import type { SunPosition } from '../utils/sunPosition';
 import { addSampleBuilding } from '../utils/addSampleBuilding';
@@ -87,7 +87,7 @@ export const SimpleBuildingCreator: React.FC = () => {
   const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
     floors: 3,
     floorHeight: 3.5,
-    color: 0x7C8FA3,
+    color: DEFAULT_BUILDING_COLOR,
     window_to_wall_ratio: DEFAULT_FACADE_PARAMETERS.wwr,
     wall_construction: 'Default Wall',
     floor_construction: 'Default Floor',
@@ -110,6 +110,8 @@ export const SimpleBuildingCreator: React.FC = () => {
     retryInitialization,
     switchCameraType,
     setCameraView,
+    fitCameraToObjects,
+    fitShadowsToObjects,
     updateSunPosition,
     setSceneAppearanceMode,
     setCameraControlsEnabled
@@ -394,7 +396,7 @@ export const SimpleBuildingCreator: React.FC = () => {
           const buildingConfig: BuildingConfig = {
             floors: buildingData.floors ?? 3,
             floorHeight: buildingData.floorHeight ?? 3.5,
-            color: buildingData.color ?? 0x7C8FA3,
+            color: buildingData.color ?? DEFAULT_BUILDING_COLOR,
             name: buildingData.name ?? `Imported Building ${index + 1}`,
             description: buildingData.description ?? '',
             window_to_wall_ratio: buildingData.window_to_wall_ratio ?? DEFAULT_FACADE_PARAMETERS.wwr,
@@ -429,6 +431,12 @@ export const SimpleBuildingCreator: React.FC = () => {
         }
       });
 
+      const importedBuildings = getBuildings();
+      const importedMeshes = importedBuildings.map(building => building.mesh);
+      if (importedMeshes.length > 0) {
+        fitShadowsToObjects(importedMeshes);
+        fitCameraToObjects(importedMeshes, { duration: 650 });
+      }
       console.log(`Successfully imported ${buildingsData.length} building(s)`);
       
     } catch (error) {
@@ -728,7 +736,12 @@ export const SimpleBuildingCreator: React.FC = () => {
     setActiveResultsBuildingId(null);
     setDaylightLegend(null);
     if (node && scene) {
-      replaceWorkspace(node.buildings);
+      const restoredBuildings = replaceWorkspace(node.buildings);
+      const restoredMeshes = restoredBuildings.map(building => building.mesh);
+      if (restoredMeshes.length > 0) {
+        fitShadowsToObjects(restoredMeshes);
+        fitCameraToObjects(restoredMeshes, { duration: 650 });
+      }
 
       const reinstatedResults = node.daylightResultsByBuildingId || {};
       setDaylightResultsByBuildingId(reinstatedResults);
@@ -748,6 +761,7 @@ export const SimpleBuildingCreator: React.FC = () => {
     setSceneAppearanceMode({ kind: 'normal' });
     const updatedBuilding = buildingEdit.commit();
     if (!updatedBuilding) return;
+    fitShadowsToObjects(getBuildings().map(building => building.mesh));
     const retained = retainValidDaylightResults(daylightResultsByBuildingId, getBuildings());
     selectBuilding(null);
     setDaylightResultsByBuildingId(retained);
@@ -867,12 +881,20 @@ export const SimpleBuildingCreator: React.FC = () => {
       setCameraView(view, { duration: 1000 });    }
   };
 
+  const handleFitView = React.useCallback(() => {
+    const meshes = getBuildings().map(building => building.mesh);
+    if (meshes.length > 0) {
+      fitShadowsToObjects(meshes);
+      fitCameraToObjects(meshes, { duration: 600 });
+    }
+  }, [fitCameraToObjects, fitShadowsToObjects, getBuildings]);
+
   // Handle sun position updates from SunController
-  const handleSunPositionChange = (sunPosition: SunPosition) => {
+  const handleSunPositionChange = React.useCallback((sunPosition: SunPosition) => {
     if (updateSunPosition) {
       updateSunPosition(sunPosition);
     }
-  };
+  }, [updateSunPosition]);
 
   // Determine instruction mode
   const getInstructionMode = () => {
@@ -979,7 +1001,7 @@ export const SimpleBuildingCreator: React.FC = () => {
           depth: 5,
           floors: 6,
           floorHeight: 3.5,
-          color: 0x7C8FA3,
+          color: DEFAULT_BUILDING_COLOR,
           name: 'Welcome Room (10m x 5m)',
           description: 'A 10m x 5m starter room with 6 storeys',
           windowToWallRatio: 0.4
@@ -993,7 +1015,7 @@ export const SimpleBuildingCreator: React.FC = () => {
             {
               floors: sampleBuilding.floors,
               floorHeight: sampleBuilding.floorHeight,
-              color: sampleBuilding.color ?? 0x7C8FA3,
+              color: sampleBuilding.color ?? DEFAULT_BUILDING_COLOR,
               name: sampleBuilding.name,
               description: sampleBuilding.description,
               window_to_wall_ratio: sampleBuilding.window_to_wall_ratio,
@@ -1022,6 +1044,8 @@ export const SimpleBuildingCreator: React.FC = () => {
               energyRun: { status: 'idle' },
               daylightResultsByBuildingId: {},
             });
+            fitShadowsToObjects([managedBuilding.mesh]);
+            fitCameraToObjects([managedBuilding.mesh], { duration: 650 });
           } else {
             console.error('❌ Failed to add sample building to building manager');
           }
@@ -1032,7 +1056,7 @@ export const SimpleBuildingCreator: React.FC = () => {
         console.error('❌ Error creating sample building:', error);
       }
     }
-  }, [isInitialized, scene, buildings.length, windowService, addBuilding, hasInitializedWithSample]);
+  }, [isInitialized, scene, buildings.length, windowService, addBuilding, hasInitializedWithSample, fitCameraToObjects, fitShadowsToObjects]);
 
   // Define tabs
   const tabs = [
@@ -1140,6 +1164,7 @@ export const SimpleBuildingCreator: React.FC = () => {
               onToggleFPS={toggleFPSCounter}
               onSwitchCameraType={handleSwitchCameraType}
               onSetCameraView={handleSetCameraView}
+              onFitView={handleFitView}
               onOpenDesignGraph={handleOpenDesignGraph}
             />
 

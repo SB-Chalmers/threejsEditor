@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getThemeColorAsHex } from '../utils/themeColors';
 
 export interface EnvironmentConfig {
   groundSize?: number;
@@ -23,12 +24,12 @@ export class EnvironmentManager {
     this.scene = scene;
     this.config = {
       groundSize: 1000,
-      groundColor: 0xE3E7EC,
+      groundColor: getThemeColorAsHex('--color-ground', 0xD3D9DF),
       groundOpacity: 1,
       gridSize: 100,
       gridDivisions: 100,
-      gridColor: 0xD5DAE1,
-      gridOpacity: 0.6,
+      gridColor: getThemeColorAsHex('--color-grid-minor', 0xC0C8CF),
+      gridOpacity: 0.42,
       showGrid: true,
       ...config
     };
@@ -47,7 +48,7 @@ export class EnvironmentManager {
       color: this.config.groundColor!,
       transparent: this.config.groundOpacity! < 1,
       opacity: this.config.groundOpacity!,
-      roughness: 0.9, // Increased for better shadow contrast and softer appearance
+      roughness: 0.82,
       metalness: 0,
       side: THREE.DoubleSide,
       depthWrite: true,
@@ -55,7 +56,7 @@ export class EnvironmentManager {
       // Add these properties for better shadow reception
       shadowSide: THREE.FrontSide,
       // Control environment map intensity
-      envMapIntensity: 0.2
+      envMapIntensity: 0.3
     });
     
     this.materials.push(groundMaterial);
@@ -76,8 +77,8 @@ export class EnvironmentManager {
   }
 
   private createGrid(): void {
-    const gridColorCenter = new THREE.Color(0xB8C1CC);
-    const gridColorGrid = new THREE.Color(0xD5DAE1);
+    const gridColorCenter = new THREE.Color(getThemeColorAsHex('--color-grid-major', 0xA6B0BA));
+    const gridColorGrid = new THREE.Color(getThemeColorAsHex('--color-grid-minor', 0xC0C8CF));
     
     this.gridHelper = new THREE.GridHelper(
       this.config.gridSize!,
@@ -159,29 +160,29 @@ export class EnvironmentManager {
   updateThemeColors(): void {
     if (this.groundPlane && this.groundPlane.material) {
       const material = this.groundPlane.material as THREE.MeshStandardMaterial;
-      material.color.setHex(0xE3E7EC);
-      material.roughness = 0.9;
+      material.color.setHex(getThemeColorAsHex('--color-ground', 0xD3D9DF));
+      material.roughness = 0.82;
       material.metalness = 0;
       material.emissive.setHex(0x000000);
-      material.envMapIntensity = 0.2;
+      material.envMapIntensity = 0.3;
     }
 
     if (this.gridHelper) {
-      this.updateGridColor(0xD5DAE1);
+      this.updateGridColor(getThemeColorAsHex('--color-grid-minor', 0xC0C8CF));
       if (this.gridHelper.material instanceof THREE.Material) {
         const material = this.gridHelper.material as THREE.Material;
-        material.opacity = 0.6;
+        material.opacity = 0.42;
         material.visible = true;
       } else if (Array.isArray(this.gridHelper.material)) {
         (this.gridHelper.material as THREE.Material[]).forEach((mat: THREE.Material) => {
-          mat.opacity = 0.6;
+          mat.opacity = 0.42;
           mat.visible = true;
         });
       }
     }
 
     if (this.scene.fog) {
-      (this.scene.fog as THREE.Fog).color.setHex(0xF4F6F8);
+      (this.scene.fog as THREE.Fog).color.setHex(getThemeColorAsHex('--color-scene-fog', 0xD3D9DF));
       (this.scene.fog as THREE.Fog).near = 500;
       (this.scene.fog as THREE.Fog).far = 1600;
     }

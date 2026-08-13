@@ -264,6 +264,16 @@ export function waitForThemeColors(): Promise<boolean> {
     // Test if common CSS variables are available
     const testVariables = ['--color-primary', '--color-building-blue', '--color-scene-background'];
     
+    let settled = false;
+    let timeoutId: number | undefined;
+    const finish = (loaded: boolean) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      document.removeEventListener('DOMContentLoaded', checkColors);
+      resolve(loaded);
+    };
+
     const checkColors = () => {
       const allLoaded = testVariables.every(varName => {
         const cssValue = getComputedStyle(document.documentElement)
@@ -273,7 +283,7 @@ export function waitForThemeColors(): Promise<boolean> {
       
       if (allLoaded) {
         console.debug('Theme colors are available');
-        resolve(true);
+        finish(true);
         return;
       }
       
@@ -289,9 +299,10 @@ export function waitForThemeColors(): Promise<boolean> {
     }
     
     // Timeout after 2 seconds
-    setTimeout(() => {
+    timeoutId = window.setTimeout(() => {
+      if (settled) return;
       console.warn('Theme colors may not be loaded properly, continuing anyway');
-      resolve(false);
+      finish(false);
     }, 2000);
   });
 }

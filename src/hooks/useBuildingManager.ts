@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
-import { Point3D, BuildingData, BuildingConfig, BuildingModel, BuildingTooltipData } from '../types/building';
+import { Point3D, BuildingData, BuildingConfig, BuildingModel, BuildingTooltipData, DEFAULT_BUILDING_COLOR } from '../types/building';
 import { createShapeFromPoints, calculateCentroid, ensureCounterClockwise } from '../utils/geometry';
 import { getThemeColorAsHex } from '../utils/themeColors';
 import { WindowService } from '../services/WindowService';
@@ -406,7 +406,7 @@ export const useBuildingManager = (
     applyBuildingVisual(canonical, {
       floors: canonical.floors,
       floorHeight: canonical.floorHeight,
-      color: canonical.color ?? getThemeColorAsHex('--color-building-default', 0x63666f),
+      color: canonical.color ?? getThemeColorAsHex('--color-building-default', DEFAULT_BUILDING_COLOR),
       name: canonical.name,
       description: canonical.description,
       window_to_wall_ratio: canonical.window_to_wall_ratio,

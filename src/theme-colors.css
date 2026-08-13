@@ -12,16 +12,18 @@
   --color-background: #1f2937;
   
   /* 3D Scene Colors */
-  --color-ground: #ffffff;
-  --color-grid: #999999;
-  --color-sun-light: #faf6ed;
+  --color-ground: #d3d9df;
+  --color-grid-major: #a6b0ba;
+  --color-grid-minor: #c0c8cf;
+  --color-grid: #c0c8cf;
+  --color-sun-light: #fff4df;
   --color-ambient-light: #ffffff;
-  --color-hemisphere-sky: #94accc;
-  --color-hemisphere-ground: #ffdb27;
-  --color-scene-background: #f2f2f2;
-  --color-scene-fog: #cccccc;
+  --color-hemisphere-sky: #c8d6e3;
+  --color-hemisphere-ground: #c7c2b7;
+  --color-scene-background: #f4f6f8;
+  --color-scene-fog: #d3d9df;
     /* Building Colors */
-  --color-building-default: #6366f1;
+  --color-building-default: #eeeae2;
   --color-building-preview: #3b82f6;
   --color-building-selected: #2563eb;
   --color-building-hovered: #4f46e5;
@@ -45,8 +47,10 @@
     --color-building-sample: #ffffff;
   
   /* Window Colors */
-  --color-window-glass: #87ceeb;
-  --color-window-frame: #4a4a4a;
+  --color-window-glass: #607a92;
+  --color-window-frame: #46515c;
+  --color-window-overhang: #737e87;
+  --color-selection-outline: #2563eb;
   
   /* Performance Indicator Colors */
   --color-performance-good: #00ff00;
@@ -72,7 +76,7 @@
   --color-active-glow: rgba(59, 130, 246, 0.3);
   
   /* Context Model */
-  --color-context-model: #ffffff;
+  --color-context-model: #8c959e;
   
   /* Keyboard Shortcut Styling */
   --color-kbd-text: rgb(229, 231, 235);

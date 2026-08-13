@@ -1,9 +1,9 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import type { BuildingConfig } from '../../types/building';
+import { DEFAULT_BUILDING_COLOR, type BuildingConfig } from '../../types/building';
 
 interface DrawingInspectorProps { config: BuildingConfig; onChange: (config: BuildingConfig) => void; onClose: () => void }
-const COLORS = [0x7C8FA3, 0x6E9C9A, 0x879E7B, 0xB89A62, 0xB97867, 0xB87B84, 0x8D809B, 0x747B85];
+const COLORS = [DEFAULT_BUILDING_COLOR, 0x7C8FA3, 0x6E9C9A, 0x879E7B, 0xB89A62, 0xB97867, 0xB87B84, 0x8D809B, 0x747B85];
 
 export const DrawingInspector: React.FC<DrawingInspectorProps> = ({ config, onChange, onClose }) => (
   <aside className="model-drawing-inspector absolute right-0 top-0 z-30 h-full w-[304px] border-l border-slate-200 bg-white p-4 shadow-lg">

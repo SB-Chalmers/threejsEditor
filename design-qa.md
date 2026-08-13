@@ -1,46 +1,50 @@
 **Comparison Evidence**
 
-- Source visual truth: the supplied Spacio workspace screenshots, with the earlier Sefaira daylight-analysis screenshots retained for the result-plane treatment.
-- Implementation screenshot: unavailable; no in-app or external browser is connected to this workspace session.
-- Intended viewport: desktop application viewport, matching the existing Three.js editor.
-- Pixel dimensions / CSS size / density normalization: not measurable without a browser-rendered capture.
-- States to compare: normal light workspace, transactional footprint edit, sun modal, simulation progress, and multi-floor daylight analysis with opaque sensor planes and ghosted context.
-- Full-view comparison: blocked because the local implementation could not be opened in a browser surface.
-- Focused-region comparison: blocked for the same reason; responsive panel collisions, façade normal direction, opaque plane occlusion, muted colors, edit handles, and legend toggle could not be visually captured.
-- Primary interactions tested in browser: none; browser unavailable.
-- Browser console errors checked: no; browser unavailable.
+- Source visual truth: the supplied modern web building-app reference plus the earlier Sefaira daylight-analysis references.
+- Implementation: shared VS Code browser at `http://localhost:5173/`.
+- Browser captures reviewed: 1024×768, 768×700, and 640×700 in the normal model workspace; 1068×777 in building-edit mode.
+- Canvas at 1024×768: CSS 1024×720, top offset 48 px; render buffer 1024×720 in the shared browser.
+- WebGL nonblank check: four sampled canvas positions returned four distinct opaque colors.
+- Console during a clean 1024×768 reload: no warnings or errors after initialization-race fixes.
+- Primary interactions checked: automatic fit, manual frame-all, building tooltip, edit sidebar, selected-mass outline, responsive toolbar movement, and graph-card/status-bar spacing.
 
-**Findings**
+**Implemented Visual Direction**
 
-- [P1] Browser-rendered visual verification unavailable
-  Location: local Three.js editor at the development preview.
-  Evidence: the local server started successfully, but browser discovery returned no available browser instance, so no implementation screenshot could be captured alongside the source screenshots.
-  Impact: automated geometry, material, state-transition, TypeScript, lint, and build checks can pass, but the final WebGL appearance and camera-dependent lower-floor occlusion remain manually unverified.
-  Fix: connect the in-app browser or an external browser, open the daylight-result state, capture the same multi-floor viewpoint, and compare it with the supplied Sefaira references.
+- Soft architectural-clay scene palette with pale cool-gray ground/background and a quieter grid.
+- Final hierarchy palette: background `#F4F6F8`, ground `#D3D9DF`, context `#8C959E`, editable mass `#EEEAE2`, glazing `#607A92`, and frames `#46515C`.
+- Measured contrast improved from `1.55:1` to `2.14:1` between ground/context and from `2.33:1` to `3.73:1` between editable mass/glazing; reduced ambient/hemisphere fill and light-mode exposure preserve directional shading.
+- Context massing uses cool neutral PBR materials, receives shadows, and no longer casts dominant site-wide shadows.
+- Editable massing retains muted user color but uses a cleaner architectural material response.
+- Glazing is low-saturation gray-blue physical glass without emissive blue glow; frames and shades use restrained standard materials.
+- Sun/fill lighting and SAO provide clearer contact depth with more defined soft shadows.
+- Shadow camera and camera framing fit editable buildings rather than the context model.
+- Edit mode adds a crisp mass-only blue outline while context remains opaque and visually subordinate.
+- Frame-all is available as a familiar icon command in the bottom toolbar.
 
-**Open Questions**
+**Responsive Findings**
 
-- None about implementation scope. Only browser access is missing for final visual QA.
+- 1024×768: canvas fills the area below the 48 px tab bar; model, hint, tool rail, graph card, and status bar remain coherent.
+- 768×700: model rail remains vertical; graph card and bottom status remain separate. A border-level rail/card touch was corrected with tablet spacing.
+- 640×700: model rail moves horizontally above the status bar; graph card, rail, status bar, and context hint have zero measured overlap after spacing adjustment.
+- No blank, stretched, or incorrectly offset canvas was observed at the tested sizes.
 
-**Implementation Checklist**
+**Automated Verification**
 
-- Open the local editor in a connected browser.
-- Run or load a multi-floor daylight result.
-- Compare the light scene, compact rails, inspector density, and muted mass palette against the supplied Spacio direction at 1440×900, 1024×768, 768×700, and 640×700.
-- Confirm glass/frame normals face outward on every façade and glass polygon offset removes visible z-fighting.
-- Confirm sensor cells are opaque, at exact elevations, and nearer floors occlude lower floors.
-- Toggle the legend eye control twice and verify exact material restoration.
-- Open the building editor, exercise drag/insert/delete, then test Reset, Cancel, and Done restoration behavior.
-- Open the sun modal with U and confirm Ctrl/Cmd+R remains browser-owned.
-- Capture the implementation and perform a side-by-side comparison with the attached Sefaira screenshots.
+- Full suite: 20 test files, 105 tests passed.
+- Production build passed.
+- Browserslist database updated to `caniuse-lite 1.0.30001809`; stale database warning removed.
+- Remaining build notice: the existing main bundle is above Vite's 500 kB advisory threshold.
+
+**Open Visual QA**
+
+- Capture and compare a 1440×900 desktop view when convenient.
+- Run/load a multi-floor daylight result and compare heatmap occlusion, ghost context, and legend restoration against the Sefaira references.
+- Revisit context and editable-mass luminance only if user-provided screenshots show insufficient separation on another display.
 
 **Comparison History**
 
-- Iteration 1: façade/daylight implementation completed and automated checks added; browser comparison was blocked.
-- Iteration 2: Spacio-inspired stabilization and responsive redesign completed; local preview server started successfully, but browser discovery again returned no connected browser, so no browser-derived fixes or post-fix screenshots exist yet.
+- Iteration 1: façade/daylight implementation and automated geometry checks.
+- Iteration 2: compact Spacio-inspired workspace stabilization.
+- Iteration 3: browser-verified architectural viewport pass: palette, context hierarchy, PBR facade materials, lighting/shadows, SAO, selection outline, camera framing, and responsive collision fixes.
 
-**Follow-up Polish**
-
-- Revisit context opacity values after the first camera-matched WebGL capture if the building silhouette competes with the heatmap.
-
-final result: blocked
+final result: passed for normal/edit workspace; daylight-analysis screenshot review pending

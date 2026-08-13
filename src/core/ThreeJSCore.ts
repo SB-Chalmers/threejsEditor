@@ -77,8 +77,8 @@ export class ThreeJSCore {
         { 
           enableShadows: true,
           enableSky: false,
-          shadowMapSize: 1024, // Better interactive performance while keeping shadow quality usable
-          sunLightIntensity: 1.5 // Softer light
+          shadowMapSize: 2048,
+          sunLightIntensity: 1.75
         }
       );
       
@@ -481,6 +481,10 @@ export class ThreeJSCore {
       console.error('Failed to fit camera to objects:', error);
       this.emit('error', error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  fitShadowsToObjects(objects: THREE.Object3D[]): void {
+    this.lightingManager.fitShadowCameraToObjects(objects);
   }
 
   fitCameraToScene(options?: ViewTransitionOptions): void {

@@ -1,7 +1,24 @@
 import * as THREE from 'three';
 import type { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import type { Pass } from 'three/examples/jsm/postprocessing/Pass.js';
+import type { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass.js';
 import { SceneAppearanceManager, type SceneAppearanceMode } from './SceneAppearanceManager';
+import { getThemeColorAsHex } from '../utils/themeColors';
+
+export const resolveOutlineObjects = (scene: THREE.Scene, mode: SceneAppearanceMode): THREE.Object3D[] => {
+  if (mode.kind !== 'editing') return [];
+  const objects: THREE.Object3D[] = [];
+  scene.traverse(object => {
+    if (
+      object instanceof THREE.Mesh &&
+      object.userData.isBuilding === true &&
+      object.userData.buildingId === mode.buildingId
+    ) {
+      objects.push(object);
+    }
+  });
+  return objects;
+};
 
 export interface RendererConfig {
   antialias?: boolean;
@@ -18,6 +35,8 @@ export class RendererManager {
   private renderer: THREE.WebGLRenderer;
   private composer: EffectComposer | null = null;
   private passes: Pass[] = [];
+  private outlinePass: OutlinePass | null = null;
+  private outlineObjects: THREE.Object3D[] = [];
   private config: RendererConfig;
   private readonly sceneAppearance = new SceneAppearanceManager();
 
@@ -69,11 +88,13 @@ export class RendererManager {
         { EffectComposer },
         { RenderPass },
         { SAOPass },
+        { OutlinePass },
         { OutputPass }
       ] = await Promise.all([
         import('three/examples/jsm/postprocessing/EffectComposer.js'),
         import('three/examples/jsm/postprocessing/RenderPass.js'),
         import('three/examples/jsm/postprocessing/SAOPass.js'),
+        import('three/examples/jsm/postprocessing/OutlinePass.js'),
         import('three/examples/jsm/postprocessing/OutputPass.js')
       ]);
 
@@ -86,16 +107,28 @@ export class RendererManager {
       this.composer.addPass(renderPass);
       this.passes.push(renderPass);      const saoPass = new SAOPass(scene, camera);
       saoPass.params.saoBias = 0.2;            // Lower bias for more subtle effect
-      saoPass.params.saoIntensity = 0.015;      // Slightly increased intensity
+      saoPass.params.saoIntensity = 0.035;
       saoPass.params.saoScale = 10;            // Increased scale for broader effect
-      saoPass.params.saoKernelRadius = 25;     // Increased radius for softer shadows
+      saoPass.params.saoKernelRadius = 18;
       saoPass.params.saoMinResolution = 0.0075; // Smaller value for finer details
       saoPass.params.saoBlur = true;           // Keep blur enabled
-      saoPass.params.saoBlurRadius = 4;        // Increased blur radius
+      saoPass.params.saoBlurRadius = 5;
       saoPass.params.saoBlurStdDev = 2;        // Increased standard deviation for softer blur
       saoPass.params.saoBlurDepthCutoff = 0.0075; // Adjusted depth cutoff
       this.composer.addPass(saoPass);
       this.passes.push(saoPass);
+
+      const size = this.renderer.getSize(new THREE.Vector2());
+      this.outlinePass = new OutlinePass(size, scene, camera);
+      this.outlinePass.edgeStrength = 2.4;
+      this.outlinePass.edgeGlow = 0;
+      this.outlinePass.edgeThickness = 1;
+      this.outlinePass.pulsePeriod = 0;
+      this.outlinePass.visibleEdgeColor.setHex(getThemeColorAsHex('--color-selection-outline', 0x2563EB));
+      this.outlinePass.hiddenEdgeColor.setHex(0x94A3B8);
+      this.outlinePass.selectedObjects = this.outlineObjects;
+      this.composer.addPass(this.outlinePass);
+      this.passes.push(this.outlinePass);
 
       const outputPass = new OutputPass();
       this.composer.addPass(outputPass);
@@ -133,6 +166,9 @@ export class RendererManager {
           renderPass.camera = camera;
         }
       }
+      if (this.outlinePass && 'renderCamera' in this.outlinePass) {
+        (this.outlinePass as OutlinePass & { renderCamera: THREE.Camera }).renderCamera = camera;
+      }
       this.composer.render();
     } else {
       this.renderer.render(scene, camera);
@@ -149,6 +185,7 @@ export class RendererManager {
       this.passes.length = 0;
       this.composer.dispose();
       this.composer = null;
+      this.outlinePass = null;
     }
   }
 
@@ -174,7 +211,7 @@ export class RendererManager {
     // Adjust renderer tone mapping exposure based on theme
     if (this.renderer) {
       // Lower exposure for dark theme, brighter for light theme
-      this.renderer.toneMappingExposure = isDarkTheme ? 0.8 : 1.1;
+      this.renderer.toneMappingExposure = isDarkTheme ? 0.8 : 0.98;
       
       // Update output encoding if needed
       this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -195,6 +232,10 @@ export class RendererManager {
 
   setSceneAppearanceMode(scene: THREE.Scene, mode: SceneAppearanceMode): void {
     this.sceneAppearance.setMode(scene, mode);
+    this.outlineObjects = resolveOutlineObjects(scene, mode);
+    if (this.outlinePass) {
+      this.outlinePass.selectedObjects = this.outlineObjects;
+    }
   }
 
 }

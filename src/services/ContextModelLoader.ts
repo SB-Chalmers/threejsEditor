@@ -22,51 +22,44 @@ export class ContextModelLoader {
       return new Promise((resolve, reject) => {
         loader.load(
           this.modelPath,
-          (object) => {            // Set properties for all meshes in the loaded model
+          (object) => {
             object.traverse((child) => {
-              // Set all objects to receive shadows but not cast them
-              child.receiveShadow = true;
-              child.castShadow = true;
-                if (child instanceof THREE.Mesh) {                // Apply a light grey matte material
+              if (child instanceof THREE.Mesh) {
+                const previousMaterials = Array.isArray(child.material) ? child.material : [child.material];
+                previousMaterials.forEach(material => material.dispose());
                 child.material = new THREE.MeshStandardMaterial({
-                  color: getThemeColorAsHex('--color-context-model', 0xffffff), // Use CSS variable
-                  roughness: 0.8,
+                  color: getThemeColorAsHex('--color-context-model', 0x8C959E),
+                  roughness: 0.92,
                   metalness: 0.0,
                 });
-                
-                // Make the mesh not clickable or interactive
+
                 child.userData.isContextMesh = true;
                 child.userData.nonInteractive = true;
-                
-                // Ensure it receives shadows but doesn't cast them (already set above, but being explicit)
+                child.userData.analysisRole = 'context-massing';
                 child.receiveShadow = true;
-                child.castShadow = true;
-                
-                // Swap Y and Z coordinates to convert from Rhino's Z-up to Three.js Y-up
-                child.traverse((subChild) => {
-                  if (subChild instanceof THREE.Mesh && subChild.geometry) {
-                    const position = subChild.geometry.attributes.position;
-                    const array = position.array;
-                    
-                    // Swap Y and Z for each vertex
-                    for (let i = 0; i < array.length; i += 3) {
-                      const y = array[i + 1];
-                      array[i + 1] = array[i + 2];
-                      array[i + 2] = -y; // Negate to preserve handedness
-                    }
-                    
-                    position.needsUpdate = true;
-                  }
-                });
+                child.castShadow = false;
+
+                const position = child.geometry.attributes.position;
+                const array = position.array;
+                for (let i = 0; i < array.length; i += 3) {
+                  const y = array[i + 1];
+                  array[i + 1] = array[i + 2];
+                  array[i + 2] = -y;
+                }
+                position.needsUpdate = true;
+                child.geometry.computeVertexNormals();
+                child.geometry.computeBoundingBox();
+                child.geometry.computeBoundingSphere();
               }
-            });            // Store reference to the mesh for theme updates
+            });
+            // Store reference to the mesh for theme updates
             this.contextMesh = object;
               
             // Apply current theme colors
             const isDarkTheme = document.documentElement.classList.contains('dark-theme');
             const contextColor = getThemeColorAsHex(
               '--color-context-model', 
-              isDarkTheme ? 0x8a8a8a : 0xffffff
+              isDarkTheme ? 0x8a8a8a : 0x8C959E
             );
               
             // Apply colors to all meshes
@@ -120,7 +113,7 @@ export class ContextModelLoader {
     const isDarkTheme = document.documentElement.classList.contains('dark-theme');
     const contextColor = getThemeColorAsHex(
       '--color-context-model', 
-      isDarkTheme ? 0x8a8a8a : 0xffffff
+      isDarkTheme ? 0x8a8a8a : 0x8C959E
     );
     
     // Update all mesh materials in the context model

@@ -30,7 +30,7 @@ export class LightingManager {
     this.config = {      // This will be loaded from CSS variable at runtime
       sunLightColor: getThemeColorAsHex('--color-sun-light', 0xfaf6ed),
       sunLightIntensity: 1.8, // Slightly reduced intensity
-      sunPosition: { x: 110, y: 45, z: 45 },
+      sunPosition: { x: 75, y: 115, z: 65 },
       enableShadows: true,
       shadowMapSize: 2048, // Increased for better shadow quality
       shadowCameraBounds: 30,
@@ -65,7 +65,7 @@ export class LightingManager {
   private createAmbientLight(): void {    // Create subtle ambient light for softer shadows
     // Using CSS variable color via our utility function
     const ambientColor = getThemeColorAsHex('--color-ambient-light', 0xffffff);
-    this.ambient = new THREE.AmbientLight(ambientColor, 0.25); // Reduced since we're adding hemisphere light
+    this.ambient = new THREE.AmbientLight(ambientColor, 0.28);
     this.scene.add(this.ambient);
   }
     private createHemisphereLight(): void {
@@ -113,10 +113,10 @@ export class LightingManager {
       this.sun.shadow.camera.top = bounds;
       this.sun.shadow.camera.bottom = -bounds;
         // Better shadow quality settings - adjusted for softer shadows
-      this.sun.shadow.radius = 8; // Increased radius for softer shadow edges
-      this.sun.shadow.blurSamples = 30; // More samples for smoother blur
-      this.sun.shadow.bias = -0.00005; // Less negative bias to reduce artifacts
-      this.sun.shadow.normalBias = 0.05; // Increased to prevent shadow acne
+      this.sun.shadow.radius = 4;
+      this.sun.shadow.blurSamples = 16;
+      this.sun.shadow.bias = -0.00008;
+      this.sun.shadow.normalBias = 0.035;
       
       // Position the shadow camera target at the scene center
       this.sun.target.position.set(0, 0, 0);
@@ -427,7 +427,37 @@ export class LightingManager {
     if (this.shadowHelper) {
       this.shadowHelper.update();
     }
-  }  updateThemeColors(): void {
+  }
+
+  fitShadowCameraToObjects(objects: THREE.Object3D[], padding = 1.35): void {
+    if (!this.sun || !this.sun.shadow || objects.length === 0) return;
+    const box = new THREE.Box3();
+    objects.forEach(object => box.expandByObject(object));
+    if (box.isEmpty()) return;
+
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDimension = Math.max(size.x, size.y, size.z, 1);
+    const bounds = Math.max(12, maxDimension * 0.7 * padding);
+    const direction = this.sun.position.clone().sub(this.sun.target.position).normalize();
+    const distance = Math.max(100, maxDimension * 3);
+
+    this.sun.target.position.copy(center);
+    this.sun.target.updateMatrixWorld(true);
+    this.sun.position.copy(center).add(direction.multiplyScalar(distance));
+    this.sun.shadow.camera.left = -bounds;
+    this.sun.shadow.camera.right = bounds;
+    this.sun.shadow.camera.top = bounds;
+    this.sun.shadow.camera.bottom = -bounds;
+    this.sun.shadow.camera.near = 0.5;
+    this.sun.shadow.camera.far = distance + maxDimension * 2;
+    this.sun.shadow.camera.updateProjectionMatrix();
+    this.config.shadowCameraBounds = bounds;
+    this.sun.shadow.needsUpdate = true;
+    this.shadowHelper?.update();
+  }
+
+  updateThemeColors(): void {
     const isDarkTheme = document.documentElement.classList.contains('dark-theme');
     
     // Update sunlight color
@@ -440,10 +470,12 @@ export class LightingManager {
       
       // Update shadow properties for the theme
       if (this.sun.shadow) {
-        this.sun.shadow.bias = isDarkTheme ? -0.00025 : -0.0005;
-        this.sun.shadow.normalBias = isDarkTheme ? 0.03 : 0.05;
+        this.sun.shadow.bias = isDarkTheme ? -0.0002 : -0.00008;
+        this.sun.shadow.normalBias = isDarkTheme ? 0.03 : 0.035;
         // Softer, blurrier shadows at night
-        this.sun.shadow.radius = isDarkTheme ? 10 : 8;      }
+        this.sun.shadow.radius = isDarkTheme ? 7 : 4;
+        this.sun.shadow.blurSamples = isDarkTheme ? 20 : 16;
+      }
       
       // Update sun position for day/night effect
       if (isDarkTheme) {
@@ -451,7 +483,7 @@ export class LightingManager {
         this.sun.position.set(45, 15, 35);
       } else {
         // Day - high sun position
-        this.sun.position.set(50, 65, 25);
+        this.sun.position.set(75, 115, 65);
       }
       
       try {
@@ -468,13 +500,13 @@ export class LightingManager {
       this.ambient.color.setHex(ambientColor);
       
       // Adjust intensity based on theme
-      this.ambient.intensity = isDarkTheme ? 0.2 : 0.7;
+      this.ambient.intensity = isDarkTheme ? 0.2 : 0.28;
     }
     
     // Update hemisphere light colors
     if (this.hemiLight) {
-      const skyColor = getThemeColorAsHex('--color-hemisphere-sky', isDarkTheme ? 0x0a1525 : 0x94accc);
-      const groundColor = getThemeColorAsHex('--color-hemisphere-ground', isDarkTheme ? 0x102137 : 0xffdb27);
+      const skyColor = getThemeColorAsHex('--color-hemisphere-sky', isDarkTheme ? 0x0a1525 : 0xC8D6E3);
+      const groundColor = getThemeColorAsHex('--color-hemisphere-ground', isDarkTheme ? 0x102137 : 0xC7C2B7);
       this.hemiLight.color.setHex(skyColor);
       this.hemiLight.groundColor.setHex(groundColor);
       

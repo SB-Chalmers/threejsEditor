@@ -53,10 +53,14 @@ describe('WindowService facade overlays', () => {
     expect(service.overhangInstancedMesh.count).toBe(apertures.length * 3);
     expect(scaleAt(service.glassInstancedMesh, 0).x).toBeCloseTo(apertures[0].width, 6);
     expect(scaleAt(service.glassInstancedMesh, 0).y).toBeCloseTo(apertures[0].height, 6);
-    const glassMaterial = service.glassInstancedMesh.material as THREE.MeshPhongMaterial;
+    const glassMaterial = service.glassInstancedMesh.material as THREE.MeshPhysicalMaterial;
+    expect(glassMaterial).toBeInstanceOf(THREE.MeshPhysicalMaterial);
     expect(glassMaterial.polygonOffset).toBe(true);
     expect(glassMaterial.polygonOffsetFactor).toBe(-2);
     expect(glassMaterial.polygonOffsetUnits).toBe(-2);
+    expect(glassMaterial.emissive.getHex()).toBe(0x000000);
+    expect(service.frameInstancedMesh.material).toBeInstanceOf(THREE.MeshStandardMaterial);
+    expect(service.overhangInstancedMesh.material).toBeInstanceOf(THREE.MeshStandardMaterial);
     expect(scaleAt(service.overhangInstancedMesh, 0).y).toBeCloseTo(0.3, 6);
     expect(scaleAt(service.overhangInstancedMesh, 1).x).toBeCloseTo(0.3, 6);
     expect(scaleAt(service.overhangInstancedMesh, 2).x).toBeCloseTo(0.3, 6);

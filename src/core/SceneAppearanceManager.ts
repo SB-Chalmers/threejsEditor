@@ -28,8 +28,8 @@ export class SceneAppearanceManager {
       // during editing so the selected building never loses its glazing/shades.
       if (mode.kind === 'editing' && typeof object.userData.analysisRole === 'string' && object.userData.analysisRole.startsWith('facade-')) return;
 
-      const opacity = this.getGhostOpacity(object);
-      this.ghostObject(object, opacity);
+      const opacity = this.getGhostOpacity(object, mode);
+      this.ghostObject(object, opacity, mode);
     });
   }
 
@@ -52,7 +52,7 @@ export class SceneAppearanceManager {
     this.mode = { kind: 'normal' };
   }
 
-  private ghostObject(object: MaterialObject, opacity: number): void {
+  private ghostObject(object: MaterialObject, opacity: number, mode: SceneAppearanceMode): void {
     this.originalMaterials.set(object, object.material);
     if (object instanceof THREE.Mesh) {
       this.originalShadows.set(object, {
@@ -64,14 +64,19 @@ export class SceneAppearanceManager {
 
     const clone = (material: THREE.Material): THREE.Material => {
       const ghost = material.clone();
-      ghost.transparent = true;
-      ghost.opacity = opacity;
+      const opaqueContext = mode.kind === 'editing' && object.userData.analysisRole === 'context-massing';
+      ghost.transparent = !opaqueContext;
+      ghost.opacity = opaqueContext ? 1 : opacity;
       ghost.depthTest = true;
-      ghost.depthWrite = false;
+      ghost.depthWrite = opaqueContext;
       if ('color' in ghost && ghost.color instanceof THREE.Color) {
         const hsl = { h: 0, s: 0, l: 0 };
         ghost.color.getHSL(hsl);
-        ghost.color.setHSL(hsl.h, hsl.s * 0.2, Math.max(0.35, hsl.l * 0.85));
+        ghost.color.setHSL(
+          hsl.h,
+          hsl.s * 0.2,
+          opaqueContext ? Math.max(0.66, hsl.l) : Math.max(0.35, hsl.l * 0.85)
+        );
       }
       ghost.needsUpdate = true;
       return ghost;
@@ -82,9 +87,15 @@ export class SceneAppearanceManager {
       : clone(object.material);
   }
 
-  private getGhostOpacity(object: THREE.Object3D): number {
+  private getGhostOpacity(object: THREE.Object3D, mode: SceneAppearanceMode): number {
     const role = object.userData.analysisRole;
+    if (mode.kind === 'editing') {
+      if (role === 'context-massing') return 1;
+      if (object.userData.isFloorLine || object.userData.isFloorLines || object.userData.isFootprint) return 0.34;
+      return 0.28;
+    }
     if (role === 'facade-glass') return 0.08;
+    if (role === 'context-massing') return 0.14;
     if (
       role === 'facade-frame' ||
       role === 'facade-shade' ||

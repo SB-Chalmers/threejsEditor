@@ -26,7 +26,7 @@ export class BuildingService {
         color: getThemeColorAsHex('--color-building-debug', 0x00ff00),
         emissive: getThemeColorAsHex('--color-building-debug', 0x00ff00),
         emissiveIntensity: 0.1,
-        roughness: 0.88,
+        roughness: 0.78,
         metalness: 0
       });
         // Add shared preview material
@@ -36,7 +36,7 @@ export class BuildingService {
         transparent: true,
         opacity: 0.5,
         wireframe: false,
-        roughness: 0.88,
+        roughness: 0.78,
         metalness: 0
       });
     }
@@ -77,7 +77,7 @@ export class BuildingService {
     const material = new THREE.MeshStandardMaterial({
       color: config.color,
       side: THREE.DoubleSide,
-      roughness: 0.88,
+      roughness: 0.78,
       metalness: 0
     });
     
@@ -155,7 +155,7 @@ export class BuildingService {
       transparent: true,
       opacity: 0.5,
       wireframe: false,
-      roughness: 0.88,
+      roughness: 0.78,
       metalness: 0
     });
     

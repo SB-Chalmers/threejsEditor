@@ -18,6 +18,7 @@
  * @param showGrid - Boolean to control grid visibility (default: true)
  */
 import { useRef, useEffect, useState, useCallback } from 'react';
+import type { Object3D } from 'three';
 // No need to import THREE directly in this hook
 import { ThreeJSCore } from '../core/ThreeJSCore';
 import type { CameraType, CameraView, ViewTransitionOptions } from '../core/ThreeJSCore';
@@ -26,6 +27,7 @@ import type { SunPosition } from '../utils/sunPosition';
 
 export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGrid: boolean = true) => {
   const coreRef = useRef<ThreeJSCore | null>(null);
+  const pendingSunPositionRef = useRef<SunPosition | null>(null);
   const initialShowGridRef = useRef(showGrid);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -58,6 +60,9 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
         
         if (isMounted) {
           coreRef.current = core;
+          if (pendingSunPositionRef.current) {
+            core.updateRealisticSunPosition(pendingSunPositionRef.current);
+          }
           
           // Validate core is ready
           const scene = core.getScene();
@@ -170,6 +175,12 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
       console.warn('Cannot set camera view - core not initialized');
     }
   }, []);
+  const fitCameraToObjects = useCallback((objects: Object3D[], options?: ViewTransitionOptions) => {
+    coreRef.current?.fitCameraToObjects(objects, options);
+  }, []);
+  const fitShadowsToObjects = useCallback((objects: Object3D[]) => {
+    coreRef.current?.fitShadowsToObjects(objects);
+  }, []);
 
   const getCurrentCameraType = useCallback((): CameraType | undefined => {
     if (coreRef.current) {
@@ -187,6 +198,7 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     }
   }, []);
   const updateSunPosition = useCallback((sunPosition: SunPosition) => {
+    pendingSunPositionRef.current = sunPosition;
     if (coreRef.current) {
       try {
         coreRef.current.updateRealisticSunPosition(sunPosition);
@@ -194,8 +206,6 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
       } catch (error) {
         console.error('Failed to update sun position:', error);
       }
-    } else {
-      console.warn('Cannot update sun position - core not initialized');
     }
   }, []);
   const enableBuildingFocus = useCallback((buildingId: string) => {
@@ -247,6 +257,8 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     switchCameraType,
     getCurrentCameraType,
     setCameraView,
+    fitCameraToObjects,
+    fitShadowsToObjects,
     refreshThemeColors,
     updateSunPosition,
     enableBuildingFocus,

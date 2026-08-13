@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { BuildingConfig, BuildingData, BuildingModel, Point3D } from '../types/building';
+import { DEFAULT_BUILDING_COLOR, type BuildingConfig, type BuildingData, type BuildingModel, type Point3D } from '../types/building';
 import { clampWwr } from '../services/FacadeGeometry';
 
 export type BuildingEditDraft = BuildingConfig & {
@@ -33,7 +33,7 @@ export const createBuildingEditDraft = (building: BuildingModel): BuildingEditDr
   points: building.points.map(point => ({ ...point })),
   floors: building.floors,
   floorHeight: building.floorHeight,
-  color: building.color ?? 0x7C8FA3,
+  color: building.color ?? DEFAULT_BUILDING_COLOR,
   window_to_wall_ratio: clampWwr(building.window_to_wall_ratio),
   window_overhang: building.window_overhang ?? false,
   window_overhang_depth: building.window_overhang_depth ?? 0,

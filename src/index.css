@@ -195,7 +195,7 @@ html, body, #root {
   .model-graph-overview {
     left: 8px;
     right: auto;
-    bottom: 12px;
+    bottom: 8px;
   }
 
   .model-status-label {
@@ -207,7 +207,7 @@ html, body, #root {
   .model-tool-rail {
     left: 50%;
     top: auto;
-    bottom: 52px;
+    bottom: 58px;
     transform: translateX(-50%);
   }
 

@@ -1,6 +1,8 @@
 import { ensureCounterClockwise } from '../utils/geometry';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 
+export const DEFAULT_BUILDING_COLOR = 0xEEEAE2;
+
 export interface Point3D {
   x: number;
   y: number;

@@ -14,11 +14,11 @@ interface LeftToolbarProps {
 }
 
 const Tool = ({ icon: Icon, label, shortcut, onClick, disabled, active }: { icon: React.ElementType; label: string; shortcut?: string; onClick: () => void; disabled?: boolean; active?: boolean }) => (
-  <button type="button" aria-label={label} title={`${label}${shortcut ? ` (${shortcut})` : ''}`} onClick={onClick} disabled={disabled} className={`model-tool relative flex h-9 w-9 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${active ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}><Icon className="h-4 w-4" /></button>
+  <button type="button" aria-label={label} title={`${label}${shortcut ? ` (${shortcut})` : ''}`} onClick={onClick} disabled={disabled} className={`model-tool relative flex h-10 w-10 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${active ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}><Icon className="h-[18px] w-[18px]" /></button>
 );
 
 export const LeftToolbar: React.FC<LeftToolbarProps> = ({ isDrawing, isInitialized, hasBuildings, onStartDrawing, onExport, onClearAll, onSaveConfiguration, onImportConfiguration, onToggleSunController }) => (
-  <nav className="model-tool-rail absolute left-2 top-1/2 z-40 -translate-y-1/2 rounded-xl border border-slate-200 bg-white p-1 shadow-lg" aria-label="Model tools">
+  <nav className="model-tool-rail absolute left-2 top-1/2 z-40 -translate-y-1/2 rounded-lg border border-slate-200/90 bg-white/95 p-1.5 shadow-lg backdrop-blur-sm" aria-label="Model tools">
     <div className="flex flex-col gap-1">
       <Tool icon={Pencil} label="Draw building" shortcut="D" onClick={onStartDrawing} disabled={!isInitialized || isDrawing} active={isDrawing} />
       <Tool icon={Play} label="Run studies" shortcut="Ctrl+S" onClick={onSaveConfiguration} disabled={!isInitialized || !hasBuildings} />

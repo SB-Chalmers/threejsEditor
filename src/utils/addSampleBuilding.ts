@@ -1,4 +1,4 @@
-import { Point3D, BuildingConfig, BuildingData } from '../types/building';
+import { Point3D, BuildingConfig, BuildingData, DEFAULT_BUILDING_COLOR } from '../types/building';
 import { BuildingService } from '../services/BuildingService';
 import { ensureCounterClockwise } from './geometry';
 import { DEFAULT_FACADE_PARAMETERS } from '../services/FacadeGeometry';
@@ -59,7 +59,7 @@ export function addSampleBuilding(
       depth = 5,
       floors = 6,
       floorHeight = 3.5,
-      color = 0x7C8FA3,
+      color = DEFAULT_BUILDING_COLOR,
       name = 'Welcome Room',
       description = 'A 10m x 5m starter room building',
       windowToWallRatio = DEFAULT_FACADE_PARAMETERS.wwr

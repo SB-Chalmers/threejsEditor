@@ -1,4 +1,4 @@
-import type { BuildingConfig, BuildingModel } from '../types/building';
+import { DEFAULT_BUILDING_COLOR, type BuildingConfig, type BuildingModel } from '../types/building';
 import { calculateBuildingMetrics } from './buildingMetrics';
 
 export const cloneBuildingModel = (building: BuildingModel): BuildingModel => {
@@ -37,7 +37,7 @@ export const cloneBuildingModels = (buildings: readonly BuildingModel[]): Buildi
 export const buildingConfigFromModel = (building: BuildingModel): BuildingConfig => ({
   floors: building.floors,
   floorHeight: building.floorHeight,
-  color: building.color ?? 0x7C8FA3,
+  color: building.color ?? DEFAULT_BUILDING_COLOR,
   name: building.name,
   description: building.description,
   window_to_wall_ratio: building.window_to_wall_ratio,

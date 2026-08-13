@@ -58,7 +58,7 @@ describe('SceneAppearanceManager', () => {
     manager.setMode(scene, { kind: 'editing', buildingId: 'a' });
     expect(focused.material).toBe(focusedMaterial);
     expect(context.material).not.toBe(contextMaterial);
-    expect((context.material as THREE.Material).opacity).toBeCloseTo(0.14);
+    expect((context.material as THREE.Material).opacity).toBeCloseTo(0.28);
 
     manager.setMode(scene, { kind: 'normal' });
     expect(focused.material).toBe(focusedMaterial);
@@ -66,5 +66,27 @@ describe('SceneAppearanceManager', () => {
     expect(focused.castShadow).toBe(true);
     expect(context.castShadow).toBe(true);
     expect(manager.currentMode).toEqual({ kind: 'normal' });
+  });
+
+  it('keeps context massing opaque and lightened during building editing', () => {
+    const scene = new THREE.Scene();
+    const focused = mesh();
+    focused.userData = { isBuilding: true, buildingId: 'a' };
+    const context = mesh('context-massing');
+    scene.add(focused, context);
+    const original = context.material;
+    const originalLightness = (original as THREE.Material & { color: THREE.Color }).color.getHSL({ h: 0, s: 0, l: 0 }).l;
+    const manager = new SceneAppearanceManager();
+
+    manager.setMode(scene, { kind: 'editing', buildingId: 'a' });
+
+    const contextMaterial = context.material as THREE.Material & { color: THREE.Color };
+    expect(contextMaterial.transparent).toBe(false);
+    expect(contextMaterial.opacity).toBe(1);
+    expect(contextMaterial.depthWrite).toBe(true);
+    expect(contextMaterial.color.getHSL({ h: 0, s: 0, l: 0 }).l).toBeGreaterThan(originalLightness);
+
+    manager.setMode(scene, { kind: 'normal' });
+    expect(context.material).toBe(original);
   });
 });

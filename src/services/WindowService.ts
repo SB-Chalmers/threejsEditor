@@ -89,26 +89,30 @@ export class WindowService {
 
   private createMaterials(): WindowMaterials {
     return {
-      glass: new THREE.MeshPhongMaterial({
-        color: 0x4A90E2,
+      glass: new THREE.MeshPhysicalMaterial({
+        color: getThemeColorAsHex('--color-window-glass', 0x607A92),
         transparent: true,
-        opacity: 0.72,
-        reflectivity: 0.9,
-        shininess: 100,
+        opacity: 0.62,
+        roughness: 0.34,
+        metalness: 0.02,
+        clearcoat: 0.35,
+        clearcoatRoughness: 0.45,
         side: THREE.DoubleSide,
         depthTest: true,
         depthWrite: false,
         polygonOffset: true,
         polygonOffsetFactor: -2,
-        polygonOffsetUnits: -2,
-        emissive: 0x225588,
-        emissiveIntensity: 0.2
+        polygonOffsetUnits: -2
       }),
-      frame: new THREE.MeshLambertMaterial({
-        color: getThemeColorAsHex('--color-window-frame', 0x2D2D2D)
+      frame: new THREE.MeshStandardMaterial({
+        color: getThemeColorAsHex('--color-window-frame', 0x46515C),
+        roughness: 0.7,
+        metalness: 0.08
       }),
-      shade: new THREE.MeshLambertMaterial({
-        color: getThemeColorAsHex('--color-window-overhang', 0x8B8B8B),
+      shade: new THREE.MeshStandardMaterial({
+        color: getThemeColorAsHex('--color-window-overhang', 0x737E87),
+        roughness: 0.76,
+        metalness: 0.02,
         side: THREE.DoubleSide
       })
     };

@@ -358,17 +358,21 @@ export class CameraManager {
     // Calculate distance based on camera type
     let distance: number;
     if (this.currentCameraType === 'perspective') {
-      const fov = this.perspectiveCamera.fov;
-      distance = maxDimension / (2 * Math.tan(THREE.MathUtils.degToRad(fov / 2))) * 1.5;
+      const verticalFov = THREE.MathUtils.degToRad(this.perspectiveCamera.fov);
+      const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * this.aspect);
+      const horizontalSize = Math.max(size.x, size.z);
+      const verticalDistance = size.y / (2 * Math.tan(verticalFov / 2));
+      const horizontalDistance = horizontalSize / (2 * Math.tan(horizontalFov / 2));
+      distance = Math.max(verticalDistance, horizontalDistance) * 1.8 + horizontalSize * 0.5;
     } else {
-      distance = maxDimension * 1.2;
+      distance = maxDimension * 1.1;
       
       // Update orthographic camera size
-      const size = maxDimension * 0.6;
-      this.orthographicCamera.left = -size * this.aspect;
-      this.orthographicCamera.right = size * this.aspect;
-      this.orthographicCamera.top = size;
-      this.orthographicCamera.bottom = -size;
+      const viewSize = maxDimension * 0.56;
+      this.orthographicCamera.left = -viewSize * this.aspect;
+      this.orthographicCamera.right = viewSize * this.aspect;
+      this.orthographicCamera.top = viewSize;
+      this.orthographicCamera.bottom = -viewSize;
       this.orthographicCamera.updateProjectionMatrix();
     }
 
