@@ -4,7 +4,8 @@ export const DEFAULT_FACADE_PARAMETERS: FacadeParameters = {
   wwr: 0.4,
   windowWidth: 1.2,
   windowHeight: 1.5,
-  windowSpacing: 0.3,
+  // Keep row split at zero so frontend and Honeybee use single-row apertures by default.
+  windowSpacing: 0,
   wallThickness: 0.3,
   additionalHorizontalShadingDepth: 0,
   additionalVerticalShadingDepth: 0

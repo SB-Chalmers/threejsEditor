@@ -36,7 +36,7 @@ describe('DaylightApiService sensor point mapping', () => {
       wwr: 0.4,
       window_width: 1.2,
       window_height: 1.5,
-      window_spacing: 0.3,
+      window_spacing: 0,
       wall_thickness: 0.3,
       additional_horizontal_shading_depth: 0,
       additional_vertical_shading_depth: 0

@@ -443,30 +443,63 @@ export const SimpleBuildingCreator: React.FC = () => {
     const shouldRecordInGraph = options?.recordInGraph !== false;
     const useGhosting = options?.useGhosting !== false;
 
-    const pendingNode = shouldRecordInGraph
-      ? designExplorationService.saveConfiguration(
-          snapshotBuildings,
-          configurationName,
-          {
-            spatialDaylightAutonomy: 0,
-            globalWarmingPotential: (() => {
-              try {
-                const epsmOpts = getCachedEPSMOptions();
-                if (!epsmOpts) return 0;
-                const gwp = computePortfolioEmbodiedCarbon(epsmOpts, snapshotBuildings);
-                return gwp ?? 0;
-              } catch {
-                return 0;
-              }
-            })()
-          },
-          {
-            status: 'queued',
-            updatedAt: now
-          },
-          daylightResultsByBuildingId
-        )
-      : null;
+    const graph = designExplorationService.getGraph();
+    const baselineNode = graph.nodes.find(node => node.id === 'baseline');
+    const baselineHasDaylight = Boolean(
+      baselineNode?.daylightRun && baselineNode.daylightRun.status !== 'idle'
+    );
+    const baselineHasResults = Boolean(
+      baselineNode?.daylightResultsByBuildingId &&
+      Object.keys(baselineNode.daylightResultsByBuildingId).length > 0
+    );
+    const shouldStoreFirstRunOnBaseline = Boolean(
+      shouldRecordInGraph &&
+      baselineNode &&
+      graph.nodes.length === 1 &&
+      graph.currentNodeId === 'baseline' &&
+      !baselineHasDaylight &&
+      !baselineHasResults
+    );
+
+    const initialMetrics = {
+      spatialDaylightAutonomy: 0,
+      globalWarmingPotential: (() => {
+        try {
+          const epsmOpts = getCachedEPSMOptions();
+          if (!epsmOpts) return 0;
+          const gwp = computePortfolioEmbodiedCarbon(epsmOpts, snapshotBuildings);
+          return gwp ?? 0;
+        } catch {
+          return 0;
+        }
+      })()
+    };
+
+    let pendingNodeId: string | null = null;
+    if (shouldStoreFirstRunOnBaseline) {
+      designExplorationService.updateNodeSnapshot('baseline', {
+        buildings: snapshotBuildings,
+        metrics: initialMetrics,
+        daylightRun: {
+          status: 'queued',
+          updatedAt: now
+        },
+        daylightResultsByBuildingId
+      });
+      pendingNodeId = 'baseline';
+    } else if (shouldRecordInGraph) {
+      const pendingNode = designExplorationService.saveConfiguration(
+        snapshotBuildings,
+        configurationName,
+        initialMetrics,
+        {
+          status: 'queued',
+          updatedAt: now
+        },
+        daylightResultsByBuildingId
+      );
+      pendingNodeId = pendingNode.id;
+    }
 
     runAbortControllerRef.current?.abort();
     runAbortControllerRef.current = new AbortController();
@@ -496,8 +529,8 @@ export const SimpleBuildingCreator: React.FC = () => {
                   },
                 } : previous);
 
-                if (pendingNode) {
-                  designExplorationService.updateNode(pendingNode.id, {
+                if (pendingNodeId) {
+                  designExplorationService.updateNode(pendingNodeId, {
                     daylightRun: {
                       status,
                       studyId,
@@ -515,13 +548,16 @@ export const SimpleBuildingCreator: React.FC = () => {
       setDaylightResultsByBuildingId((prev) => ({ ...prev, ...resultsById }));
       showDaylightAnalysis({ ...daylightResultsByBuildingId, ...resultsById }, 'df');
 
-      if (pendingNode) {
-        designExplorationService.updateNode(pendingNode.id, {
-          metrics: {
-            spatialDaylightAutonomy: runSda
-              ? stampedResults.reduce((total, current) => total + current.sda, 0) / stampedResults.length
-              : pendingNode.metrics.spatialDaylightAutonomy
-          },
+      if (pendingNodeId) {
+        designExplorationService.updateNode(pendingNodeId, {
+          ...(runSda
+            ? {
+                metrics: {
+                  spatialDaylightAutonomy:
+                    stampedResults.reduce((total, current) => total + current.sda, 0) / stampedResults.length
+                }
+              }
+            : {}),
           daylightRun: {
             status: 'complete',
             studyId: result.studyId,
@@ -541,8 +577,8 @@ export const SimpleBuildingCreator: React.FC = () => {
       const message = error instanceof Error ? error.message : 'Unknown daylight simulation error';
       setSimulationProgress(previous => previous ? { ...previous, daylight: { status: 'failed', message } } : previous);
 
-      if (pendingNode) {
-        designExplorationService.updateNode(pendingNode.id, {
+      if (pendingNodeId) {
+        designExplorationService.updateNode(pendingNodeId, {
           daylightRun: {
             status: 'failed',
             error: message,

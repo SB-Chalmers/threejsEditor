@@ -18,7 +18,9 @@ describe('Honeybee-faithful facade geometry', () => {
     const footprint = fixture.footprint.map(([x, z]) => ({ x, y: 0, z }));
     const layout = buildFacadeLayout(footprint, 1, fixture.floorHeight, {
       ...DEFAULT_FACADE_PARAMETERS,
-      wwr: fixture.wwr
+      wwr: fixture.wwr,
+      // Fixture snapshots were exported with a 0.3 m vertical split.
+      windowSpacing: 0.3
     });
 
     fixture.edges.forEach((expected, edgeIndex) => {
@@ -56,7 +58,8 @@ describe('Honeybee-faithful facade geometry', () => {
   it('orders apertures floor-first, then footprint-edge, without reversing geometry', () => {
     const layout = buildFacadeLayout(rectangle, 2, 3, {
       ...DEFAULT_FACADE_PARAMETERS,
-      wwr: 0.4
+      wwr: 0.4,
+      windowSpacing: 0.3
     });
     const firstFloorCount = layout.apertures.filter(aperture => aperture.floorNumber === 1).length;
 
@@ -97,5 +100,19 @@ describe('Honeybee-faithful facade geometry', () => {
     expect(layout.apertures.length).toBeGreaterThan(0);
     expect(layout.apertures.reduce((sum, aperture) => sum + aperture.width * aperture.height, 0))
       .toBeCloseTo(perimeter * 2.5 * 0.95, 8);
+  });
+
+  it('defaults to single-row apertures (no stacked windows) for realistic streetscape rhythm', () => {
+    const layout = buildFacadeLayout(rectangle, 1, 3, {
+      ...DEFAULT_FACADE_PARAMETERS,
+      wwr: 0.4
+    });
+
+    const edge0Apertures = layout.apertures.filter(aperture => aperture.edgeIndex === 0);
+    const bottoms = new Set(
+      edge0Apertures.map(aperture => Number((aperture.center.y - aperture.height / 2).toFixed(6)))
+    );
+
+    expect(bottoms.size).toBe(1);
   });
 });
