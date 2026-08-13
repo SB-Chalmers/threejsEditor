@@ -37,6 +37,17 @@ The app currently uses:
 - `ACESFilmicToneMapping`, sRGB output, and theme-sensitive exposure.
 - Realistic sun elevation/azimuth updates through `updateRealisticSunPosition`.
 
+Browser-verified light-mode baseline:
+
+- ambient intensity `0.28`;
+- hemisphere intensity `0.30`;
+- renderer tone-mapping exposure `0.98`;
+- 2048 directional shadow map;
+- shadow radius `4`, blur samples `16`;
+- bias `-0.00008`, normal bias `0.035`.
+
+These values were tuned with the established architectural palette. Treat them as a known-good starting point, not arbitrary defaults.
+
 Preserve this stack unless the task explicitly calls for a different rendering model.
 
 ## Light Selection
@@ -68,6 +79,7 @@ Preserve this stack unless the task explicitly calls for a different rendering m
 10. Keep theme color updates idempotent and do not replace materials managed by `SceneAppearanceManager`.
 11. Dispose shadow maps, helpers, environment textures, render targets, and PMREM resources when replaced.
 12. Validate at several camera distances and solar angles, not only one static view.
+13. Capture a browser screenshot and sample WebGL pixels before declaring a lighting change complete.
 
 ## Shadow Guidance
 
@@ -105,6 +117,16 @@ If adding image-based lighting:
 ### Scene looks flat
 
 Ambient or hemisphere fill is too strong relative to the sun, or material roughness/metalness is inappropriate.
+
+If ground, context, and the active mass occupy similar midtones, fix the palette hierarchy before increasing AO. The established light palette is background `#F4F6F8`, ground `#D3D9DF`, context `#8C959E`, active mass `#EEEAE2`, glazing `#607A92`, and frames `#46515C`.
+
+### Scene looks washed out
+
+1. Measure ground/context and mass/glazing contrast.
+2. Confirm theme refresh is not restoring old high ambient, hemisphere, shadow blur, or exposure values.
+3. Reduce fill/exposure modestly before darkening every material.
+4. Preserve warm/cool separation between active mass and environment.
+5. Recheck the same camera screenshot; do not judge from CSS swatches alone.
 
 ### Shadows disappear after changing floors
 

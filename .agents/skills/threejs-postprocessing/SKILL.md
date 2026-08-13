@@ -25,7 +25,8 @@ The current pipeline is dynamically imported and ordered as:
 
 1. `RenderPass`
 2. `SAOPass`
-3. `OutputPass`
+3. `OutlinePass`
+4. `OutputPass`
 
 `RendererManager.render()` uses the composer when available and falls back to `renderer.render()` otherwise.
 
@@ -68,6 +69,7 @@ The app already uses `SAOPass`. Tune it before adding a second AO implementation
 - Test contact around facade frames, floor slabs, and ground intersections.
 - Avoid dark halos at silhouettes by adjusting bias, scale, kernel radius, depth cutoff, and blur together.
 - Evaluate at several camera distances; screen-space AO changes with projection and resolution.
+- Current browser-verified SAO intensity is approximately `0.035`. If the viewport looks washed out, fix palette and fill lighting before increasing it; excessive AO produces dirty halos rather than hierarchy.
 
 ### Bloom
 
@@ -81,6 +83,8 @@ The app already uses `SAOPass`. Tune it before adding a second AO implementation
 - Feed `OutlinePass.selectedObjects` from current runtime IDs, not graph snapshot objects.
 - Clear selected objects on workspace replacement and disposal.
 - Update pass camera and resolution on camera type/viewport changes.
+- In this app outline only the active editable mass (`isBuilding` plus stable `buildingId`). Do not outline context, shared facade instances, daylight overlays, floor lines, or graph snapshots.
+- Current target is a thin `#2563EB` visible edge with no glow.
 
 ### Anti-Aliasing
 
@@ -178,3 +182,4 @@ Manual checks:
 4. Reinstate a graph node and verify no pass retains disposed mesh references.
 5. Compare composer enabled/disabled output for color-space or exposure shifts.
 6. Inspect renderer memory after repeated composer reinitialization to catch leaked render targets.
+7. Capture normal and edit screenshots at the same camera, sample several WebGL pixels, and inspect console warnings/errors after a clean reload.
