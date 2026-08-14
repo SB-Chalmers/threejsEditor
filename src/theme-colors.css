@@ -13,10 +13,10 @@
   
   /* 3D Scene Colors */
   --color-ground: #d3d9df;
-  --color-grid-major: #a6b0ba;
+  --color-grid-major: #292a2b;
   --color-grid-minor: #c0c8cf;
   --color-grid: #c0c8cf;
-  --color-sun-light: #fff4df;
+  --color-sun-light: #fff6e8;
   --color-ambient-light: #ffffff;
   --color-hemisphere-sky: #c8d6e3;
   --color-hemisphere-ground: #c7c2b7;
@@ -47,7 +47,7 @@
     --color-building-sample: #ffffff;
   
   /* Window Colors */
-  --color-window-glass: #607a92;
+  --color-window-glass: #547ea5;
   --color-window-frame: #46515c;
   --color-window-overhang: #737e87;
   --color-selection-outline: #2563eb;

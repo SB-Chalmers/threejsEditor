@@ -20,6 +20,8 @@
 - Shadow camera and camera framing fit editable buildings rather than the context model.
 - Edit mode adds a crisp mass-only blue outline while context remains opaque and visually subordinate.
 - Frame-all is available as a familiar icon command in the bottom toolbar.
+- Teaching polish: the mini graph is now labeled “Design history,” centers a lone baseline at `(84,56)` in its `168×112` viewport, labels it “Baseline,” and uses correct option/building grammar.
+- The comparison dialog is titled “Compare design options”; sDA, energy, and GWP badges expose concise native definitions and higher/lower-is-better guidance on hover.
 
 **Responsive Findings**
 

@@ -24,9 +24,9 @@ export const BottomToolbar: React.FC<BottomToolbarProps> = ({ showGrid, snapToGr
         <div className="mx-1 h-4 w-px bg-slate-200" />
         <div className="model-status-label px-1 text-[11px] capitalize text-slate-600">{currentCameraType}</div>
         <div className="mx-1 h-4 w-px bg-slate-200" />
-        <div className="model-status-label px-1 text-[11px] text-slate-600"><b className="text-slate-900">{buildingStats.count}</b> buildings</div>
-        <div className="model-status-label px-1 text-[11px] text-slate-600"><b className="text-slate-900">{buildingStats.totalGrossFloorArea.toFixed(0)}</b> m² GFA</div>
-        <button className={button} onClick={onOpenDesignGraph} title="Design graph"><GitBranch className="h-3.5 w-3.5" /></button>
+        <div className="model-status-label px-1 text-[11px] text-slate-600"><b className="text-slate-900">{buildingStats.count}</b> {buildingStats.count === 1 ? 'building' : 'buildings'}</div>
+        <div className="model-status-label px-1 text-[11px] text-slate-600" title="Gross floor area"><b className="text-slate-900">{buildingStats.totalGrossFloorArea.toFixed(0)}</b> m² GFA</div>
+        <button className={button} onClick={onOpenDesignGraph} title="Design history" aria-label="Open design history"><GitBranch className="h-3.5 w-3.5" /></button>
       </div>
     </div>
   </>;

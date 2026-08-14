@@ -156,13 +156,13 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
         .style("gap", "3px")
         .style("height", "100%")
         .html(`
-          <span style="display:flex;align-items:center;gap:4px;background:#e0f2fe;color:#0c4a6e;font-size:9px;font-family:ui-sans-serif,system-ui,sans-serif;border-radius:4px;padding:2px 5px;white-space:nowrap">
+          <span title="Spatial daylight autonomy — higher is better" style="display:flex;align-items:center;gap:4px;background:#e0f2fe;color:#0c4a6e;font-size:9px;font-family:ui-sans-serif,system-ui,sans-serif;border-radius:4px;padding:2px 5px;white-space:nowrap">
             <span style="opacity:0.8">sDA</span><span style="margin-left:auto;font-weight:700">${sdaStr}</span>
           </span>
-          <span style="display:flex;align-items:center;gap:4px;background:#dcfce7;color:#14532d;font-size:9px;font-family:ui-sans-serif,system-ui,sans-serif;border-radius:4px;padding:2px 5px;white-space:nowrap">
+          <span title="Total energy demand (kWh/m²/year) — lower is better" style="display:flex;align-items:center;gap:4px;background:#dcfce7;color:#14532d;font-size:9px;font-family:ui-sans-serif,system-ui,sans-serif;border-radius:4px;padding:2px 5px;white-space:nowrap">
             <span style="opacity:0.8">Energy</span><span style="margin-left:auto;font-weight:700">${enrgStr}</span>
           </span>
-          <span style="display:flex;align-items:center;gap:4px;background:#fff7ed;color:#9a3412;font-size:9px;font-family:ui-sans-serif,system-ui,sans-serif;border-radius:4px;padding:2px 5px;white-space:nowrap">
+          <span title="Global warming potential (kg CO₂e/m²) — lower is better" style="display:flex;align-items:center;gap:4px;background:#fff7ed;color:#9a3412;font-size:9px;font-family:ui-sans-serif,system-ui,sans-serif;border-radius:4px;padding:2px 5px;white-space:nowrap">
             <span style="opacity:0.8">GWP</span><span style="margin-left:auto;font-weight:700">${gwpStr}</span>
           </span>
         `);
@@ -199,7 +199,7 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
       <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-          <h2 className="text-[16px] font-semibold text-slate-900">Design exploration graph</h2>
+          <h2 className="text-[16px] font-semibold text-slate-900">Compare design options</h2>
           <button
             onClick={onClose}
             className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
@@ -389,7 +389,7 @@ export const DesignGraphDialog: React.FC<DesignGraphDialogProps> = ({
         {/* Footer */}
         <div className="border-t border-slate-200 bg-slate-50/80 px-5 py-3">
           <div className="flex items-center justify-between text-[11px] text-slate-500">
-            <span>{graph.nodes.length} design configurations saved</span>
+            <span>{graph.nodes.length} {graph.nodes.length === 1 ? 'design option' : 'design options'} saved</span>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className="h-3 w-4 rounded border border-emerald-500 bg-emerald-100"></div>
