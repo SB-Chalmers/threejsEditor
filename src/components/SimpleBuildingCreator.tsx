@@ -1,16 +1,15 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useThreeJS } from '../hooks/useThreeJS';
-import { useDrawing } from '../hooks/useDrawing';
-import { useClickHandler } from '../hooks/useClickHandler';
+import { useWorkspaceEditor } from '../hooks/useWorkspaceEditor';
+import { WorkspaceControls } from './model/WorkspaceControls';
+import { cloneBuildingModel } from '../utils/buildingModel';
 import { useBuildingManager } from '../hooks/useBuildingManager';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useBuildingEditSession } from '../hooks/useBuildingEditSession';
 import { LeftToolbar } from './LeftToolbar';
 import { BottomToolbar } from './BottomToolbar';
-import { FloatingInstructions } from './FloatingInstructions';
 import { BuildingEditPanel } from './BuildingEditPanel';
-import { BuildingTooltip } from './BuildingTooltip';
 import { SunController } from './SunController';
 import { DesignGraphDialog } from './DesignGraphDialog';
 import { SaveConfigurationDialog } from './dialogs/SaveConfigurationDialog';
@@ -21,8 +20,8 @@ import { WeatherAndLocationTab } from './WeatherAndLocationTab';
 import { BuildingConfig, BuildingData, BuildingModel, DEFAULT_BUILDING_COLOR } from '../types/building';
 import type { CameraType, CameraView } from '../core/ThreeJSCore';
 import type { SunPosition } from '../utils/sunPosition';
-import { addSampleBuilding } from '../utils/addSampleBuilding';
 import { BuildingService } from '../services/BuildingService';
+import { addSampleBuilding } from '../utils/addSampleBuilding';
 import { designExplorationService } from '../services/DesignExplorationService';
 import { daylightApiService } from '../services/DaylightApiService';
 import { energyApiService } from '../services/EnergyApiService';
@@ -31,8 +30,6 @@ import { getEPSMConstructionOptions, getCachedEPSMOptions, computePortfolioEmbod
 import { DaylightRunSummary } from '../types/daylight';
 import { createEnergyInputFingerprint, retainValidDaylightResults } from '../services/SimulationFingerprint';
 import { DEFAULT_FACADE_PARAMETERS } from '../services/FacadeGeometry';
-import { FootprintEditorService } from '../services/FootprintEditorService';
-import { DrawingInspector } from './model/DrawingInspector';
 import { SimulationProgressCard, type SimulationTaskState } from './model/SimulationProgressCard';
 import { DaylightLegend } from './model/DaylightLegend';
 import { DesignGraphOverviewCard } from './model/DesignGraphOverviewCard';
@@ -51,8 +48,7 @@ export const SimpleBuildingCreator: React.FC = () => {
   const [hasInteracted, setHasInteracted] = useState(false);
   const [hasInitializedWithSample, setHasInitializedWithSample] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
-  const [snapToGrid, setSnapToGrid] = useState(false);
-  const [showBuildingConfig, setShowBuildingConfig] = useState(false);
+  const [snapToGrid, setSnapToGrid] = useState(true);
   const [showSunController, setShowSunController] = useState(false);
   const [showSaveConfigDialog, setShowSaveConfigDialog] = useState(false);
   const [showDesignGraphDialog, setShowDesignGraphDialog] = useState(false);
@@ -62,10 +58,10 @@ export const SimpleBuildingCreator: React.FC = () => {
   const [isSaveAndRunInProgress, setIsSaveAndRunInProgress] = useState(false);
   const [simulationProgress, setSimulationProgress] = useState<{ daylight: SimulationTaskState; energy: SimulationTaskState } | null>(null);
   const [daylightResultsByBuildingId, setDaylightResultsByBuildingId] = useState<Record<string, DaylightRunSummary>>({});
+  const analysisCacheRef = useRef(new Map<string, { id: string; result: DaylightRunSummary }>());
   const [daylightLegend, setDaylightLegend] = useState<DaylightLegendState | null>(null);
   const runAbortControllerRef = useRef<AbortController | null>(null);
   const energyAbortControllerRef = useRef<AbortController | null>(null);
-  const footprintEditorRef = useRef<FootprintEditorService | null>(null);
   const selectedBuildingRef = useRef<BuildingData | null>(null);
   const suspendedAnalysisModeRef = useRef<'df' | 'sda' | null>(null);
 
@@ -84,7 +80,7 @@ export const SimpleBuildingCreator: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [simulationProgress]);
 
-  const [buildingConfig, setBuildingConfig] = useState<BuildingConfig>({
+  const [buildingConfig] = useState<BuildingConfig>({
     floors: 3,
     floorHeight: 3.5,
     color: DEFAULT_BUILDING_COLOR,
@@ -99,7 +95,7 @@ export const SimpleBuildingCreator: React.FC = () => {
   const { 
     scene, 
     camera, 
-    groundPlane, 
+    getCamera, setPlanMode, setSpacePan,
     windowService,
     isInitialized, 
     isInitializing,
@@ -108,7 +104,6 @@ export const SimpleBuildingCreator: React.FC = () => {
     toggleGrid, 
     toggleFPSCounter,
     retryInitialization,
-    switchCameraType,
     setCameraView,
     fitCameraToObjects,
     fitShadowsToObjects,
@@ -120,12 +115,10 @@ export const SimpleBuildingCreator: React.FC = () => {
   const { 
     buildings, 
     selectedBuilding, 
-    buildingTooltip,
     selectBuilding, 
     updateBuilding, 
     previewBuilding,
     restoreBuildingPreview,
-    clearAllBuildings, 
     exportBuildings, 
     getBuildings,
     getBuilding,
@@ -134,8 +127,7 @@ export const SimpleBuildingCreator: React.FC = () => {
     workspaceRevision,
     buildingStats, 
     deleteBuilding, 
-    handleBuildingInteraction,
-    addBuilding,
+    addBuilding, createBuilding,
     hideBuildingTooltip
   } = useBuildingManager(scene, camera as THREE.PerspectiveCamera | null, windowService);
   selectedBuildingRef.current = selectedBuilding;
@@ -185,157 +177,40 @@ export const SimpleBuildingCreator: React.FC = () => {
     setSceneAppearanceMode({ kind: 'normal' });
   }, [scene, setSceneAppearanceMode, updateDaylightLegend]);
 
-  const beginBuildingEdit = React.useCallback((building: BuildingData) => {
-    const liveBuilding = getBuilding(building.id) ?? building;
-    if (liveBuilding.mesh.userData.isPreview || liveBuilding.mesh.userData.isDrawingElement) return;
-
-    suspendedAnalysisModeRef.current = daylightLegend?.isVisible
-      ? daylightLegend.mode
-      : null;
-    if (scene && daylightLegend?.isVisible) {
-      daylightVisualizationService.setVisible(scene, false);
-      updateDaylightLegend(
-        getOverlayDatasetsForResults(daylightResultsByBuildingId, daylightLegend.mode)
-          .flatMap((dataset) => dataset.points),
-        daylightLegend.mode,
-        false
-      );
-    }
-    setSceneAppearanceMode({ kind: 'normal' });
-    selectBuilding(liveBuilding);
-    buildingEdit.open(liveBuilding.id);
-    setSceneAppearanceMode({ kind: 'editing', buildingId: liveBuilding.id });
-  }, [
-    buildingEdit.open,
-    daylightLegend,
-    daylightResultsByBuildingId,
-    getBuilding,
-    scene,
-    selectBuilding,
-    setSceneAppearanceMode,
-    updateDaylightLegend,
-  ]);
-
-  useEffect(() => {
-    if (!buildingEdit.buildingId || !buildingEdit.draft || !scene || !camera || !containerRef.current) return;
-    const editor = new FootprintEditorService({
-      scene,
-      camera,
-      element: containerRef.current,
-      points: buildingEdit.draft.points,
-      snapToGrid,
-      onChange: buildingEdit.updateFootprint,
-      onDragStateChange: dragging => setCameraControlsEnabled(!dragging),
-    });
-    footprintEditorRef.current = editor;
-    return () => {
-      editor.dispose();
-      if (footprintEditorRef.current === editor) footprintEditorRef.current = null;
-    };
-  }, [buildingEdit.buildingId, buildingEdit.token, buildingEdit.updateFootprint, scene, camera, snapToGrid, setCameraControlsEnabled]);
-
-  useEffect(() => {
-    if (buildingEdit.draft) footprintEditorRef.current?.setPoints(buildingEdit.draft.points);
-  }, [buildingEdit.draft]);
-
-  // Initialize drawing functionality
-  const { 
-    drawingState, 
-    startDrawing, 
-    stopDrawing, 
-    addPoint, 
-    finishBuilding, 
-    updatePreview, 
-    undoLastPoint, 
-    clearAllDrawingElements 
-  } = useDrawing(
-    scene,
-    camera,
-    groundPlane,
-    snapToGrid,
-    buildingConfig,
-    addBuilding
-  );
-
-  // Handle click events and mouse movement
-  const isDrawingRef = React.useRef(drawingState.isDrawing);
-  React.useEffect(() => {
-    isDrawingRef.current = drawingState.isDrawing;
-  }, [drawingState.isDrawing]);
-
-  useClickHandler(
-    containerRef,
-    (event, container) => {
-      // Only handle clicks when model tab is active
-      if (activeTab !== 'model') return;
-      
-      if (!hasInteracted) setHasInteracted(true);
-      
-      if (drawingState.isDrawing) {
-        addPoint(event, container);
-      } else if (isInitialized && camera && scene) {
-        const result = handleBuildingInteraction(event, container);
-        
-        if (result?.building && !result.building.mesh.userData.isPreview) {
-          beginBuildingEdit(result.building);
-        } else if (!result) {
-          selectBuilding(null);
-        }
-      }
-    }, 
-    () => finishBuilding(), 
-    (event, container) => {
-      // Only handle mouse move when model tab is active
-      if (activeTab !== 'model') return;
-      
-      if (drawingState.isDrawing) {
-        updatePreview(event, container);
-      }
+  const editor = useWorkspaceEditor({
+    containerRef, enabled: activeTab === 'model' && isInitialized,
+    getCamera, setPlanMode: plan => { setPlanMode(plan); setCurrentCameraType(plan ? 'orthographic' : 'perspective'); },
+    setSpacePan, setCameraControlsEnabled, edit: buildingEdit,
+    getBuildings, getBuilding, selectBuilding, createBuilding, deleteBuilding,
+    captureSnapshot, replaceWorkspace, config: buildingConfig, grid: snapToGrid,
+    onSelect: building => {
+      setHasInteracted(true);
+      hideBuildingTooltip();
+      setSceneAppearanceMode(building ? { kind: 'editing', buildingId: building.id } : { kind: 'normal' });
+      if (scene) daylightVisualizationService.setVisible(scene, false);
+      setDaylightLegend(previous => previous ? { ...previous, isVisible: false } : null);
     },
-    (event, container) => {
-      // Only handle hover when model tab is active
-      if (activeTab !== 'model') return;
-      
-      if (!drawingState.isDrawing && isInitialized && camera && scene) {
-        handleBuildingInteraction(event, container);
+    onChange: selectedId => {
+      fitShadowsToObjects(getBuildings().map(b => b.mesh));
+      Object.entries(daylightResultsByBuildingId).forEach(([id, result]) => {
+        analysisCacheRef.current.set(`${id}:${result.inputFingerprint}`, { id, result });
+      });
+      const retained = Object.assign({}, ...Array.from(analysisCacheRef.current.values()).map(({ id, result }) =>
+        retainValidDaylightResults({ [id]: result }, getBuildings()))) as Record<string, DaylightRunSummary>;
+      setDaylightResultsByBuildingId(retained);
+      if (activeResultsBuildingId && !retained[activeResultsBuildingId]) {
+        setActiveResultsBuildingId(null); setShowDaylightResultsDialog(false);
       }
+      if (daylightLegend) refreshHiddenDaylightAnalysis(retained, daylightLegend.mode);
+      else if (scene) daylightVisualizationService.clear(scene);
+      setSceneAppearanceMode(selectedId ? { kind: 'editing', buildingId: selectedId } : { kind: 'normal' });
     },
-    isDrawingRef
-  );
-
-  // Event handlers
-  const handleStartDrawing = () => {
-    if (!hasInteracted) setHasInteracted(true);
-    setShowBuildingConfig(true);
-    
-    // If already drawing, first stop any current drawing session
-    if (drawingState.isDrawing) {
-      stopDrawing();
-      
-      // Small delay to ensure cleanup completes before restarting
-      setTimeout(() => {
-        selectBuilding(null);
-        startDrawing();
-        
-        // Force immediate preview update if mouse is over the container
-        if (containerRef.current) {
-          const rect = containerRef.current.getBoundingClientRect();
-          const lastMouseEvent = document.createEvent('MouseEvents');
-          lastMouseEvent.initMouseEvent(
-            'mousemove', true, true, window, 0,
-            0, 0, rect.left + rect.width/2, rect.top + rect.height/2,
-            false, false, false, false, 0, null
-          );
-          containerRef.current.dispatchEvent(lastMouseEvent);
-        }
-      }, 10);
-      return;
-    }
-    
-    // Normal start drawing flow
-    selectBuilding(null);
-    startDrawing();
-  };
+  });
+  const drawingState = { isDrawing: editor.state.tool === 'polygon' || editor.state.tool === 'rectangle', points: editor.state.points };
+  const startDrawing = () => editor.activate('polygon');
+  const stopDrawing = () => editor.activate('select');
+  const clearAllDrawingElements = stopDrawing;
+  const handleStartDrawing = startDrawing;
 
   const handleToggleGrid = () => {
     setShowGrid(!showGrid);
@@ -355,94 +230,38 @@ export const SimpleBuildingCreator: React.FC = () => {
   };
 
   const handleImportConfigConfirm = (config: unknown) => {
-    try {
-      buildingEdit.discard();
+      const data: unknown[] = Array.isArray(config) ? config :
+        config && typeof config === 'object' && Array.isArray((config as { buildings?: unknown }).buildings)
+          ? (config as { buildings: unknown[] }).buildings : [];
+      if (!data.length) throw new Error('No buildings found in configuration.');
+      const models = data.map((raw, index) => {
+        if (!raw || typeof raw !== 'object') throw new Error('Invalid building data.');
+        const item = raw as ImportedBuildingData;
+        if (!Array.isArray(item.points)) throw new Error('Missing footprint.');
+        return cloneBuildingModel({ ...buildingConfig, ...item,
+          id: item.id || `imported_${Date.now()}_${index}`, points: item.points,
+          floors: item.floors ?? 3, floorHeight: item.floorHeight ?? 3.5,
+          createdAt: item.createdAt ? new Date(item.createdAt) : new Date(),
+          name: item.name ?? `Imported Building ${index + 1}`,
+        } as BuildingModel);
+      });
+      editor.cancel();
+      replaceWorkspace(models);
+      analysisCacheRef.current.clear();
+      editor.reset();
       setSceneAppearanceMode({ kind: 'normal' });
       if (scene) daylightVisualizationService.clear(scene);
-      setDaylightLegend(null);
-      setDaylightResultsByBuildingId({});
-      setShowDaylightResultsDialog(false);
-      setActiveResultsBuildingId(null);
+      setDaylightLegend(null); setDaylightResultsByBuildingId({});
+      setShowDaylightResultsDialog(false); setActiveResultsBuildingId(null);
       suspendedAnalysisModeRef.current = null;
-      // Clear current buildings
-      clearAllBuildings();
-      
-      // Determine if config is an array of buildings or an object with buildings property
-      const buildingsData: unknown[] = Array.isArray(config)
-        ? config
-        : (config && typeof config === 'object' && Array.isArray((config as { buildings?: unknown }).buildings)
-          ? (config as { buildings: unknown[] }).buildings
-          : []);
-      
-      if (!Array.isArray(buildingsData)) {
-        throw new Error('Invalid configuration format');
-      }
-
-      // Recreate buildings from imported data
-      const buildingService = new BuildingService(scene!);
-      
-      buildingsData.forEach((rawBuildingData, index: number) => {
-        try {
-          if (!rawBuildingData || typeof rawBuildingData !== 'object') {
-            throw new Error(`Building ${index + 1}: Invalid building data`);
-          }
-          const buildingData = rawBuildingData as ImportedBuildingData;
-          // Validate required fields
-          if (!buildingData.points || !Array.isArray(buildingData.points) || buildingData.points.length < 3) {
-            throw new Error(`Building ${index + 1}: Invalid or missing points`);
-          }
-
-          // Create building config with defaults for missing properties
-          const buildingConfig: BuildingConfig = {
-            floors: buildingData.floors ?? 3,
-            floorHeight: buildingData.floorHeight ?? 3.5,
-            color: buildingData.color ?? DEFAULT_BUILDING_COLOR,
-            name: buildingData.name ?? `Imported Building ${index + 1}`,
-            description: buildingData.description ?? '',
-            window_to_wall_ratio: buildingData.window_to_wall_ratio ?? DEFAULT_FACADE_PARAMETERS.wwr,
-            window_overhang: buildingData.window_overhang ?? false,
-            window_overhang_depth: buildingData.window_overhang_depth ?? 0,
-            wall_construction: buildingData.wall_construction ?? 'Default Wall',
-            floor_construction: buildingData.floor_construction ?? 'Default Floor',
-            roof_construction: buildingData.roof_construction ?? 'Default Roof',
-            window_construction: buildingData.window_construction ?? 'Default Window',
-            structural_system: buildingData.structural_system ?? 'Concrete',
-            building_program: buildingData.building_program ?? 'Office',
-            hvac_system: buildingData.hvac_system ?? 'Default HVAC',
-            natural_ventilation: buildingData.natural_ventilation ?? false
-          };
-
-          // Create the 3D mesh
-          const mesh = buildingService.createBuilding(buildingData.points, buildingConfig);
-          
-          // Set metadata
-          mesh.userData = {
-            ...mesh.userData,
-            buildingId: buildingData.id || `imported_${Date.now()}_${index}`,
-            name: buildingConfig.name,
-            description: buildingConfig.description
-          };
-
-          // Add the building to the manager
-          addBuilding(mesh, buildingData.points, buildingConfig);
-          
-        } catch (error) {
-          console.error(`Failed to import building ${index + 1}:`, error);
-        }
-      });
-
       const importedBuildings = getBuildings();
       const importedMeshes = importedBuildings.map(building => building.mesh);
       if (importedMeshes.length > 0) {
         fitShadowsToObjects(importedMeshes);
         fitCameraToObjects(importedMeshes, { duration: 650 });
       }
-      console.log(`Successfully imported ${buildingsData.length} building(s)`);
+      console.log(`Successfully imported ${models.length} building(s)`);
       
-    } catch (error) {
-      console.error('Failed to import configuration:', error);
-      // You could show an error dialog here
-    }
   };
 
   const runDaylightSimulation = React.useCallback(async (
@@ -721,11 +540,12 @@ export const SimpleBuildingCreator: React.FC = () => {
 
     const node = designExplorationService.reinstateConfiguration(nodeId);
 
+    editor.reset();
+    analysisCacheRef.current.clear();
     // Reset transient UI/editing state so reinstatement is deterministic.
     stopDrawing();
     clearAllDrawingElements();
     buildingEdit.discard();
-    setShowBuildingConfig(false);
     hideBuildingTooltip();
 
     setSceneAppearanceMode({ kind: 'normal' });
@@ -755,57 +575,6 @@ export const SimpleBuildingCreator: React.FC = () => {
     setShowDesignGraphDialog(false);
   };
 
-  const handleCommitBuilding = () => {
-    const resumeMode = suspendedAnalysisModeRef.current;
-    suspendedAnalysisModeRef.current = null;
-    setSceneAppearanceMode({ kind: 'normal' });
-    const updatedBuilding = buildingEdit.commit();
-    if (!updatedBuilding) return;
-    fitShadowsToObjects(getBuildings().map(building => building.mesh));
-    const retained = retainValidDaylightResults(daylightResultsByBuildingId, getBuildings());
-    selectBuilding(null);
-    setDaylightResultsByBuildingId(retained);
-
-    if (activeResultsBuildingId && !retained[activeResultsBuildingId]) {
-      setActiveResultsBuildingId(null);
-      setShowDaylightResultsDialog(false);
-    }
-
-    if (resumeMode) {
-      showDaylightAnalysis(retained, resumeMode);
-    } else if (daylightLegend) {
-      refreshHiddenDaylightAnalysis(retained, daylightLegend.mode);
-    } else if (Object.keys(retained).length === 0 && scene) {
-      daylightVisualizationService.clear(scene);
-    }
-  };
-
-  const handleCancelBuilding = () => {
-    const resumeMode = suspendedAnalysisModeRef.current;
-    suspendedAnalysisModeRef.current = null;
-    setSceneAppearanceMode({ kind: 'normal' });
-    buildingEdit.cancel();
-    selectBuilding(null);
-    if (resumeMode) showDaylightAnalysis(daylightResultsByBuildingId, resumeMode);
-  };
-
-  const handleEditBuilding = beginBuildingEdit;
-
-  const handleViewBuildingResult = (building: BuildingData) => {
-    if (!scene) {
-      return;
-    }
-
-    const result = daylightResultsByBuildingId[building.id];
-    if (!result) {
-      return;
-    }
-
-    showDaylightAnalysis(daylightResultsByBuildingId, 'df');
-    setActiveResultsBuildingId(building.id);
-    setShowDaylightResultsDialog(true);
-  };
-
   const handleSelectBuildingResult = (buildingId: string) => {
     const result = daylightResultsByBuildingId[buildingId];
     if (!result || !scene) {
@@ -814,48 +583,6 @@ export const SimpleBuildingCreator: React.FC = () => {
 
     showDaylightAnalysis(daylightResultsByBuildingId, 'df');
     setActiveResultsBuildingId(buildingId);
-  };
-
-  const handleDeleteBuilding = (buildingId: string) => {
-    if (buildingEdit.buildingId === buildingId) {
-      buildingEdit.discard();
-    }
-    setSceneAppearanceMode({ kind: 'normal' });
-    deleteBuilding(buildingId);
-    const nextResults = { ...daylightResultsByBuildingId };
-    delete nextResults[buildingId];
-    setDaylightResultsByBuildingId(nextResults);
-    if (daylightLegend?.isVisible) {
-      showDaylightAnalysis(nextResults, daylightLegend.mode);
-    } else if (daylightLegend) {
-      refreshHiddenDaylightAnalysis(nextResults, daylightLegend.mode);
-    }
-
-    if (activeResultsBuildingId === buildingId) {
-      setShowDaylightResultsDialog(false);
-      setActiveResultsBuildingId(null);
-    }
-  };
-
-  const handleClearAll = () => {
-    buildingEdit.discard();
-    setSceneAppearanceMode({ kind: 'normal' });
-    selectBuilding(null);
-    clearAllBuildings();
-    setDaylightResultsByBuildingId({});
-    setShowDaylightResultsDialog(false);
-    setActiveResultsBuildingId(null);
-    setDaylightLegend(null);
-    suspendedAnalysisModeRef.current = null;
-    if (scene) {
-      daylightVisualizationService.clear(scene);
-    }
-    // Don't clear drawing elements when using the Clear All button from LeftToolbar
-    // Only clear selected building and reset UI state
-    // Force service state reset
-    setTimeout(() => {
-      if (showBuildingConfig) setShowBuildingConfig(false);
-    }, 100);
   };
 
   const handleToggleDaylightVisibility = () => {
@@ -869,16 +596,11 @@ export const SimpleBuildingCreator: React.FC = () => {
     showDaylightAnalysis(daylightResultsByBuildingId, daylightLegend.mode);
   };
 
-  const handleSwitchCameraType = (type: CameraType) => {
-    if (switchCameraType) {
-      switchCameraType(type);
-      setCurrentCameraType(type);
-    }
-  };
+  const handleSwitchCameraType = (type: CameraType) => editor.view(type === 'orthographic');
 
   const handleSetCameraView = (view: CameraView) => {
-    if (setCameraView) {
-      setCameraView(view, { duration: 1000 });    }
+    if (view === 'top' || view === 'perspective') editor.view(view === 'top');
+    else { editor.cancel(); setCameraView(view, { duration: 280 }); setCurrentCameraType('orthographic'); }
   };
 
   const handleFitView = React.useCallback(() => {
@@ -896,27 +618,12 @@ export const SimpleBuildingCreator: React.FC = () => {
     }
   }, [updateSunPosition]);
 
-  // Determine instruction mode
-  const getInstructionMode = () => {
-    if (!hasInteracted && !drawingState.isDrawing && buildings.length === 0 && isInitialized) {
-      return 'welcome';
-    }
-    if (drawingState.isDrawing) {
-      return 'drawing';
-    }
-    if (!hasInteracted && !drawingState.isDrawing && buildings.length > 0 && !selectedBuilding && !showBuildingConfig) {
-      return 'selection';
-    }
-    return null;
-  };
-
   // Keyboard shortcuts
   useKeyboardShortcuts({
     onDrawBuilding: () => {
       if (activeTab !== 'model') return;
       if (!hasInteracted) setHasInteracted(true);
       selectBuilding(null);
-      setShowBuildingConfig(true);
       startDrawing();
     },
     onToggleGrid: () => {
@@ -939,25 +646,9 @@ export const SimpleBuildingCreator: React.FC = () => {
       if (activeTab !== 'model') return;
       exportBuildings();
     },
-    onClearAll: () => {
-      if (activeTab !== 'model') return;
-      handleClearAll();
-      if (clearAllDrawingElements) clearAllDrawingElements();
-    },
-    onEscape: () => {
-      if (activeTab !== 'model') return;
-      if (drawingState.isDrawing) {
-        stopDrawing();
-      } else if (selectedBuilding) {
-        handleCancelBuilding();
-      } else if (showBuildingConfig) {
-        setShowBuildingConfig(false);
-      }
-    },
-    onUndoLastPoint: () => {
-      if (activeTab !== 'model') return;
-      undoLastPoint();
-    },
+    onClearAll: () => {}, // Geometry shortcuts belong to the interaction coordinator.
+    onEscape: () => {},
+    onUndoLastPoint: () => {},
     onSaveConfiguration: () => {
       if (activeTab !== 'model') return;
       handleSaveConfiguration();
@@ -1109,7 +800,7 @@ export const SimpleBuildingCreator: React.FC = () => {
   };
 
   return (
-    <div className="model-workspace relative flex h-screen w-full flex-col bg-[#F4F6F8] text-slate-800">
+    <div data-editing={Boolean(buildingEdit.draft)} data-drawing={drawingState.isDrawing} className="model-workspace relative flex h-screen w-full flex-col bg-[#F4F6F8] text-slate-800">
       {/* Tab Navigation */}
       <Tabs 
         tabs={tabs} 
@@ -1144,9 +835,10 @@ export const SimpleBuildingCreator: React.FC = () => {
               isDrawing={drawingState.isDrawing}
               isInitialized={isInitialized}
               hasBuildings={buildings.length > 0}
+              hasSelection={Boolean(buildingEdit.draft)}
               onStartDrawing={handleStartDrawing}
               onExport={exportBuildings}
-              onClearAll={handleClearAll}
+              onClearAll={editor.remove}
               onSaveConfiguration={handleSaveConfiguration}
               onImportConfiguration={handleImportConfiguration}
               onToggleSunController={() => setShowSunController(!showSunController)}
@@ -1168,36 +860,7 @@ export const SimpleBuildingCreator: React.FC = () => {
               onOpenDesignGraph={handleOpenDesignGraph}
             />
 
-            {/* Floating Instructions */}
-            <div className="absolute inset-0 pointer-events-none z-20">
-              <FloatingInstructions
-                mode={getInstructionMode()}
-                drawingPoints={drawingState.points.length}
-                buildingCount={buildings.length}
-                onDismissWelcome={() => setHasInteracted(true)}
-              />
-            </div>
-
-            {/* Building Tooltip */}
-            {buildingTooltip && (
-              <BuildingTooltip
-                building={buildingTooltip.building}
-                position={buildingTooltip.position}
-                hasDaylightResult={Boolean(daylightResultsByBuildingId[buildingTooltip.building.id])}
-                onViewResult={handleViewBuildingResult}
-                onEdit={handleEditBuilding}
-                onDelete={handleDeleteBuilding}
-                onClose={hideBuildingTooltip}
-              />
-            )}
-
-            {drawingState.isDrawing && showBuildingConfig && (
-              <DrawingInspector
-                config={buildingConfig}
-                onChange={setBuildingConfig}
-                onClose={() => { setShowBuildingConfig(false); stopDrawing(); }}
-              />
-            )}
+            <WorkspaceControls editor={editor} draft={buildingEdit.draft} grid={snapToGrid} onToggleGridSnap={() => setSnapToGrid(!snapToGrid)} />
 
             {/* Sun Controller */}
             <SunController
@@ -1209,19 +872,34 @@ export const SimpleBuildingCreator: React.FC = () => {
             {/* Building Edit Panel */}
             {buildingEdit.draft && buildingEdit.baseDraft && (
               <BuildingEditPanel
-                key={`${buildingEdit.buildingId}-${buildingEdit.token}`}
+                key={buildingEdit.buildingId}
                 draft={buildingEdit.draft}
                 baseDraft={buildingEdit.baseDraft}
-                onChange={buildingEdit.updateDraft}
+                editor={editor}
+                hasResults={Boolean(buildingEdit.buildingId && daylightResultsByBuildingId[buildingEdit.buildingId])}
+                onViewResults={() => {
+                  editor.commitProperty();
+                  const id = buildingEdit.buildingId;
+                  const validResults = retainValidDaylightResults(daylightResultsByBuildingId, getBuildings());
+                  if (!id || !validResults[id]) return;
+                  showDaylightAnalysis(validResults, 'df');
+                  setActiveResultsBuildingId(id);
+                  setShowDaylightResultsDialog(true);
+                }}
+                onChange={draft => {
+                  const active = document.activeElement;
+                  const buffered = active instanceof HTMLTextAreaElement || (active instanceof HTMLInputElement && ['text', 'range', 'number'].includes(active.type));
+                  editor.changeProperty(draft, !buffered);
+                }}
                 onReset={buildingEdit.reset}
-                onCommit={handleCommitBuilding}
-                onCancel={handleCancelBuilding}
+                onCommit={editor.commitProperty}
+                onCancel={() => editor.select(null)}
               />
             )}
 
             {daylightLegend && <DaylightLegend {...daylightLegend} onToggle={handleToggleDaylightVisibility} />}
 
-            <DesignGraphOverviewCard onOpenGraph={handleOpenDesignGraph} />
+            {!buildingEdit.draft && !drawingState.isDrawing && <DesignGraphOverviewCard onOpenGraph={handleOpenDesignGraph} />}
 
             {simulationProgress && <SimulationProgressCard daylight={simulationProgress.daylight} energy={simulationProgress.energy} onDismiss={() => setSimulationProgress(null)} onRetry={() => void handleSaveConfigurationConfirm(lastRunNameRef.current)} />}
 

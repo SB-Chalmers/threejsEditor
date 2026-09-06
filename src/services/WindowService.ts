@@ -40,6 +40,31 @@ export class WindowService {
   private readonly buildings = new Map<string, BuildingWindowRecord>();
   private readonly renderedWindowCounts = new Map<string, number>();
   private totalWindowCount = 0;
+  private editingBuildingId: string | null = null;
+  private contextMeshes: THREE.InstancedMesh[] = [];
+
+  /** Split display batches only; building records and counts remain unchanged. */
+  setEditingBuilding(buildingId: string | null): void {
+    if (this.editingBuildingId === buildingId) return;
+    this.editingBuildingId = buildingId;
+    if (buildingId && !this.contextMeshes.length) {
+      this.contextMeshes = this.primaryMeshes().map(source => {
+        const mesh = new THREE.InstancedMesh(source.geometry, source.material, source.instanceMatrix.count);
+        mesh.name = `${source.name}-context`;
+        mesh.userData = { analysisRole: source.userData.analysisRole, facadeContext: true };
+        mesh.count = 0;
+        mesh.castShadow = false;
+        mesh.receiveShadow = source.receiveShadow;
+        this.scene.add(mesh);
+        return mesh;
+      });
+    }
+    this.rebuildInstances();
+  }
+
+  private primaryMeshes(): THREE.InstancedMesh[] {
+    return [this.glassInstancedMesh, this.frameInstancedMesh, this.overhangInstancedMesh];
+  }
 
   public readonly glassInstancedMesh: THREE.InstancedMesh;
   public readonly frameInstancedMesh: THREE.InstancedMesh;
@@ -159,6 +184,11 @@ export class WindowService {
     this.scene.remove(this.glassInstancedMesh);
     this.scene.remove(this.frameInstancedMesh);
     this.scene.remove(this.overhangInstancedMesh);
+    for (const mesh of [...this.primaryMeshes(), ...this.contextMeshes]) {
+      this.scene.remove(mesh);
+      mesh.dispose();
+    }
+    this.contextMeshes = [];
     this.glassGeometry.dispose();
     this.frameGeometry.dispose();
     this.shadeGeometry.dispose();
@@ -182,52 +212,36 @@ export class WindowService {
   }
 
   private rebuildInstances(): void {
-    let glassIndex = 0;
-    let frameIndex = 0;
-    let shadeIndex = 0;
+    const primary = this.primaryMeshes();
+    const counts = [0, 0, 0], contextCounts = [0, 0, 0];
+    let total = 0;
     this.renderedWindowCounts.clear();
-
     for (const [buildingId, record] of this.buildings) {
-      const layout = buildFacadeLayout(
-        record.building.points,
-        record.building.floors,
-        record.building.floorHeight,
-        getBuildingFacadeParameters(record.building)
-      );
-      const remainingCapacity = this.maxWindows - glassIndex;
-      const apertures = layout.apertures.slice(0, Math.max(0, remainingCapacity));
-
+      const layout = buildFacadeLayout(record.building.points, record.building.floors,
+        record.building.floorHeight, getBuildingFacadeParameters(record.building));
+      const apertures = layout.apertures.slice(0, Math.max(0, this.maxWindows - total));
+      const context = this.editingBuildingId !== null && buildingId !== this.editingBuildingId;
+      const meshes = context ? this.contextMeshes : primary;
+      const indices = context ? contextCounts : counts;
       for (const aperture of apertures) {
-        this.glassInstancedMesh.setMatrixAt(
-          glassIndex,
-          this.createGlassMatrix(aperture)
-        );
-        glassIndex += 1;
-
-        for (const matrix of this.createFrameMatrices(aperture, record.config)) {
-          this.frameInstancedMesh.setMatrixAt(frameIndex, matrix);
-          frameIndex += 1;
-        }
-
-        for (const matrix of this.createShadeMatrices(aperture)) {
-          this.overhangInstancedMesh.setMatrixAt(shadeIndex, matrix);
-          shadeIndex += 1;
-        }
+        meshes[0].setMatrixAt(indices[0]++, this.createGlassMatrix(aperture));
+        for (const matrix of this.createFrameMatrices(aperture, record.config)) meshes[1].setMatrixAt(indices[1]++, matrix);
+        for (const matrix of this.createShadeMatrices(aperture)) meshes[2].setMatrixAt(indices[2]++, matrix);
       }
-
+      total += apertures.length;
       this.renderedWindowCounts.set(buildingId, apertures.length);
-      if (apertures.length < layout.apertures.length) {
-        console.warn(`Maximum number of façade apertures reached; truncated ${buildingId}.`);
-      }
+      if (apertures.length < layout.apertures.length) console.warn(`Maximum number of façade apertures reached; truncated ${buildingId}.`);
     }
-
-    this.totalWindowCount = glassIndex;
-    this.glassInstancedMesh.count = glassIndex;
-    this.frameInstancedMesh.count = frameIndex;
-    this.overhangInstancedMesh.count = shadeIndex;
-    this.glassInstancedMesh.instanceMatrix.needsUpdate = true;
-    this.frameInstancedMesh.instanceMatrix.needsUpdate = true;
-    this.overhangInstancedMesh.instanceMatrix.needsUpdate = true;
+    this.totalWindowCount = total;
+    for (const [meshes, indices] of [[primary, counts], [this.contextMeshes, contextCounts]] as const) {
+      meshes.forEach((mesh, index) => {
+        mesh.count = indices[index];
+        mesh.visible = mesh.count > 0;
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.computeBoundingBox();
+        mesh.computeBoundingSphere();
+      });
+    }
   }
 
   private createGlassMatrix(aperture: FacadeAperture): THREE.Matrix4 {
@@ -336,11 +350,12 @@ export class WindowService {
   }
 
   private clearInstanceCounts(): void {
-    this.glassInstancedMesh.count = 0;
-    this.frameInstancedMesh.count = 0;
-    this.overhangInstancedMesh.count = 0;
-    this.glassInstancedMesh.instanceMatrix.needsUpdate = true;
-    this.frameInstancedMesh.instanceMatrix.needsUpdate = true;
-    this.overhangInstancedMesh.instanceMatrix.needsUpdate = true;
+    for (const mesh of [...this.primaryMeshes(), ...this.contextMeshes]) {
+      mesh.count = 0;
+      mesh.visible = false;
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingBox();
+      mesh.computeBoundingSphere();
+    }
   }
 }

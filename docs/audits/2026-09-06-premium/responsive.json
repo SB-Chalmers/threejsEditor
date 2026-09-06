@@ -1,0 +1,266 @@
+[
+  {
+    "width": 1024,
+    "height": 768,
+    "boxes": [
+      {
+        "selector": ".model-tool-rail",
+        "x": 8,
+        "y": 266,
+        "width": 54,
+        "height": 284,
+        "top": 266,
+        "right": 62,
+        "bottom": 550,
+        "left": 8
+      },
+      {
+        "selector": ".model-status-bar",
+        "x": 289.7890625,
+        "y": 714,
+        "width": 444.421875,
+        "height": 42,
+        "top": 714,
+        "right": 734.2109375,
+        "bottom": 756,
+        "left": 289.7890625
+      },
+      {
+        "selector": ".model-graph-overview",
+        "x": 8,
+        "y": 582.5,
+        "width": 204,
+        "height": 173.5,
+        "top": 582.5,
+        "right": 212,
+        "bottom": 756,
+        "left": 8
+      },
+      {
+        "selector": ".model-context-hint"
+      }
+    ],
+    "overlaps": [
+      {
+        "a": ".model-tool-rail",
+        "b": ".model-status-bar",
+        "area": 0
+      },
+      {
+        "a": ".model-tool-rail",
+        "b": ".model-graph-overview",
+        "area": 0
+      },
+      {
+        "a": ".model-tool-rail",
+        "b": ".model-context-hint",
+        "area": null
+      },
+      {
+        "a": ".model-status-bar",
+        "b": ".model-graph-overview",
+        "area": 0
+      },
+      {
+        "a": ".model-status-bar",
+        "b": ".model-context-hint",
+        "area": null
+      },
+      {
+        "a": ".model-graph-overview",
+        "b": ".model-context-hint",
+        "area": null
+      }
+    ],
+    "canvas": {
+      "width": 1024,
+      "height": 720,
+      "rect": {
+        "x": 0,
+        "y": 48,
+        "width": 1024,
+        "height": 720,
+        "top": 48,
+        "right": 1024,
+        "bottom": 768,
+        "left": 0
+      }
+    }
+  },
+  {
+    "width": 768,
+    "height": 700,
+    "boxes": [
+      {
+        "selector": ".model-tool-rail",
+        "x": 8,
+        "y": 232,
+        "width": 54,
+        "height": 284,
+        "top": 232,
+        "right": 62,
+        "bottom": 516,
+        "left": 8
+      },
+      {
+        "selector": ".model-status-bar",
+        "x": 268,
+        "y": 646,
+        "width": 232,
+        "height": 42,
+        "top": 646,
+        "right": 500,
+        "bottom": 688,
+        "left": 268
+      },
+      {
+        "selector": ".model-graph-overview",
+        "x": 8,
+        "y": 518.5,
+        "width": 204,
+        "height": 173.5,
+        "top": 518.5,
+        "right": 212,
+        "bottom": 692,
+        "left": 8
+      },
+      {
+        "selector": ".model-context-hint"
+      }
+    ],
+    "overlaps": [
+      {
+        "a": ".model-tool-rail",
+        "b": ".model-status-bar",
+        "area": 0
+      },
+      {
+        "a": ".model-tool-rail",
+        "b": ".model-graph-overview",
+        "area": 0
+      },
+      {
+        "a": ".model-tool-rail",
+        "b": ".model-context-hint",
+        "area": null
+      },
+      {
+        "a": ".model-status-bar",
+        "b": ".model-graph-overview",
+        "area": 0
+      },
+      {
+        "a": ".model-status-bar",
+        "b": ".model-context-hint",
+        "area": null
+      },
+      {
+        "a": ".model-graph-overview",
+        "b": ".model-context-hint",
+        "area": null
+      }
+    ],
+    "canvas": {
+      "width": 768,
+      "height": 652,
+      "rect": {
+        "x": 0,
+        "y": 48,
+        "width": 768,
+        "height": 652,
+        "top": 48,
+        "right": 768,
+        "bottom": 700,
+        "left": 0
+      }
+    }
+  },
+  {
+    "width": 640,
+    "height": 700,
+    "boxes": [
+      {
+        "selector": ".model-tool-rail",
+        "x": 174,
+        "y": 588,
+        "width": 292,
+        "height": 54,
+        "top": 588,
+        "right": 466,
+        "bottom": 642,
+        "left": 174
+      },
+      {
+        "selector": ".model-status-bar",
+        "x": 204,
+        "y": 646,
+        "width": 232,
+        "height": 42,
+        "top": 646,
+        "right": 436,
+        "bottom": 688,
+        "left": 204
+      },
+      {
+        "selector": ".model-graph-overview",
+        "x": 8,
+        "y": 410.5,
+        "width": 204,
+        "height": 173.5,
+        "top": 410.5,
+        "right": 212,
+        "bottom": 584,
+        "left": 8
+      },
+      {
+        "selector": ".model-context-hint"
+      }
+    ],
+    "overlaps": [
+      {
+        "a": ".model-tool-rail",
+        "b": ".model-status-bar",
+        "area": 0
+      },
+      {
+        "a": ".model-tool-rail",
+        "b": ".model-graph-overview",
+        "area": 0
+      },
+      {
+        "a": ".model-tool-rail",
+        "b": ".model-context-hint",
+        "area": null
+      },
+      {
+        "a": ".model-status-bar",
+        "b": ".model-graph-overview",
+        "area": 0
+      },
+      {
+        "a": ".model-status-bar",
+        "b": ".model-context-hint",
+        "area": null
+      },
+      {
+        "a": ".model-graph-overview",
+        "b": ".model-context-hint",
+        "area": null
+      }
+    ],
+    "canvas": {
+      "width": 640,
+      "height": 652,
+      "rect": {
+        "x": 0,
+        "y": 48,
+        "width": 640,
+        "height": 652,
+        "top": 48,
+        "right": 640,
+        "bottom": 700,
+        "left": 0
+      }
+    }
+  }
+]

@@ -24,9 +24,8 @@ export class SceneAppearanceManager {
     scene.traverse((object) => {
       if (!this.hasMaterial(object) || this.shouldIgnore(object)) return;
       if (mode.kind === 'editing' && object.userData.buildingId === mode.buildingId) return;
-      // Façades are currently batched in shared instanced meshes; keep the batch solid
-      // during editing so the selected building never loses its glazing/shades.
-      if (mode.kind === 'editing' && typeof object.userData.analysisRole === 'string' && object.userData.analysisRole.startsWith('facade-')) return;
+      // WindowService separates the selected facade from the context facade batches.
+      if (mode.kind === 'editing' && typeof object.userData.analysisRole === 'string' && object.userData.analysisRole.startsWith('facade-') && !object.userData.facadeContext) return;
 
       const opacity = this.getGhostOpacity(object, mode);
       this.ghostObject(object, opacity, mode);

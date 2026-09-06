@@ -376,6 +376,13 @@ export class ThreeJSCore {
     return this.environmentManager.getGridVisibility();
   }
 
+  setPlanMode(plan: boolean): void {
+    this.cameraManager.setPlanMode(plan);
+    this.updateComposerCamera();
+  }
+
+  setSpacePan(active: boolean): void { this.cameraManager.setSpacePan(active); }
+
   setCameraControlsEnabled(enabled: boolean): void {
     this.cameraManager.setControlsEnabled(enabled);
   }
@@ -614,6 +621,7 @@ export class ThreeJSCore {
   }
 
   setSceneAppearanceMode(mode: import('./SceneAppearanceManager').SceneAppearanceMode): void {
+    this.windowService.setEditingBuilding(mode.kind === 'editing' ? mode.buildingId : null);
     this.rendererManager.setSceneAppearanceMode(this.sceneManager.getScene(), mode);
   }
 

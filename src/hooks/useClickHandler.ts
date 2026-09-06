@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 export const useClickHandler = (
   containerRef: React.RefObject<HTMLElement>,
@@ -14,6 +14,13 @@ export const useClickHandler = (
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
   const mouseMoveThrottleRef = useRef<number | null>(null);
 
+  // The editor passes inline callbacks. Keep listeners attached across renders,
+  // while queued movement always reads the latest committed drawing state.
+  const callbacksRef = useRef({ onSingleClick, onDoubleClick, onMouseMove, onBuildingInteraction, isDrawing });
+  useLayoutEffect(() => {
+    callbacksRef.current = { onSingleClick, onDoubleClick, onMouseMove, onBuildingInteraction, isDrawing };
+  }, [onSingleClick, onDoubleClick, onMouseMove, onBuildingInteraction, isDrawing]);
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) {
@@ -22,6 +29,7 @@ export const useClickHandler = (
     }
 
     console.log('Setting up click handlers on container');
+    let pendingMouseMove: MouseEvent | null = null;
 
     const handleMouseDown = (event: MouseEvent) => {
       mouseDownPosRef.current = { x: event.clientX, y: event.clientY };
@@ -29,27 +37,33 @@ export const useClickHandler = (
     };
 
     const handleMouseMove = (event: MouseEvent) => {
-      // Standard mouse move handling for smooth interaction
-      if (mouseMoveThrottleRef.current) {
+      // Coalesce movement without losing the cursor's final position this frame.
+      pendingMouseMove = event;
+      if (mouseMoveThrottleRef.current !== null) {
         return;
       }
       
       mouseMoveThrottleRef.current = requestAnimationFrame(() => {
         mouseMoveThrottleRef.current = null;
+        const latestEvent = pendingMouseMove;
+        pendingMouseMove = null;
+        if (!latestEvent) return;
+        const { onMouseMove, onBuildingInteraction } = callbacksRef.current;
         
         // Call onMouseMove for drawing preview
         if (onMouseMove) {
-          onMouseMove(event, container);
+          onMouseMove(latestEvent, container);
         }
         
         // Always call building interaction on mouse move for hover management
         if (typeof onBuildingInteraction === 'function') {
-          onBuildingInteraction(event, container);
+          onBuildingInteraction(latestEvent, container);
         }
       });
     };
 
     const handleMouseClick = (event: MouseEvent) => {
+      const { onSingleClick, onDoubleClick, onBuildingInteraction, isDrawing } = callbacksRef.current;
       console.log('Mouse click event:', { 
         clientX: event.clientX, 
         clientY: event.clientY,
@@ -122,12 +136,16 @@ export const useClickHandler = (
       container.removeEventListener('mousedown', handleMouseDown);
       container.removeEventListener('click', handleMouseClick);
       container.removeEventListener('mousemove', handleMouseMove);
-      if (clickTimeoutRef.current) {
+      if (clickTimeoutRef.current !== null) {
         window.clearTimeout(clickTimeoutRef.current);
+        clickTimeoutRef.current = null;
       }
-      if (mouseMoveThrottleRef.current) {
+      if (mouseMoveThrottleRef.current !== null) {
         cancelAnimationFrame(mouseMoveThrottleRef.current);
+        mouseMoveThrottleRef.current = null;
       }
+      pendingMouseMove = null;
+      mouseDownPosRef.current = null;
     };
-  }, [containerRef, onSingleClick, onDoubleClick, onMouseMove, onBuildingInteraction, isDrawing]);
+  }, [containerRef]);
 };

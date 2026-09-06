@@ -10,7 +10,7 @@ import { WindowService } from '../services/WindowService';
 import { BuildingService } from '../services/BuildingService';
 import { logger } from '../utils/logger';
 import { clampWwr, DEFAULT_FACADE_PARAMETERS } from '../services/FacadeGeometry';
-import { calculateBuildingMetrics } from '../utils/buildingMetrics';
+import { calculateBuildingMetrics, validateFootprint } from '../utils/buildingMetrics';
 import { buildingConfigFromModel, cloneBuildingModels } from '../utils/buildingModel';
 
 interface BuildingStats {
@@ -211,7 +211,11 @@ export const useBuildingManager = (
     
     // Use existing building ID if it exists, otherwise create a new one
     const existingBuildingId = mesh.userData?.buildingId;
-    const buildingId = existingBuildingId || `building_${++buildingIdCounter.current}`;
+    let buildingId = existingBuildingId;
+    if (!buildingId) {
+      do { buildingId = `building_${++buildingIdCounter.current}`; }
+      while (buildingsRef.current.some(building => building.id === buildingId));
+    }
     
     // CRITICAL: Ensure proper userData configuration for raycasting
     mesh.userData = { 
@@ -743,9 +747,25 @@ export const useBuildingManager = (
   const getBuilding = useCallback((buildingId: string): BuildingData | undefined =>
     buildingsRef.current.find(building => building.id === buildingId), []);
 
+  const createBuilding = useCallback((points: Point3D[], config: BuildingConfig) => {
+    if (!scene) return undefined;
+    const error = validateFootprint(points);
+    if (error) throw new Error(error);
+    const mesh = new BuildingService(scene).createBuilding(points, config);
+    return addBuilding(mesh, points, config);
+  }, [scene, addBuilding]);
+
   const replaceWorkspace = useCallback((models: readonly BuildingModel[]): BuildingData[] => {
     if (!scene) return [];
 
+    const ids = new Set<string>();
+    models.forEach(model => {
+      const error = validateFootprint(model.points);
+      if (error) throw new Error(error);
+      if (ids.has(model.id)) throw new Error('Building IDs must be unique.');
+      if (!Number.isInteger(model.floors) || model.floors < 1 || !Number.isFinite(model.floorHeight) || model.floorHeight <= 0) throw new Error('Invalid building height.');
+      ids.add(model.id);
+    });
     clearAllBuildings();
     const buildingService = new BuildingService(scene);
 
@@ -987,6 +1007,7 @@ export const useBuildingManager = (
     getBuilding,
     captureSnapshot,
     replaceWorkspace,
+    createBuilding,
     workspaceRevision,
     buildingStats,
     handleBuildingInteraction,

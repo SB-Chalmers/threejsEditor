@@ -1,0 +1,278 @@
+{
+  "checks": [
+    "Keyboard point selection and minimum-three-point protection",
+    "Escape discards unaccepted numeric input",
+    "Rotation ring pointer capture and Shift 15\u00b0 increments",
+    "Slider commits on key release and workspace Undo works from slider focus",
+    "Preview stays under the pointer after zoom without a new pointer move",
+    "Import cancels drawing and resets history without stale handles",
+    "Graph reinstatement restores the baseline and starts fresh history",
+    "Desktop and narrow controls have zero measured overlap; inspector collapses to 52px",
+    "Nonblank WebGL pixels and no browser errors",
+    "Responsive overlays leave every footprint handle accessible; inspector collapses to 52px"
+  ],
+  "errors": [],
+  "layouts": [
+    {
+      "width": 1440,
+      "height": 900,
+      "boxes": [
+        {
+          "s": ".model-tool-rail",
+          "x": 8,
+          "y": 332,
+          "w": 54,
+          "h": 284
+        },
+        {
+          "s": ".editor-command-bar",
+          "x": 383.7421875,
+          "y": 64,
+          "w": 368.515625,
+          "h": 42
+        },
+        {
+          "s": ".editor-view-switch",
+          "x": 84,
+          "y": 64,
+          "w": 81.703125,
+          "h": 42
+        },
+        {
+          "s": ".model-status-bar",
+          "x": 341.8515625,
+          "y": 846,
+          "w": 452.296875,
+          "h": 42
+        },
+        {
+          "s": ".editor-inspector",
+          "x": 1136,
+          "y": 48,
+          "w": 304,
+          "h": 852
+        },
+        {
+          "s": ".editor-status",
+          "x": 84,
+          "y": 803.5,
+          "w": 381.390625,
+          "h": 32.5
+        }
+      ],
+      "overlaps": [],
+      "obscuredHandles": 0,
+      "overflow": false
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "boxes": [
+        {
+          "s": ".model-tool-rail",
+          "x": 8,
+          "y": 266,
+          "w": 54,
+          "h": 284
+        },
+        {
+          "s": ".editor-command-bar",
+          "x": 175.7421875,
+          "y": 64,
+          "w": 368.515625,
+          "h": 42
+        },
+        {
+          "s": ".editor-view-switch",
+          "x": 84,
+          "y": 64,
+          "w": 81.703125,
+          "h": 42
+        },
+        {
+          "s": ".model-status-bar",
+          "x": 133.8515625,
+          "y": 714,
+          "w": 452.296875,
+          "h": 42
+        },
+        {
+          "s": ".editor-inspector",
+          "x": 720,
+          "y": 48,
+          "w": 304,
+          "h": 720
+        },
+        {
+          "s": ".editor-status",
+          "x": 84,
+          "y": 671.5,
+          "w": 381.390625,
+          "h": 32.5
+        }
+      ],
+      "overlaps": [],
+      "obscuredHandles": 0,
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "height": 700,
+      "boxes": [
+        {
+          "s": ".model-tool-rail",
+          "x": 8,
+          "y": 160,
+          "w": 54,
+          "h": 283
+        },
+        {
+          "s": ".editor-command-bar",
+          "x": 84,
+          "y": 112,
+          "w": 323.734375,
+          "h": 42
+        },
+        {
+          "s": ".editor-view-switch",
+          "x": 84,
+          "y": 64,
+          "w": 81.703125,
+          "h": 42
+        },
+        {
+          "s": ".model-status-bar",
+          "x": 526,
+          "y": 403,
+          "w": 232,
+          "h": 42
+        },
+        {
+          "s": ".editor-inspector",
+          "x": 0,
+          "y": 455,
+          "w": 768,
+          "h": 245
+        },
+        {
+          "s": ".editor-status",
+          "x": 84,
+          "y": 162,
+          "w": 674,
+          "h": 32.5
+        }
+      ],
+      "overlaps": [],
+      "obscuredHandles": 0,
+      "overflow": false
+    },
+    {
+      "width": 640,
+      "height": 700,
+      "boxes": [
+        {
+          "s": ".model-tool-rail",
+          "x": 8,
+          "y": 160,
+          "w": 54,
+          "h": 283
+        },
+        {
+          "s": ".editor-command-bar",
+          "x": 84,
+          "y": 112,
+          "w": 323.734375,
+          "h": 42
+        },
+        {
+          "s": ".editor-view-switch",
+          "x": 84,
+          "y": 64,
+          "w": 81.703125,
+          "h": 42
+        },
+        {
+          "s": ".model-status-bar",
+          "x": 398,
+          "y": 403,
+          "w": 232,
+          "h": 42
+        },
+        {
+          "s": ".editor-inspector",
+          "x": 0,
+          "y": 455,
+          "w": 640,
+          "h": 245
+        },
+        {
+          "s": ".editor-status",
+          "x": 84,
+          "y": 162,
+          "w": 546,
+          "h": 32.5
+        }
+      ],
+      "overlaps": [],
+      "obscuredHandles": 0,
+      "overflow": false
+    }
+  ],
+  "diagnostic": [
+    {
+      "name": "RenderPass",
+      "enabled": true,
+      "sao": false
+    },
+    {
+      "name": "_SAOPass",
+      "enabled": false,
+      "sao": true
+    },
+    {
+      "name": "_OutlinePass",
+      "enabled": true,
+      "sao": false
+    },
+    {
+      "name": "OutputPass",
+      "enabled": true,
+      "sao": false
+    }
+  ],
+  "pixels": {
+    "colors": [
+      [
+        166,
+        171,
+        174,
+        255
+      ],
+      [
+        170,
+        175,
+        179,
+        255
+      ],
+      [
+        172,
+        169,
+        163,
+        255
+      ],
+      [
+        166,
+        171,
+        174,
+        255
+      ],
+      [
+        170,
+        175,
+        179,
+        255
+      ]
+    ],
+    "unique": 3
+  }
+}

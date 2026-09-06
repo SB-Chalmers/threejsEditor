@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { BuildingData } from '../../types/building';
 import { createBuildingEditDraft, type BuildingEditDraft } from '../../hooks/useBuildingEditSession';
+import type { WorkspaceEditor } from '../../hooks/useWorkspaceEditor';
 import { BuildingEditPanel } from '../BuildingEditPanel';
 
 vi.mock('../../services/EPSMService', () => ({
@@ -73,26 +74,25 @@ describe('BuildingEditPanel controlled draft', () => {
   it('commits the latest controlled slider value', () => {
     const { onCommit } = setup();
     fireEvent.change(screen.getAllByRole('slider')[2], { target: { value: '0.83' } });
-    fireEvent.click(screen.getByRole('button', { name: /done/i }));
+    fireEvent.pointerUp(screen.getAllByRole('slider')[2]);
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit.mock.calls[0][0].window_to_wall_ratio).toBe(0.83);
   });
 
-  it('resets to the panel-opening draft', () => {
-    setup(makeBuilding('building-a', 3));
-    fireEvent.change(screen.getAllByRole('slider')[0], { target: { value: '8' } });
-    fireEvent.click(screen.getByRole('button', { name: /reset/i }));
-    expect((screen.getAllByRole('slider')[0] as HTMLInputElement).value).toBe('3');
+  it('keeps the canvas unobstructed and closes only through its close control', () => {
+    const { onCancel } = setup();
+    expect(screen.queryByTestId('building-edit-backdrop')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^(done|cancel|reset)$/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close inspector' }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
-    ['Cancel button', () => screen.getByRole('button', { name: /^cancel$/i })],
-    ['X button', () => screen.getByRole('button', { name: /cancel building edits/i })],
-    ['backdrop', () => screen.getByTestId('building-edit-backdrop')]
-  ])('%s delegates cancellation', (_label, getControl) => {
-    const { onCancel } = setup();
-    fireEvent.click(getControl());
-    expect(onCancel).toHaveBeenCalledTimes(1);
+  it('accepts text fields on blur', () => {
+    const { onCommit } = setup();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Courtyard' } });
+    expect(onCommit).not.toHaveBeenCalled();
+    fireEvent.blur(screen.getByLabelText('Name'));
+    expect(onCommit.mock.calls[0][0].name).toBe('Courtyard');
   });
 
   it('renders a reinstated same-id draft without retaining the previous floor value', () => {
@@ -107,5 +107,24 @@ describe('BuildingEditPanel controlled draft', () => {
 
     rerender(<BuildingEditPanel draft={sixFloors} baseDraft={sixFloors} {...callbacks} />);
     expect((screen.getAllByRole('slider')[0] as HTMLInputElement).value).toBe('6');
+  });
+});
+
+
+describe('building summary actions', () => {
+  it('keeps results discoverable and routes building deletion independently of vertex selection', () => {
+    const draft = createBuildingEditDraft(makeBuilding());
+    const onViewResults = vi.fn(), deleteSelectedBuilding = vi.fn();
+    const editor = { state: { tool: 'select', vertex: null }, deleteSelectedBuilding } as unknown as WorkspaceEditor;
+    const props = { draft, baseDraft: draft, editor, onChange: vi.fn(), onReset: vi.fn(), onCommit: vi.fn(), onCancel: vi.fn(), onViewResults };
+    const { rerender } = render(<BuildingEditPanel {...props} hasResults={false} />);
+    expect(screen.getByRole('button', { name: 'View results' })).toBeDisabled();
+    expect(screen.getByText('80.0 m²')).toBeInTheDocument();
+    expect(screen.getByText('No current results. Run studies to view analysis.')).toBeInTheDocument();
+    rerender(<BuildingEditPanel {...props} hasResults />);
+    fireEvent.click(screen.getByRole('button', { name: 'View results' }));
+    expect(onViewResults).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete building' }));
+    expect(deleteSelectedBuilding).toHaveBeenCalledOnce();
   });
 });

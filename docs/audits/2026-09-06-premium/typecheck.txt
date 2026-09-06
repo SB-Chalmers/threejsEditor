@@ -1,0 +1,65 @@
+src/components/dialogs/__tests__/DaylightResultsDialog.test.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/dialogs/MaterialCompareDialog.tsx(2,38): error TS6133: 'AlertTriangle' is declared but its value is never read.
+src/components/dialogs/MaterialCompareDialog.tsx(25,3): error TS6133: 'title' is declared but its value is never read.
+src/components/MonthlyHeatBalanceChart.tsx(35,18): error TS2352: Conversion of type 'MonthlyHeatBalance' to type 'Record<string, number[]>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'MonthlyHeatBalance'.
+src/components/SimpleBuildingCreator.tsx(654,17): error TS18047: 'energyAbortControllerRef.current' is possibly 'null'.
+src/components/SimpleBuildingCreator.tsx(697,33): error TS2339: Property 'study_id' does not exist on type 'never'.
+src/components/SimpleBuildingCreator.tsx(697,76): error TS2339: Property 'monthly_heat_balance' does not exist on type 'never'.
+src/components/SimpleBuildingCreator.tsx(700,39): error TS2339: Property 'heating_demand_kwh_m2' does not exist on type 'never'.
+src/components/SimpleBuildingCreator.tsx(701,39): error TS2339: Property 'cooling_demand_kwh_m2' does not exist on type 'never'.
+src/components/SimpleBuildingCreator.tsx(702,37): error TS2339: Property 'total_energy_kwh_m2' does not exist on type 'never'.
+src/components/ui/Tooltip.tsx(87,15): error TS2339: Property 'ref' does not exist on type 'ReactElement<any, string | JSXElementConstructor<any>>'.
+src/components/weather/DegreeDaysChart.tsx(21,3): error TS6133: 'heatingDegreeDays' is declared but its value is never read.
+src/components/weather/DegreeDaysChart.tsx(22,3): error TS6133: 'coolingDegreeDays' is declared but its value is never read.
+src/components/weather/DegreeDaysChart.tsx(26,10): error TS6133: 'bufferEnabled' is declared but its value is never read.
+src/components/weather/DegreeDaysChart.tsx(26,25): error TS6133: 'setBufferEnabled' is declared but its value is never read.
+src/components/weather/DegreeDaysChart.tsx(28,10): error TS6133: 'expandedMonth' is declared but its value is never read.
+src/components/weather/DegreeDaysChart.tsx(28,25): error TS6133: 'setExpandedMonth' is declared but its value is never read.
+src/components/weather/DegreeDaysChart.tsx(29,10): error TS6133: 'showInsights' is declared but its value is never read.
+src/components/weather/DegreeDaysChart.tsx(29,24): error TS6133: 'setShowInsights' is declared but its value is never read.
+src/components/weather/DegreeDaysChart.tsx(30,10): error TS6133: 'tooltipVisible' is declared but its value is never read.
+src/components/weather/DegreeDaysChart.tsx(30,26): error TS6133: 'setTooltipVisible' is declared but its value is never read.
+src/components/weather/WindRose.tsx(23,7): error TS6133: 'formatPercentage' is declared but its value is never read.
+src/components/weather/WindRose.tsx(37,10): error TS6133: 'hoveredSector' is declared but its value is never read.
+src/components/weather/WindRose.tsx(37,25): error TS6133: 'setHoveredSector' is declared but its value is never read.
+src/components/weather/WindRose.tsx(40,9): error TS6133: 'maxFrequency' is declared but its value is never read.
+src/components/weather/WindRose.tsx(44,9): error TS6133: 'predominantCompass' is declared but its value is never read.
+src/components/weather/WindRose.tsx(61,9): error TS6133: 'calmPercentage' is declared but its value is never read.
+src/core/ThreeJSCore.ts(244,26): error TS2339: Property 'updateThemeColors' does not exist on type 'WindowService'.
+src/core/ThreeJSCore.ts(303,13): error TS2554: Expected 0 arguments, but got 1.
+src/hooks/__tests__/useKeyboardShortcuts.test.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/hooks/useBuildingManager.ts(381,19): error TS2339: Property 'geometry' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(381,35): error TS2339: Property 'geometry' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(382,19): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(382,36): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(513,23): error TS2339: Property 'geometry' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(513,39): error TS2339: Property 'geometry' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(514,23): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(514,40): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(541,54): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(541,72): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(541,92): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(578,19): error TS2339: Property 'geometry' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(579,17): error TS2339: Property 'geometry' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(581,19): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(582,35): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(583,19): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(583,36): error TS7006: Parameter 'mat' implicitly has an 'any' type.
+src/hooks/useBuildingManager.ts(585,19): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(612,21): error TS2339: Property 'geometry' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(612,35): error TS2339: Property 'geometry' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(613,21): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(614,37): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(615,21): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(615,38): error TS7006: Parameter 'mat' implicitly has an 'any' type.
+src/hooks/useBuildingManager.ts(617,21): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(637,25): error TS2339: Property 'geometry' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(637,45): error TS2339: Property 'geometry' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(638,25): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(639,41): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(640,25): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useBuildingManager.ts(640,42): error TS7006: Parameter 'mat' implicitly has an 'any' type.
+src/hooks/useBuildingManager.ts(642,25): error TS2339: Property 'material' does not exist on type 'Object3D<Object3DEventMap>'.
+src/hooks/useDrawing.ts(85,72): error TS18046: 'error' is of type 'unknown'.
+src/services/BuildingService.ts(11,18): error TS6133: 'previewMaterial' is declared but its value is never read.

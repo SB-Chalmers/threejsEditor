@@ -139,3 +139,27 @@ describe('useBuildingManager canonical scene ownership', () => {
     windowService.dispose();
   });
 });
+describe('workspace import boundaries', () => {
+  it('rejects invalid replacement before disposing the current workspace', () => {
+    const scene = new THREE.Scene();
+    const { result } = renderHook(() => useBuildingManager(scene, null, null));
+    act(() => { result.current.createBuilding(points, config(3)); });
+    const before = result.current.captureSnapshot();
+    const mesh = result.current.getBuildings()[0].mesh;
+    expect(() => result.current.replaceWorkspace([{ ...before[0], points: [points[0], points[0], points[1]] }])).toThrow(/overlap/);
+    expect(result.current.captureSnapshot()).toEqual(before);
+    expect(mesh.parent).toBe(scene);
+  });
+
+  it('generates a fresh ID after importing IDs from another workspace', () => {
+    const scene = new THREE.Scene();
+    const { result } = renderHook(() => useBuildingManager(scene, null, null));
+    act(() => { result.current.createBuilding(points, config(3)); });
+    const model = result.current.captureSnapshot()[0];
+    act(() => { result.current.replaceWorkspace([{ ...model, id: 'building_2' }]); });
+    act(() => { result.current.createBuilding(points.map(p => ({ ...p, x: p.x + 20 })), config(3)); });
+    const ids = result.current.getBuildings().map(b => b.id);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+  });
+});

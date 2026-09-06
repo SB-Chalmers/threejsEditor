@@ -1,0 +1,29 @@
+
+> 3d-building-designer@0.0.0 build
+> vite build
+
+vite v5.4.8 building for production...
+transforming...
+✓ 2124 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                             0.49 kB │ gzip:   0.31 kB
+dist/assets/index-DJuc6088.css             75.06 kB │ gzip:  13.31 kB
+dist/assets/CopyShader-BzTUYzf6.js          0.44 kB │ gzip:   0.28 kB
+dist/assets/Pass-BVmkWdW2.js                0.69 kB │ gzip:   0.39 kB
+dist/assets/RenderPass-eGHtxJUv.js          1.05 kB │ gzip:   0.41 kB
+dist/assets/stats.module-BL02l9NC.js        1.75 kB │ gzip:   0.93 kB
+dist/assets/OutputPass-Db2qyncq.js          2.75 kB │ gzip:   0.98 kB
+dist/assets/EffectComposer-BzKSPNvh.js      4.63 kB │ gzip:   1.42 kB
+dist/assets/Sky-DWSnpqvF.js                 5.99 kB │ gzip:   2.37 kB
+dist/assets/OrbitControls-DVGAb8A_.js      13.00 kB │ gzip:   3.72 kB
+dist/assets/SAOPass-CXrlOqWH.js            14.62 kB │ gzip:   3.62 kB
+dist/assets/OutlinePass-BkmKAJFf.js        14.88 kB │ gzip:   3.47 kB
+dist/assets/jszip.min-BUInjgrY.js          97.13 kB │ gzip:  30.01 kB
+dist/assets/index-BhFtk1zB.js           1,135.09 kB │ gzip: 313.98 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 12.15s

@@ -1,0 +1,72 @@
+.editor-overlay { position:absolute; inset:0; z-index:15; pointer-events:none; overflow:hidden; }
+.editor-svg { width:100%; height:100%; position:absolute; inset:0; overflow:visible; }
+.editor-handle,.editor-insert,.editor-move-handle,.editor-rotation-handle { position:absolute; transform:translate(-50%,-50%); width:24px; height:24px; pointer-events:auto; touch-action:none; display:flex; align-items:center; justify-content:center; border-radius:50%; color:#1d4ed8; cursor:grab; }
+.editor-handle::after { content:''; width:8px; height:8px; border:1.5px solid #475569; background:#fff; border-radius:50%; box-shadow:0 0 0 2px #ffffff80; }
+.editor-handle.is-selected::after { background:#2563eb; border-color:white; box-shadow:0 0 0 2px #2563eb; }
+.editor-handle:focus-visible,.editor-insert:focus-visible,.editor-rotation-handle:focus-visible { outline:2px solid #2563eb; outline-offset:2px; }
+.editor-insert { background:white; border:1px solid #94a3b8; font-size:18px; }
+.editor-cursor,.editor-pivot { position:absolute; width:8px; height:8px; border:2px solid #2563eb; background:white; border-radius:50%; transform:translate(-50%,-50%); }
+.editor-cursor.is-snapped { border-color:#047857; background:#d1fae5; }
+.editor-dimension,.editor-snap-label { position:absolute; white-space:nowrap; font-size:11px; font-variant-numeric:tabular-nums; background:#fffffff2; color:#334155; border:1px solid #e2e8f0; border-radius:4px; padding:2px 5px; transform:translate(-50%,-50%); }
+.editor-snap-label { transform:none; color:#065f46; }
+.editor-command-bar,.editor-view-switch { position:absolute; z-index:30; top:16px; display:flex; gap:3px; align-items:center; border:1px solid #dbe2ea; background:#fffffff5; padding:4px; border-radius:9px; box-shadow:0 3px 14px #0f172a0b; }
+.editor-command-bar { left:calc(50% - 40px); transform:translateX(-50%); }
+.editor-command-bar.has-selection { left:calc((100% - 304px)/2); }
+.editor-view-switch { left:84px; }
+.editor-command-bar button,.editor-view-switch button { height:32px; display:flex; align-items:center; gap:5px; padding:0 9px; color:#475569; font-size:12px; font-weight:500; border-radius:5px; }
+.editor-command-bar button:hover,.editor-view-switch button:hover { background:#f1f5f9; }
+.editor-command-bar button[aria-pressed=true],.editor-view-switch button[aria-pressed=true] { background:#eff6ff; color:#1d4ed8; }
+.editor-command-bar button:disabled { opacity:.35; }
+.editor-command-bar button.editor-finish { background:#2563eb; color:white; }
+.editor-separator { width:1px; height:20px; background:#e2e8f0; margin:0 3px; }
+.editor-status { position:absolute; bottom:64px; left:84px; z-index:25; display:flex; align-items:center; gap:12px; max-width:calc(100% - 410px); background:#fffffff2; border:1px solid #e2e8f0; border-radius:6px; padding:7px 10px; color:#475569; font-size:11px; }
+.editor-status label { display:flex; gap:5px; align-items:center; white-space:nowrap; }
+.editor-status select { background:transparent; border-left:1px solid #e2e8f0; padding-left:6px; }
+.editor-rotation-ring { position:absolute; transform:translate(-50%,-50%); width:144px; height:144px; border:1px solid #2563eb; border-radius:50%; }
+.editor-rotation-handle,.editor-move-handle { border:1px solid #2563eb; background:white; }
+.editor-geometry { padding:14px 0; border-bottom:1px solid #e2e8f0; }
+.editor-geometry h3 { font-size:12px; color:#334155; font-weight:600; margin-bottom:10px; }
+.editor-geometry p { font-size:11px; color:#64748b; line-height:1.5; margin-top:8px; }
+.editor-coordinates { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.editor-exact { display:block; font-size:11px; color:#475569; margin-bottom:8px; }
+.editor-exact input { margin-top:5px; width:100%; height:32px; border:1px solid #cbd5e1; border-radius:5px; padding:0 8px; color:#1e293b; font-variant-numeric:tabular-nums; }
+.editor-text-button { font-size:11px; color:#1d4ed8; padding:5px 0; }
+.editor-geometry .editor-error { color:#b91c1c; }
+.editor-collapse { display:none; }
+@media(max-width:800px) {
+ .editor-command-bar,.editor-command-bar.has-selection { left:84px; top:64px; transform:none; max-width:calc(100% - 94px); }
+ .editor-command-bar button { padding:0 6px; font-size:11px; }
+ .editor-status { left:84px; right:10px; bottom:calc(36vh + 10px); max-width:none; flex-wrap:wrap; gap:6px; }
+ .editor-status span { flex-basis:auto; }
+ .model-inspector.editor-inspector { top:auto; bottom:0; width:100%; max-height:35vh; border-top:1px solid #cbd5e1; z-index:35; }
+ .model-inspector.editor-inspector.is-collapsed { max-height:52px; overflow:hidden; }
+ .editor-collapse { display:block; }
+ .editor-inspector header { padding:10px 16px; }
+ .editor-inspector.is-collapsed .editor-metrics { display:none; }
+}
+
+.editor-rotation-ring-svg { position:absolute; transform:translate(-50%,-50%); width:176px; height:176px; overflow:visible; }
+@media(min-width:801px) {
+ .model-workspace[data-editing=true] .model-status-bar { left:calc((100% - 304px)/2); }
+}
+@media(max-width:800px) {
+ .model-workspace .model-tool-rail { left:8px; top:112px; bottom:auto; max-height:calc(65vh - 172px); overflow-y:auto; transform:none; }
+ .model-workspace .model-tool-rail > div { flex-direction:column; }
+ .model-workspace .model-tool-rail .h-px { width:auto; height:1px; margin:0 4px; }
+ .model-workspace[data-editing=true] .model-status-bar { bottom:calc(35vh + 10px); left:auto; right:10px; transform:none; }
+ .model-workspace[data-editing=true] .editor-status { top:114px; bottom:auto; }
+ .model-workspace[data-drawing=true] .editor-status { bottom:64px; }
+ .model-workspace .model-graph-overview { bottom:64px; left:84px; }
+ .model-workspace .editor-command-bar { left:84px; }
+}
+
+@media(max-width:800px) {
+ .model-workspace:has(.editor-inspector.is-collapsed) .model-status-bar { bottom:62px; }
+}
+
+.editor-preview-handle { pointer-events:none; cursor:inherit; }
+.editor-building-actions { display:flex; gap:8px; padding-top:12px; }
+.editor-building-actions button { display:flex; align-items:center; justify-content:center; gap:5px; flex:1; height:32px; border:1px solid #cbd5e1; border-radius:5px; font-size:11px; color:#334155; background:white; }
+.editor-building-actions button:disabled { color:#64748b; cursor:not-allowed; background:#f8fafc; }
+.editor-building-actions button:not(:disabled):hover { background:#eff6ff; color:#1d4ed8; }
+.editor-results-hint { font-size:11px; color:#64748b; margin-top:6px; }

@@ -5,6 +5,7 @@ interface LeftToolbarProps {
   isDrawing: boolean;
   isInitialized: boolean;
   hasBuildings: boolean;
+  hasSelection?: boolean;
   onStartDrawing: () => void;
   onExport: () => void;
   onClearAll: () => void;
@@ -17,7 +18,7 @@ const Tool = ({ icon: Icon, label, shortcut, onClick, disabled, active }: { icon
   <button type="button" aria-label={label} title={`${label}${shortcut ? ` (${shortcut})` : ''}`} onClick={onClick} disabled={disabled} className={`model-tool relative flex h-10 w-10 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${active ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}><Icon className="h-[18px] w-[18px]" /></button>
 );
 
-export const LeftToolbar: React.FC<LeftToolbarProps> = ({ isDrawing, isInitialized, hasBuildings, onStartDrawing, onExport, onClearAll, onSaveConfiguration, onImportConfiguration, onToggleSunController }) => (
+export const LeftToolbar: React.FC<LeftToolbarProps> = ({ isDrawing, isInitialized, hasBuildings, hasSelection, onStartDrawing, onExport, onClearAll, onSaveConfiguration, onImportConfiguration, onToggleSunController }) => (
   <nav className="model-tool-rail absolute left-2 top-1/2 z-40 -translate-y-1/2 rounded-lg border border-slate-200/90 bg-white/95 p-1.5 shadow-lg backdrop-blur-sm" aria-label="Model tools">
     <div className="flex flex-col gap-1">
       <Tool icon={Pencil} label="Draw building" shortcut="D" onClick={onStartDrawing} disabled={!isInitialized || isDrawing} active={isDrawing} />
@@ -25,7 +26,7 @@ export const LeftToolbar: React.FC<LeftToolbarProps> = ({ isDrawing, isInitializ
       <div className="mx-1 h-px bg-slate-200" />
       <Tool icon={Upload} label="Import" shortcut="I" onClick={onImportConfiguration} disabled={!isInitialized} />
       <Tool icon={Download} label="Export" shortcut="Ctrl+E" onClick={onExport} disabled={!hasBuildings} />
-      <Tool icon={Trash2} label="Clear buildings" shortcut="Delete" onClick={onClearAll} disabled={!hasBuildings} />
+      <Tool icon={Trash2} label="Delete selection" shortcut="Delete" onClick={onClearAll} disabled={!hasSelection} />
       <div className="mx-1 h-px bg-slate-200" />
       <Tool icon={CloudSun} label="Sun position" shortcut="U" onClick={onToggleSunController} disabled={!isInitialized} />
     </div>

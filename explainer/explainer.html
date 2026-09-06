@@ -1,0 +1,1989 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A standalone walkthrough of the HEATH Web Tool workflow."
+    />
+    <title>HEATH Web Tool — Workflow Explainer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+      :root {
+        --ink: #0f172a;
+        --copy: #475569;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --paper: #f4f6f8;
+        --blue: #2563eb;
+        --blue-dark: #1d4ed8;
+        --green: #059669;
+        --amber: #d97706;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        min-height: 100%;
+        margin: 0;
+      }
+      body {
+        color: var(--ink);
+        background: var(--paper);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+      button,
+      input {
+        font: inherit;
+      }
+      button {
+        -webkit-tap-highlight-color: transparent;
+      }
+      button:focus-visible,
+      .progress-dot:focus-visible {
+        outline: 3px solid #93c5fd;
+        outline-offset: 3px;
+      }
+      .app {
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: 64px 1fr 74px;
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 0 28px;
+        background: rgba(255, 255, 255, 0.94);
+        border-bottom: 1px solid var(--line);
+        backdrop-filter: blur(12px);
+        z-index: 5;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 15px;
+        font-weight: 750;
+        letter-spacing: -0.02em;
+      }
+      .brand-mark {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        background: var(--blue);
+        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.22);
+      }
+      .brand-mark::before {
+        content: "⌁";
+        font-size: 24px;
+        line-height: 1;
+        transform: rotate(-28deg);
+      }
+      .tagline {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .stage {
+        position: relative;
+        overflow: hidden;
+        min-height: 0;
+      }
+      .slide {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: minmax(300px, 0.74fr) minmax(520px, 1.42fr);
+        gap: clamp(28px, 4vw, 64px);
+        align-items: center;
+        padding: clamp(28px, 5vw, 62px) clamp(24px, 5vw, 80px);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(28px);
+        transition:
+          opacity 0.38s ease,
+          transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .slide.active {
+        opacity: 1;
+        pointer-events: auto;
+        transform: none;
+      }
+      .copy {
+        max-width: 580px;
+      }
+      .eyebrow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-bottom: 17px;
+      }
+      .badge {
+        border-radius: 999px;
+        padding: 5px 9px;
+        color: var(--blue-dark);
+        background: #dbeafe;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+      }
+      .badge.green {
+        color: #047857;
+        background: #d1fae5;
+      }
+      .badge.amber {
+        color: #b45309;
+        background: #fef3c7;
+      }
+      h1,
+      h2 {
+        margin: 0 0 18px;
+        letter-spacing: -0.052em;
+        line-height: 1.01;
+      }
+      h1 {
+        font-size: clamp(40px, 5vw, 74px);
+      }
+      h2 {
+        font-size: clamp(34px, 4vw, 58px);
+      }
+      .lead {
+        margin: 0 0 23px;
+        max-width: 560px;
+        color: var(--copy);
+        font-size: 17px;
+        line-height: 1.58;
+      }
+      .points {
+        display: grid;
+        gap: 11px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        color: var(--copy);
+        font-size: 14px;
+        line-height: 1.45;
+      }
+      .points li {
+        display: grid;
+        grid-template-columns: 8px 1fr;
+        gap: 10px;
+      }
+      .points li::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        margin-top: 7px;
+        border-radius: 99px;
+        background: var(--blue);
+      }
+      .points strong {
+        color: #334155;
+      }
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 25px;
+        padding: 12px 16px;
+        border: 0;
+        border-radius: 9px;
+        color: #fff;
+        background: var(--blue);
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.2);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 750;
+      }
+      .cta:hover {
+        background: var(--blue-dark);
+        transform: translateY(-1px);
+      }
+      .visual {
+        position: relative;
+        min-width: 0;
+        height: min(65vh, 650px);
+        min-height: 425px;
+        overflow: hidden;
+        border: 1px solid #dbe3ee;
+        border-radius: 20px;
+        background: #dce5ec;
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.1);
+      }
+      .scene {
+        position: absolute;
+        inset: 0;
+      }
+      .scene canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .visual::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.05),
+          transparent 25%,
+          rgba(15, 23, 42, 0.1)
+        );
+      }
+      .slide-number {
+        position: absolute;
+        z-index: 3;
+        top: 17px;
+        right: 18px;
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+      }
+      .visual-label {
+        position: absolute;
+        z-index: 3;
+        top: 16px;
+        left: 17px;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 8px;
+        padding: 7px 9px;
+        color: #475569;
+        background: rgba(255, 255, 255, 0.91);
+        box-shadow: 0 3px 12px rgba(15, 23, 42, 0.08);
+        font-size: 11px;
+        font-weight: 650;
+      }
+      .visual-label strong {
+        color: #0f172a;
+      }
+      .hint {
+        position: absolute;
+        z-index: 3;
+        left: 18px;
+        bottom: 17px;
+        border-radius: 7px;
+        padding: 7px 9px;
+        color: #475569;
+        background: rgba(255, 255, 255, 0.88);
+        font-size: 10px;
+        font-weight: 650;
+        box-shadow: 0 2px 9px rgba(15, 23, 42, 0.07);
+      }
+      .overlay-card {
+        position: absolute;
+        z-index: 3;
+        border: 1px solid rgba(226, 232, 240, 0.96);
+        border-radius: 11px;
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.11);
+      }
+      .panel-title {
+        margin: 0 0 9px;
+        color: #0f172a;
+        font-size: 11px;
+        font-weight: 750;
+      }
+      .sub {
+        color: #94a3b8;
+        font-size: 9px;
+      }
+      .weather-panel {
+        right: 16px;
+        bottom: 16px;
+        width: 218px;
+        padding: 12px;
+      }
+      .location {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        padding: 8px;
+        border-radius: 7px;
+        color: #1e3a8a;
+        background: #eff6ff;
+        font-size: 10px;
+        font-weight: 700;
+      }
+      .weather-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 7px;
+      }
+      .weather-stat,
+      .metric-card {
+        padding: 8px;
+        border-radius: 7px;
+        background: #f8fafc;
+      }
+      .weather-stat span,
+      .metric-card span {
+        display: block;
+        color: #64748b;
+        font-size: 9px;
+      }
+      .weather-stat b,
+      .metric-card b {
+        display: block;
+        margin-top: 3px;
+        color: #334155;
+        font-size: 12px;
+      }
+      .mini-bars {
+        display: flex;
+        height: 37px;
+        align-items: end;
+        gap: 3px;
+        margin-top: 9px;
+      }
+      .mini-bars i {
+        display: block;
+        width: 8px;
+        border-radius: 2px 2px 0 0;
+        background: #38bdf8;
+      }
+      .new-building {
+        right: 16px;
+        top: 58px;
+        width: 223px;
+        padding: 12px;
+      }
+      .new-building header,
+      .edit-panel header,
+      .run-dialog header,
+      .sun-panel header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 9px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      .range-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        align-items: center;
+        margin-top: 11px;
+        color: #475569;
+        font-size: 10px;
+      }
+      .range-row b {
+        color: #0f172a;
+        font-size: 10px;
+      }
+      .fake-range {
+        grid-column: 1 / -1;
+        position: relative;
+        height: 4px;
+        border-radius: 4px;
+        background: #dbeafe;
+      }
+      .fake-range::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        width: var(--fill, 46%);
+        height: 100%;
+        border-radius: inherit;
+        background: var(--blue);
+      }
+      .fake-range::after {
+        content: "";
+        position: absolute;
+        left: calc(var(--fill, 46%) - 5px);
+        top: -3px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #fff;
+        border: 2px solid var(--blue);
+      }
+      .colour-row {
+        display: flex;
+        gap: 6px;
+        margin-top: 12px;
+      }
+      .colour-row i {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 1px #cbd5e1;
+      }
+      .draw-note {
+        margin-top: 12px;
+        border-radius: 7px;
+        padding: 8px;
+        color: #1e40af;
+        background: #eff6ff;
+        font-size: 9px;
+        line-height: 1.4;
+      }
+      .edit-panel {
+        right: 16px;
+        top: 59px;
+        bottom: 16px;
+        width: 256px;
+        padding: 12px;
+        overflow: hidden;
+      }
+      .edit-summary {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 7px;
+        margin: 10px 0;
+        padding: 8px;
+        border-radius: 7px;
+        background: #f8fafc;
+      }
+      .edit-summary b {
+        display: block;
+        margin-top: 3px;
+        font-size: 11px;
+      }
+      .accordion {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 29px;
+        border-top: 1px solid #e2e8f0;
+        color: #475569;
+        font-size: 9px;
+        font-weight: 750;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+      .control {
+        margin: -1px 0 8px;
+      }
+      .control label {
+        display: block;
+        margin-bottom: 5px;
+        color: #64748b;
+        font-size: 9px;
+      }
+      .select {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 26px;
+        padding: 0 7px;
+        border: 1px solid #cbd5e1;
+        border-radius: 5px;
+        color: #334155;
+        background: #fff;
+        font-size: 9px;
+      }
+      .select::after {
+        content: "⌄";
+        color: #64748b;
+      }
+      .sun-panel {
+        right: 16px;
+        top: 58px;
+        width: 218px;
+        padding: 12px;
+      }
+      .field-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 11px 0 5px;
+        color: #475569;
+        font-size: 9px;
+        font-weight: 700;
+      }
+      .field {
+        height: 29px;
+        padding: 8px;
+        border: 1px solid #cbd5e1;
+        border-radius: 5px;
+        color: #334155;
+        background: #fff;
+        font-size: 10px;
+      }
+      .time-pills {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 4px;
+        margin-top: 8px;
+      }
+      .time-pills span {
+        padding: 5px 0;
+        border: 1px solid #e2e8f0;
+        border-radius: 4px;
+        color: #64748b;
+        text-align: center;
+        font-size: 9px;
+      }
+      .time-pills .selected {
+        border-color: #60a5fa;
+        color: #1d4ed8;
+        background: #eff6ff;
+      }
+      .sun-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 7px;
+        margin-top: 10px;
+        padding: 8px;
+        border-radius: 7px;
+        background: #f8fafc;
+      }
+      .run-dialog {
+        top: 50%;
+        left: 50%;
+        width: min(310px, calc(100% - 48px));
+        padding: 13px;
+        transform: translate(-50%, -50%);
+      }
+      .run-dialog header {
+        margin-bottom: 10px;
+      }
+      .name-field {
+        padding: 8px;
+        border: 1px solid #cbd5e1;
+        border-radius: 5px;
+        color: #64748b;
+        font-size: 10px;
+      }
+      .run-copy {
+        margin: 10px 0;
+        color: #64748b;
+        font-size: 10px;
+        line-height: 1.45;
+      }
+      .run-button {
+        padding: 7px 9px;
+        border-radius: 5px;
+        color: #fff;
+        background: var(--blue);
+        text-align: center;
+        font-size: 10px;
+        font-weight: 750;
+      }
+      .study-progress {
+        left: 16px;
+        bottom: 16px;
+        width: 185px;
+        padding: 10px;
+      }
+      .progress-row {
+        margin-top: 8px;
+      }
+      .progress-row div {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 4px;
+        color: #475569;
+        font-size: 9px;
+      }
+      .progress-line {
+        height: 5px;
+        overflow: hidden;
+        border-radius: 4px;
+        background: #e2e8f0;
+      }
+      .progress-line i {
+        display: block;
+        width: 76%;
+        height: 100%;
+        border-radius: inherit;
+        background: #2563eb;
+      }
+      .progress-row.energy .progress-line i {
+        width: 54%;
+        background: #0891b2;
+      }
+      .study-progress .progress-line i {
+        animation: study-progress 3.2s ease-in-out infinite alternate;
+      }
+      .weather-panel .mini-bars i {
+        animation: climate-bars 2.8s ease-in-out infinite alternate;
+      }
+      .weather-panel .mini-bars i:nth-child(2n) {
+        animation-delay: -1.4s;
+      }
+      @keyframes study-progress {
+        from {
+          transform: scaleX(0.76);
+          transform-origin: left;
+        }
+        to {
+          transform: scaleX(1);
+          transform-origin: left;
+        }
+      }
+      @keyframes climate-bars {
+        from {
+          transform: scaleY(0.72);
+          transform-origin: bottom;
+        }
+        to {
+          transform: scaleY(1);
+          transform-origin: bottom;
+        }
+      }
+      .result-strip {
+        right: 16px;
+        bottom: 16px;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 7px;
+        width: 212px;
+        padding: 9px;
+      }
+      .metric-card.complete {
+        background: #ecfdf5;
+      }
+      .metric-card.pending {
+        color: #64748b;
+        background: #f8fafc;
+      }
+      .graph-card {
+        right: 15px;
+        top: 58px;
+        width: min(450px, calc(100% - 31px));
+        height: 355px;
+        padding: 13px;
+      }
+      .graph-card header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #0f172a;
+        font-size: 11px;
+        font-weight: 750;
+      }
+      .graph-help {
+        color: #64748b;
+        font-size: 9px;
+        font-weight: 600;
+      }
+      .graph-area {
+        position: relative;
+        height: 292px;
+        overflow: hidden;
+        margin-top: 8px;
+        border-radius: 7px;
+        background: #f8fafc;
+      }
+      .edge {
+        position: absolute;
+        height: 1px;
+        background: #94a3b8;
+        transform-origin: left center;
+      }
+      .edge.one {
+        width: 92px;
+        left: 86px;
+        top: 104px;
+        transform: rotate(-25deg);
+      }
+      .edge.two {
+        width: 98px;
+        left: 86px;
+        top: 123px;
+        transform: rotate(25deg);
+      }
+      .edge.three {
+        width: 86px;
+        left: 245px;
+        top: 80px;
+        transform: rotate(24deg);
+      }
+      .graph-node {
+        position: absolute;
+        width: 126px;
+        padding: 7px;
+        border: 1px solid #cbd5e1;
+        border-radius: 7px;
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.07);
+      }
+      .graph-node.current {
+        border: 2px solid #34d399;
+        background: #ecfdf5;
+      }
+      .node-name {
+        display: block;
+        overflow: hidden;
+        margin-bottom: 5px;
+        color: #0f172a;
+        font-size: 9px;
+        font-weight: 750;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .node-stats {
+        display: grid;
+        gap: 3px;
+      }
+      .node-stat {
+        display: flex;
+        justify-content: space-between;
+        padding: 3px 4px;
+        border-radius: 3px;
+        color: #475569;
+        background: #f8fafc;
+        font-size: 8px;
+      }
+      .node-stat i {
+        font-style: normal;
+        color: #94a3b8;
+      }
+      .node-stat.good {
+        color: #166534;
+        background: #dcfce7;
+      }
+      .node-stat.blue {
+        color: #0c4a6e;
+        background: #e0f2fe;
+      }
+      .node-stat.amber {
+        color: #9a3412;
+        background: #fff7ed;
+      }
+      .n1 {
+        left: 15px;
+        top: 96px;
+      }
+      .n2 {
+        left: 164px;
+        top: 32px;
+      }
+      .n3 {
+        left: 164px;
+        top: 178px;
+      }
+      .n4 {
+        left: 313px;
+        top: 94px;
+      }
+      .reinstate {
+        position: absolute;
+        right: 11px;
+        bottom: 10px;
+        padding: 6px 8px;
+        border: 1px solid #bfdbfe;
+        border-radius: 5px;
+        color: #1d4ed8;
+        background: #eff6ff;
+        font-size: 9px;
+        font-weight: 750;
+      }
+      .footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 0 28px;
+        border-top: 1px solid var(--line);
+        background: #fff;
+      }
+      .progress {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .progress-dot {
+        width: 9px;
+        height: 9px;
+        padding: 0;
+        border: 0;
+        border-radius: 99px;
+        background: #cbd5e1;
+        cursor: pointer;
+        transition:
+          width 0.2s,
+          background 0.2s;
+      }
+      .progress-dot.active {
+        width: 28px;
+        background: var(--blue);
+      }
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .play-state {
+        min-width: 64px;
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 650;
+      }
+      .control-button {
+        height: 37px;
+        padding: 0 13px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        color: #334155;
+        background: #fff;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .control-button:hover {
+        border-color: #93c5fd;
+        background: #eff6ff;
+      }
+      .control-button.primary {
+        border-color: var(--blue);
+        color: #fff;
+        background: var(--blue);
+      }
+      .control-button.primary:hover {
+        background: var(--blue-dark);
+      }
+      @media (max-width: 980px) {
+        .app {
+          grid-template-rows: 58px 1fr 70px;
+        }
+        .topbar,
+        .footer {
+          padding: 0 18px;
+        }
+        .slide {
+          grid-template-columns: 1fr;
+          overflow-y: auto;
+          align-content: start;
+          padding: 28px 24px 40px;
+        }
+        .copy {
+          max-width: 700px;
+        }
+        .visual {
+          height: 510px;
+          min-height: 410px;
+        }
+      }
+      @media (max-width: 620px) {
+        .tagline,
+        .play-state {
+          display: none;
+        }
+        .topbar {
+          padding: 0 14px;
+        }
+        .footer {
+          padding: 0 12px;
+          gap: 10px;
+        }
+        .controls {
+          gap: 5px;
+        }
+        .control-button {
+          height: 35px;
+          padding: 0 8px;
+          font-size: 11px;
+        }
+        .slide {
+          padding: 22px 16px 30px;
+        }
+        .lead {
+          font-size: 15px;
+        }
+        .visual {
+          height: 455px;
+          min-height: 400px;
+          border-radius: 15px;
+        }
+        .new-building,
+        .sun-panel {
+          width: 190px;
+        }
+        .edit-panel {
+          width: 220px;
+        }
+        .weather-panel {
+          width: 190px;
+        }
+        .study-progress {
+          width: 158px;
+        }
+        .result-strip {
+          width: 176px;
+        }
+        .graph-card {
+          height: 324px;
+        }
+        .graph-area {
+          height: 263px;
+          transform: scale(0.84);
+          transform-origin: top left;
+          width: 119%;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span
+          ><span>HEATH Web Tool</span>
+        </div>
+        <span class="tagline"
+          >A Chalmers course tool for building-performance learning</span
+        >
+      </header>
+      <main class="stage" aria-live="polite">
+        <section
+          class="slide active"
+          data-slide="0"
+          aria-labelledby="slide-1-title"
+        >
+          <div class="copy">
+            <div class="eyebrow">
+              <span class="badge">HEATH WEB TOOL</span
+              ><span class="badge green">START WITH CLIMATE</span>
+            </div>
+            <h1 id="slide-1-title">Start with climate, then test a design.</h1>
+            <p class="lead">
+              HEATH is a course workspace for making building-performance
+              questions concrete. Begin with a Swedish climate, make a simple
+              model, and use evidence to discuss the consequences of a choice.
+            </p>
+            <ul class="points">
+              <li>
+                <span
+                  ><strong>Choose a Swedish city</strong> or upload an EPW
+                  weather file.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><strong>Read the climate</strong> through temperature,
+                  humidity, degree days and wind.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><strong>Frame a course question</strong> about orientation,
+                  comfort, daylight or energy before modelling.</span
+                >
+              </li>
+            </ul>
+            <button class="cta" type="button" data-next>
+              See the model workspace <span aria-hidden="true">→</span>
+            </button>
+          </div>
+          <div class="visual">
+            <div class="scene" id="scene-climate"></div>
+            <span class="slide-number">01 / 06</span>
+            <div class="visual-label">
+              <strong>Weather &amp; Location</strong> · Climate analysis
+            </div>
+            <aside
+              class="overlay-card weather-panel"
+              aria-label="Example climate analysis panel"
+            >
+              <p class="panel-title">Weather &amp; Climate Analysis</p>
+              <div class="location">
+                <span>Gothenburg, Sweden</span><span>⌄</span>
+              </div>
+              <div class="weather-grid">
+                <div class="weather-stat">
+                  <span>Comfort base</span><b>21°C</b>
+                </div>
+                <div class="weather-stat">
+                  <span>Data source</span><b>EPW / TMY</b>
+                </div>
+              </div>
+              <div class="mini-bars" aria-hidden="true">
+                <i style="height: 38%"></i><i style="height: 48%"></i
+                ><i style="height: 66%"></i><i style="height: 82%"></i
+                ><i style="height: 93%"></i><i style="height: 88%"></i
+                ><i style="height: 68%"></i><i style="height: 48%"></i
+                ><i style="height: 35%"></i>
+              </div>
+            </aside>
+            <span class="hint"
+              >Use climate data to form a question before making the
+              model.</span
+            >
+          </div>
+        </section>
+        <section class="slide" data-slide="1" aria-labelledby="slide-2-title">
+          <div class="copy">
+            <div class="eyebrow">
+              <span class="badge">MODEL</span
+              ><span class="badge">DRAW BUILDING</span>
+            </div>
+            <h2 id="slide-2-title">Build a simple model you can explain.</h2>
+            <p class="lead">
+              For a course exercise, start with a deliberately simple mass.
+              Place the footprint, state the assumptions, and keep the model
+              readable enough to discuss with others.
+            </p>
+            <ul class="points">
+              <li>
+                <span
+                  ><strong>Place footprint vertices</strong> and close the
+                  outline by returning to the first point or
+                  double-clicking.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><strong>Set new-building defaults</strong> for floors, floor
+                  height and colour.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><strong>Return to the model</strong> by selecting a building
+                  in the scene and refining the assumption.</span
+                >
+              </li>
+            </ul>
+          </div>
+          <div class="visual">
+            <div class="scene" id="scene-create"></div>
+            <span class="slide-number">02 / 06</span>
+            <div class="visual-label">
+              <strong>Model</strong> · Draw building
+            </div>
+            <aside
+              class="overlay-card new-building"
+              aria-label="New building settings"
+            >
+              <header>
+                <div>
+                  <b style="font-size: 11px">New building</b>
+                  <div class="sub">Defaults for the next footprint</div>
+                </div>
+                <span>×</span>
+              </header>
+              <div class="range-row">
+                <span>Floors</span><b>5</b>
+                <div class="fake-range"></div>
+              </div>
+              <div class="range-row">
+                <span>Floor height</span><b>3.2 m</b>
+                <div class="fake-range" style="--fill: 56%"></div>
+              </div>
+              <div class="colour-row" aria-label="Default colours">
+                <i style="background: #b69f80; outline: 2px solid #2563eb"></i
+                ><i style="background: #7c8fa3"></i
+                ><i style="background: #879e7b"></i
+                ><i style="background: #b97867"></i>
+              </div>
+              <div class="draw-note">
+                Click to place vertices. Click near the first point or
+                double-click to finish.
+              </div>
+            </aside>
+            <span class="hint"
+              >A simple model makes design assumptions easier to discuss.</span
+            >
+          </div>
+        </section>
+        <section class="slide" data-slide="2" aria-labelledby="slide-3-title">
+          <div class="copy">
+            <div class="eyebrow">
+              <span class="badge">EDIT</span
+              ><span class="badge green">BUILDING INSPECTOR</span>
+            </div>
+            <h2 id="slide-3-title">Make the assumptions visible.</h2>
+            <p class="lead">
+              A model is useful in teaching only when its inputs are clear.
+              HEATH keeps geometry, façade, construction, programme and systems
+              together so students can connect a result to the choices behind
+              it.
+            </p>
+            <ul class="points">
+              <li>
+                <span
+                  ><strong>Change massing</strong> with floors, floor height and
+                  editable footprint vertices.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><strong>Adjust the façade</strong> with window-to-wall ratio
+                  and optional extra overhang depth.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><strong>Record the assumptions</strong> for constructions,
+                  programme, structural system and HVAC.</span
+                >
+              </li>
+            </ul>
+          </div>
+          <div class="visual">
+            <div class="scene" id="scene-edit"></div>
+            <span class="slide-number">03 / 06</span>
+            <div class="visual-label">
+              <strong>Model</strong> · Edit building
+            </div>
+            <aside
+              class="overlay-card edit-panel"
+              aria-label="Building edit panel"
+            >
+              <header>
+                <div>
+                  <b style="font-size: 11px">Edit building</b>
+                  <div class="sub">Studio massing</div>
+                </div>
+                <span>×</span>
+              </header>
+              <div class="edit-summary">
+                <div><span class="sub">GFA</span><b>2,304 m²</b></div>
+                <div><span class="sub">Total height</span><b>16.0 m</b></div>
+              </div>
+              <div class="accordion">Form &amp; Massing <span>⌃</span></div>
+              <div class="control">
+                <label>Floors · 5</label>
+                <div class="fake-range"></div>
+              </div>
+              <div class="accordion">Façade <span>⌃</span></div>
+              <div class="control">
+                <label>Window-to-wall ratio · 40%</label>
+                <div class="fake-range"></div>
+              </div>
+              <div class="accordion">Constructions <span>⌄</span></div>
+              <div class="accordion">Programme <span>⌃</span></div>
+              <div class="control">
+                <label>Building programme</label>
+                <div class="select">Office</div>
+              </div>
+              <div class="accordion">Systems <span>⌃</span></div>
+              <div class="control">
+                <label>HVAC</label>
+                <div class="select">Default HVAC</div>
+              </div>
+            </aside>
+            <span class="hint"
+              >Change one assumption at a time, then observe what follows.</span
+            >
+          </div>
+        </section>
+        <section class="slide" data-slide="3" aria-labelledby="slide-4-title">
+          <div class="copy">
+            <div class="eyebrow">
+              <span class="badge amber">EXPLORE</span
+              ><span class="badge">SUN POSITION</span>
+            </div>
+            <h2 id="slide-4-title">Test a moment. Discuss the consequence.</h2>
+            <p class="lead">
+              Set a date and time, then use the scene to discuss how massing and
+              surrounding buildings shape light and shadow. It is a prompt for
+              observation—not a final solar-performance score.
+            </p>
+            <ul class="points">
+              <li>
+                <span
+                  ><strong>Set a date</strong> for the design moment you want to
+                  inspect.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><strong>Move through the day</strong> in fifteen-minute
+                  increments or jump to a common time.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><strong>Read elevation and azimuth</strong> alongside a
+                  qualitative shadow study.</span
+                >
+              </li>
+            </ul>
+          </div>
+          <div class="visual">
+            <div class="scene" id="scene-sun"></div>
+            <span class="slide-number">04 / 06</span>
+            <div class="visual-label">
+              <strong>Model</strong> · Sun position
+            </div>
+            <aside
+              class="overlay-card sun-panel"
+              aria-label="Sun position settings"
+            >
+              <header>
+                <b style="font-size: 11px">☀ Sun position</b><span>×</span>
+              </header>
+              <div class="field-label"><span>Date</span></div>
+              <div class="field">2026-06-21</div>
+              <div class="field-label"><span>Time</span><b>14:00</b></div>
+              <div class="fake-range"></div>
+              <div class="time-pills">
+                <span>09:00</span><span>12:00</span
+                ><span class="selected">14:00</span><span>17:00</span>
+              </div>
+              <div class="sun-stats">
+                <div>
+                  <span class="sub">Elevation</span
+                  ><b style="font-size: 12px">48.6°</b>
+                </div>
+                <div>
+                  <span class="sub">Azimuth</span
+                  ><b style="font-size: 12px">202.4°</b>
+                </div>
+              </div>
+            </aside>
+            <span class="hint"
+              >Use the scene to observe a condition, then explain what you
+              see.</span
+            >
+          </div>
+        </section>
+        <section class="slide" data-slide="4" aria-labelledby="slide-5-title">
+          <div class="copy">
+            <div class="eyebrow">
+              <span class="badge green">RUN STUDIES</span
+              ><span class="badge">DAYLIGHT + ENERGY</span>
+            </div>
+            <h2 id="slide-5-title">Run a study when you have a question.</h2>
+            <p class="lead">
+              Name the option and run daylight and energy studies in parallel.
+              The results help students compare the effects of their
+              assumptions; they do not replace architectural judgement.
+            </p>
+            <ul class="points">
+              <li>
+                <span
+                  ><strong>Daylight results</strong> include daylight factor,
+                  sDA and sensor-grid visualisation.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><strong>Energy results</strong> include heating, cooling and
+                  total energy demand.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><strong>Embodied GWP</strong> connects construction choices
+                  and element areas to a comparable indicator.</span
+                >
+              </li>
+            </ul>
+          </div>
+          <div class="visual">
+            <div class="scene" id="scene-studies"></div>
+            <span class="slide-number">05 / 06</span>
+            <div class="visual-label"><strong>Model</strong> · Run studies</div>
+            <aside
+              class="overlay-card run-dialog"
+              aria-label="Save and run studies dialog"
+            >
+              <header>
+                <b style="font-size: 11px">Save and run studies</b
+                ><span>×</span>
+              </header>
+              <div class="sub" style="margin-bottom: 5px">Design name</div>
+              <div class="name-field">South-facing façade option</div>
+              <p class="run-copy">
+                Daylight and energy run in parallel. Each result appears as soon
+                as it is ready.
+              </p>
+              <div class="run-button">▣ &nbsp; Save and run</div>
+            </aside>
+            <aside
+              class="overlay-card study-progress"
+              aria-label="Study progress"
+            >
+              <p class="panel-title">Study progress</p>
+              <div class="progress-row">
+                <div><span>Daylight</span><b>Running</b></div>
+                <div class="progress-line"><i></i></div>
+              </div>
+              <div class="progress-row energy">
+                <div><span>Energy</span><b>Queued</b></div>
+                <div class="progress-line"><i></i></div>
+              </div>
+            </aside>
+            <aside
+              class="overlay-card result-strip"
+              aria-label="Available result categories"
+            >
+              <div class="metric-card complete">
+                <span>Mean DF</span><b>Ready</b>
+              </div>
+              <div class="metric-card complete">
+                <span>sDA 300/50</span><b>Ready</b>
+              </div>
+              <div class="metric-card pending">
+                <span>Energy</span><b>Running…</b>
+              </div>
+              <div class="metric-card pending">
+                <span>GWP</span><b>Pending</b>
+              </div>
+            </aside>
+          </div>
+        </section>
+        <section class="slide" data-slide="5" aria-labelledby="slide-6-title">
+          <div class="copy">
+            <div class="eyebrow">
+              <span class="badge">COMPARE</span
+              ><span class="badge green">DESIGN HISTORY</span>
+            </div>
+            <h2 id="slide-6-title">Compare, explain, revise.</h2>
+            <p class="lead">
+              HEATH keeps each saved option in the design history. Compare what
+              changed, explain the outcome to your peers, and reinstate an
+              earlier option to test the next idea.
+            </p>
+            <ul class="points">
+              <li>
+                <span
+                  ><strong>Compare status-aware metrics:</strong> sDA, total
+                  energy and GWP remain unavailable until their studies
+                  finish.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><strong>Select a node</strong> to inspect the design and its
+                  study details.</span
+                >
+              </li>
+              <li>
+                <span
+                  ><strong>Reinstate a configuration</strong> to revisit a
+                  decision rather than losing it.</span
+                >
+              </li>
+            </ul>
+            <button class="cta" type="button" data-restart>
+              Restart walkthrough <span aria-hidden="true">↺</span>
+            </button>
+          </div>
+          <div class="visual">
+            <div class="scene" id="scene-compare"></div>
+            <span class="slide-number">06 / 06</span>
+            <div class="visual-label">
+              <strong>Design history</strong> · Compare design options
+            </div>
+            <aside
+              class="overlay-card graph-card"
+              aria-label="Design history graph"
+            >
+              <header>
+                <span>Compare design options</span
+                ><span class="graph-help">Select a node to inspect</span>
+              </header>
+              <div class="graph-area">
+                <i class="edge one"></i><i class="edge two"></i
+                ><i class="edge three"></i>
+                <div class="graph-node n1">
+                  <span class="node-name">Baseline</span>
+                  <div class="node-stats">
+                    <span class="node-stat blue"><i>sDA</i> —</span
+                    ><span class="node-stat"><i>Energy</i> —</span
+                    ><span class="node-stat"><i>GWP</i> —</span>
+                  </div>
+                </div>
+                <div class="graph-node n2">
+                  <span class="node-name">Lower WWR</span>
+                  <div class="node-stats">
+                    <span class="node-stat blue"><i>sDA</i> Complete</span
+                    ><span class="node-stat good"><i>Energy</i> Complete</span
+                    ><span class="node-stat amber"><i>GWP</i> Complete</span>
+                  </div>
+                </div>
+                <div class="graph-node n3">
+                  <span class="node-name">Timber structure</span>
+                  <div class="node-stats">
+                    <span class="node-stat blue"><i>sDA</i> Complete</span
+                    ><span class="node-stat"><i>Energy</i> Running…</span
+                    ><span class="node-stat amber"><i>GWP</i> Complete</span>
+                  </div>
+                </div>
+                <div class="graph-node current n4">
+                  <span class="node-name">South-facing façade</span>
+                  <div class="node-stats">
+                    <span class="node-stat blue"><i>sDA</i> Complete</span
+                    ><span class="node-stat good"><i>Energy</i> Complete</span
+                    ><span class="node-stat amber"><i>GWP</i> Complete</span>
+                  </div>
+                </div>
+                <button class="reinstate" type="button">
+                  Reinstate configuration
+                </button>
+              </div>
+            </aside>
+            <span class="hint"
+              >The learning loop: model → question → study → discuss →
+              revise.</span
+            >
+          </div>
+        </section>
+      </main>
+      <footer class="footer">
+        <div class="progress" aria-label="Slide progress"></div>
+        <div class="controls">
+          <span class="play-state" id="play-state">Manual</span
+          ><button
+            class="control-button"
+            id="previous"
+            type="button"
+            aria-label="Previous slide"
+          >
+            ← Prev</button
+          ><button
+            class="control-button primary"
+            id="play"
+            type="button"
+            aria-pressed="false"
+          >
+            Play</button
+          ><button
+            class="control-button"
+            id="next"
+            type="button"
+            aria-label="Next slide"
+          >
+            Next →
+          </button>
+        </div>
+      </footer>
+    </div>
+    <script>
+      (() => {
+        const reduceMotion = window.matchMedia(
+            "(prefers-reduced-motion: reduce)",
+          ).matches,
+          slides = [...document.querySelectorAll(".slide")],
+          progress = document.querySelector(".progress"),
+          playButton = document.getElementById("play"),
+          playState = document.getElementById("play-state");
+        let current = 0,
+          playing = false,
+          timer = null;
+        slides.forEach((slide, index) => {
+          const dot = document.createElement("button");
+          dot.type = "button";
+          dot.className = "progress-dot";
+          dot.setAttribute("aria-label", `Go to slide ${index + 1}`);
+          dot.addEventListener("click", () => showSlide(index));
+          progress.append(dot);
+        });
+        function showSlide(index) {
+          current = (index + slides.length) % slides.length;
+          slides.forEach((slide, i) =>
+            slide.classList.toggle("active", i === current),
+          );
+          [...progress.children].forEach((dot, i) => {
+            dot.classList.toggle("active", i === current);
+            dot.setAttribute("aria-current", i === current ? "step" : "false");
+          });
+          restartTimer();
+        }
+        function restartTimer() {
+          window.clearTimeout(timer);
+          if (playing && !reduceMotion)
+            timer = window.setTimeout(() => showSlide(current + 1), 8500);
+        }
+        function togglePlay() {
+          if (reduceMotion) return;
+          playing = !playing;
+          playButton.textContent = playing ? "Pause" : "Play";
+          playButton.setAttribute("aria-pressed", String(playing));
+          playState.textContent = playing ? "Auto-play" : "Manual";
+          restartTimer();
+        }
+        document
+          .getElementById("next")
+          .addEventListener("click", () => showSlide(current + 1));
+        document
+          .getElementById("previous")
+          .addEventListener("click", () => showSlide(current - 1));
+        playButton.addEventListener("click", togglePlay);
+        document
+          .querySelectorAll("[data-next]")
+          .forEach((button) =>
+            button.addEventListener("click", () => showSlide(current + 1)),
+          );
+        document
+          .querySelectorAll("[data-restart]")
+          .forEach((button) =>
+            button.addEventListener("click", () => showSlide(0)),
+          );
+        document.addEventListener("keydown", (event) => {
+          if (["ArrowRight", "PageDown"].includes(event.key))
+            showSlide(current + 1);
+          if (["ArrowLeft", "PageUp"].includes(event.key))
+            showSlide(current - 1);
+          if (event.key === " " && !reduceMotion) {
+            event.preventDefault();
+            togglePlay();
+          }
+        });
+        if (reduceMotion) {
+          playButton.disabled = true;
+          playButton.title =
+            "Autoplay is disabled because reduced motion is enabled";
+        }
+        showSlide(0);
+        
+        const scenes = [];
+        function colour(hex) {
+          return new THREE.Color(hex);
+        }
+        function addRenderer(id) {
+          const host = document.getElementById(id),
+            renderer = new THREE.WebGLRenderer({
+              antialias: true,
+              alpha: true,
+            });
+          renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+          renderer.shadowMap.enabled = true;
+          renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+          renderer.outputEncoding = THREE.sRGBEncoding;
+          renderer.toneMapping = THREE.ACESFilmicToneMapping;
+          renderer.toneMappingExposure = 0.9;
+          host.append(renderer.domElement);
+          const scene = new THREE.Scene();
+          scene.background = colour("#dce5ec");
+          const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
+          camera.position.set(15, 11, 18);
+          camera.lookAt(0, 3.6, 0);
+          scene.add(new THREE.HemisphereLight("#dcecff", "#506170", 0.82));
+          const sun = new THREE.DirectionalLight("#fff1cf", 2.7);
+          sun.position.set(12, 16, 9);
+          sun.castShadow = true;
+          sun.shadow.mapSize.set(2048, 2048);
+          sun.shadow.camera.left = -18;
+          sun.shadow.camera.right = 18;
+          sun.shadow.camera.top = 18;
+          sun.shadow.camera.bottom = -18;
+          sun.shadow.radius = 4;
+          sun.shadow.bias = -0.0003;
+          scene.add(sun);
+          const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(58, 58),
+            new THREE.MeshStandardMaterial({ color: "#bac7d2", roughness: 1 }),
+          );
+          ground.rotation.x = -Math.PI / 2;
+          ground.receiveShadow = true;
+          scene.add(ground);
+          const grid = new THREE.GridHelper(46, 23, "#8297a7", "#aebdc9");
+          grid.position.y = 0.01;
+          scene.add(grid);
+          const resize = () => {
+            const { width, height } = host.getBoundingClientRect();
+            if (!width || !height) return;
+            renderer.setSize(width, height, false);
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+          };
+          new ResizeObserver(resize).observe(host);
+          resize();
+          
+          // Added transition state for the cinematic camera sweep
+          const entry = {
+            renderer,
+            scene,
+            camera,
+            sun,
+            host,
+            baseCamera: camera.position.clone(),
+            target: new THREE.Vector3(0, 3.6, 0),
+            phase: scenes.length * 0.9,
+            camTransition: 0,
+            activeTime: 0,
+            update: null,
+          };
+          scenes.push(entry);
+          return entry;
+        }
+        function mass(scene, o = {}) {
+          const {
+              x = 0,
+              z = 0,
+              width = 6,
+              depth = 5,
+              height = 10,
+              color = "#b69f80",
+              windows = false,
+            } = o,
+            group = new THREE.Group();
+          group.position.set(x, height / 2, z);
+          const building = new THREE.Mesh(
+            new THREE.BoxGeometry(width, height, depth),
+            new THREE.MeshStandardMaterial({
+              color,
+              roughness: 0.82,
+              metalness: 0.02,
+            }),
+          );
+          building.castShadow = true;
+          building.receiveShadow = true;
+          group.add(building);
+          group.add(
+            new THREE.LineSegments(
+              new THREE.EdgesGeometry(
+                new THREE.BoxGeometry(width, height, depth),
+              ),
+              new THREE.LineBasicMaterial({
+                color: "#3e505c",
+                transparent: true,
+                opacity: 0.78,
+              }),
+            ),
+          );
+          for (let y = -height / 2 + 1.5; y < height / 2; y += 2) {
+            const line = new THREE.Line(
+              new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(-width / 2, y, depth / 2 + 0.012),
+                new THREE.Vector3(width / 2, y, depth / 2 + 0.012),
+              ]),
+              new THREE.LineBasicMaterial({ color: "#46515c" }),
+            );
+            group.add(line);
+          }
+          if (windows) {
+            const glass = new THREE.MeshStandardMaterial({
+              color: "#456b83",
+              roughness: 0.28,
+              metalness: 0.18,
+            });
+            const frame = new THREE.MeshStandardMaterial({
+              color: "#2f4352",
+              roughness: 0.7,
+            });
+            for (let y = -height / 2 + 1.2; y < height / 2; y += 2)
+              for (let px = -width / 2 + 0.8; px < width / 2; px += 1.6) {
+                const frameMesh = new THREE.Mesh(
+                  new THREE.BoxGeometry(1.08, 1.08, 0.045),
+                  frame,
+                );
+                frameMesh.position.set(px, y, depth / 2 + 0.045);
+                group.add(frameMesh);
+                const windowMesh = new THREE.Mesh(
+                  new THREE.BoxGeometry(0.9, 0.9, 0.06),
+                  glass,
+                );
+                windowMesh.position.set(px, y, depth / 2 + 0.09);
+                group.add(windowMesh);
+              }
+          }
+          scene.add(group);
+          return group;
+        }
+        function context(scene) {
+          mass(scene, {
+            x: -8,
+            z: -4,
+            width: 5,
+            depth: 5,
+            height: 7,
+            color: "#718395",
+          });
+          mass(scene, {
+            x: 8,
+            z: -3,
+            width: 5,
+            depth: 6,
+            height: 12,
+            color: "#687b8c",
+          });
+          mass(scene, {
+            x: 4,
+            z: 8,
+            width: 7,
+            depth: 4,
+            height: 6,
+            color: "#7b8fa0",
+          });
+        }
+        function addFootprint(scene) {
+          const points = [
+              new THREE.Vector3(-3, 0.14, -2),
+              new THREE.Vector3(3, 0.14, -2),
+              new THREE.Vector3(3, 0.14, 2),
+              new THREE.Vector3(-3, 0.14, 2),
+              new THREE.Vector3(-3, 0.14, -2) // Added closing point for seamless draw
+            ],
+            loop = new THREE.Line(
+              new THREE.BufferGeometry().setFromPoints(points),
+              new THREE.LineBasicMaterial({ color: "#2563eb", linewidth: 3 })
+            );
+          scene.add(loop);
+          const handles = points.slice(0, 4).map((point) => {
+            const handle = new THREE.Mesh(
+              new THREE.SphereGeometry(0.18, 14, 14),
+              new THREE.MeshStandardMaterial({
+                color: "#ef4444",
+                emissive: "#7f1d1d",
+              }),
+            );
+            handle.position.copy(point);
+            scene.add(handle);
+            return handle;
+          });
+          return { loop, handles };
+        }
+        
+        function climateScene() {
+          const s = addRenderer("scene-climate");
+          context(s.scene);
+          
+          mass(s.scene, {
+            x: -1,
+            z: 1,
+            width: 5,
+            depth: 4,
+            height: 7,
+            color: "#b69f80",
+            windows: true,
+          });
+
+          // Add Dynamic Gothenburg Weather (Rain/Wind Particles)
+          const rainGeo = new THREE.BufferGeometry();
+          const rainCount = 1200;
+          const rainArr = new Float32Array(rainCount * 3);
+          for(let i = 0; i < rainCount * 3; i++) {
+              rainArr[i] = (Math.random() - 0.5) * 40;
+          }
+          rainGeo.setAttribute('position', new THREE.BufferAttribute(rainArr, 3));
+          const rainMat = new THREE.PointsMaterial({
+              color: 0x93c5fd, 
+              size: 0.12, 
+              transparent: true, 
+              opacity: 0.6
+          });
+          const rain = new THREE.Points(rainGeo, rainMat);
+          s.scene.add(rain);
+
+          s.update = (time) => {
+            // Animate falling rain and drifting wind
+            const positions = rain.geometry.attributes.position.array;
+            for(let i = 0; i < rainCount; i++) {
+                positions[i*3+1] -= 0.18; // fall down (Y)
+                positions[i*3] -= 0.08;   // blow left wind (X)
+                if(positions[i*3+1] < 0) {
+                    positions[i*3+1] = 20; // reset height
+                    positions[i*3] = (Math.random() - 0.5) * 40; // reset X
+                }
+            }
+            rain.geometry.attributes.position.needsUpdate = true;
+          };
+        }
+        
+        function createScene() {
+          const s = addRenderer("scene-create");
+          context(s.scene);
+          mass(s.scene, {
+            x: 0,
+            z: 0,
+            width: 6,
+            depth: 5,
+            height: 10,
+            color: "#b69f80",
+          });
+          const footprint = addFootprint(s.scene);
+          
+          s.update = (time) => {
+            // Simulate the footprint drawing process
+            const cycle = (time % 4) / 4; 
+            const drawCount = Math.floor(cycle * 6); 
+            
+            footprint.loop.geometry.setDrawRange(0, Math.min(drawCount + 1, 5));
+            footprint.handles.forEach((handle, index) => {
+              handle.visible = index < drawCount;
+              if (index === drawCount - 1) {
+                  // Make the active "drawn" point pulse
+                  handle.scale.setScalar(1 + Math.sin(time * 15) * 0.25);
+              } else {
+                  handle.scale.setScalar(1);
+              }
+            });
+          };
+        }
+        
+        function editScene() {
+          const s = addRenderer("scene-edit");
+          context(s.scene);
+          const bldg = mass(s.scene, {
+            x: -1,
+            z: 1,
+            width: 7,
+            depth: 5,
+            height: 13,
+            color: "#b69f80",
+            windows: true,
+          });
+          const footprint = addFootprint(s.scene);
+          
+          s.update = (time) => {
+            // Simulate "Changing massing" by interpolating the building scale
+            const scaleY = 1 + (Math.sin(time * 1.5) * 0.5 + 0.5) * 0.35;
+            bldg.scale.y = scaleY;
+            // Keep the building grounded as it stretches
+            bldg.position.y = (13 * scaleY) / 2;
+            
+            footprint.handles.forEach((handle, index) =>
+              handle.scale.setScalar(1 + Math.sin(time * 1.8 + index) * 0.07),
+            );
+          };
+        }
+        
+        function sunScene() {
+          const s = addRenderer("scene-sun");
+          context(s.scene);
+          mass(s.scene, {
+            x: -1,
+            z: 1,
+            width: 7,
+            depth: 5,
+            height: 12,
+            color: "#b69f80",
+            windows: true,
+          });
+          s.sun.position.set(-10, 14, 8);
+          const disc = new THREE.Mesh(
+            new THREE.SphereGeometry(0.72, 20, 20),
+            new THREE.MeshBasicMaterial({ color: "#fbbf24" }),
+          );
+          disc.position.set(-8, 12, -5);
+          s.scene.add(disc);
+          
+          s.update = (time) => {
+            const arc = Math.sin(time * 0.25) * 4;
+            s.sun.position.set(
+              -10 + arc,
+              14.5 + Math.cos(time * 0.25) * 2.5,
+              8,
+            );
+            disc.position.set(-8 + arc, 12.3 + Math.cos(time * 0.25) * 1.5, -5);
+          };
+        }
+        
+        function studyScene() {
+          const s = addRenderer("scene-studies");
+          context(s.scene);
+          mass(s.scene, {
+            x: -1,
+            z: 1,
+            width: 7,
+            depth: 5,
+            height: 12,
+            color: "#b69f80",
+            windows: true,
+          });
+          const dots = new THREE.Group();
+          for (let x = -3.4; x < 3.4; x += 0.45)
+            for (let z = -2.4; z < 2.4; z += 0.45) {
+              const dot = new THREE.Mesh(
+                new THREE.SphereGeometry(0.045, 8, 8),
+                new THREE.MeshBasicMaterial({ color: "#06b6d4" }),
+              );
+              dot.position.set(x, 0.15, z + 1);
+              dots.add(dot);
+            }
+          s.scene.add(dots);
+          s.update = (time) => {
+            dots.children.forEach((dot, index) => {
+              dot.position.y =
+                0.15 + Math.sin(time * 2.1 + index * 0.28) * 0.08;
+            });
+          };
+        }
+        
+        function compareScene() {
+          const s = addRenderer("scene-compare");
+          context(s.scene);
+          mass(s.scene, {
+            x: -3,
+            z: 1,
+            width: 6,
+            depth: 5,
+            height: 10,
+            color: "#b69f80",
+            windows: true,
+          });
+          mass(s.scene, {
+            x: 5,
+            z: 2,
+            width: 5,
+            depth: 4,
+            height: 7,
+            color: "#93a6b5",
+            windows: true,
+          });
+        }
+        
+        climateScene();
+        createScene();
+        editScene();
+        sunScene();
+        studyScene();
+        compareScene();
+        
+        function loop(timestamp = 0) {
+          requestAnimationFrame(loop);
+          
+          scenes.forEach((s) => {
+            const isVisible = s.host.closest(".slide").classList.contains("active");
+            
+            // Handle Camera Transitions & Active Time Tracking
+            if (isVisible) {
+                // Ease in from 0 to 1
+                s.camTransition += (1 - s.camTransition) * 0.04; 
+                s.activeTime += 0.016; // approximate delta time
+            } else {
+                s.camTransition = 0;
+                s.activeTime = 0;
+            }
+
+            if (!reduceMotion && isVisible) {
+              // Calculate dynamic cinematic sweep
+              const sweepPan = Math.sin(s.activeTime * 0.25 + s.phase) * 8 * (1 - s.camTransition);
+              const continuousOrbit = Math.sin(s.activeTime * 0.13 + s.phase) * 0.48;
+              const hoverY = Math.sin(s.activeTime * 0.16 + s.phase) * 0.2;
+
+              s.camera.position.set(
+                s.baseCamera.x + continuousOrbit + sweepPan,
+                s.baseCamera.y + (1 - s.camTransition) * 6 + hoverY,
+                s.baseCamera.z + Math.cos(s.activeTime * 0.13 + s.phase) * 0.34
+              );
+              s.camera.lookAt(s.target);
+              
+              s.update?.(s.activeTime);
+            }
+            s.renderer.render(s.scene, s.camera);
+          });
+        }
+        loop();
+      })();
+    </script>
+  </body>
+</html>

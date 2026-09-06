@@ -1,0 +1,1085 @@
+ Vitest  "deps.inline" is deprecated. If you rely on vite-node directly, use "server.deps.inline" instead. Otherwise, consider using "deps.optimizer.web.include"
+
+ RUN  v3.2.4 /Users/ssanjay/GitHub/threejsEditor
+
+ ✓ src/services/__tests__/FacadeGeometry.test.ts (14 tests) 5ms
+ ✓ src/hooks/__tests__/useKeyboardShortcuts.test.tsx (2 tests) 17ms
+ ✓ src/hooks/__tests__/useClickHandler.test.tsx (3 tests) 16ms
+ ✓ src/components/__tests__/SimulationProgressCard.test.tsx (2 tests) 44ms
+ ✓ src/components/__tests__/SaveConfigurationDialog.test.tsx (1 test) 46ms
+ ✓ src/components/__tests__/SunController.test.tsx (2 tests) 64ms
+ ✓ src/components/dialogs/__tests__/DaylightResultsDialog.test.tsx (3 tests) 109ms
+ ✓ src/utils/__tests__/geometry.test.ts (35 tests) 6ms
+ ✓ src/hooks/__tests__/useBuildingEditSession.test.tsx (2 tests) 12ms
+stdout | src/services/__tests__/WindowService.test.ts > WindowService facade overlays > renders exact glazing, decorative frames, and three baseline shade planes per aperture
+getThemeColorAsHex: --color-window-glass -> ""
+getThemeColorAsHex: --color-window-frame -> ""
+getThemeColorAsHex: --color-window-overhang -> ""
+
+stdout | src/services/__tests__/WindowService.test.ts > WindowService facade overlays > adds enabled additional depth only to horizontal overhang planes
+getThemeColorAsHex: --color-window-glass -> ""
+getThemeColorAsHex: --color-window-frame -> ""
+getThemeColorAsHex: --color-window-overhang -> ""
+
+stdout | src/services/__tests__/WindowService.test.ts > WindowService facade overlays > uses a proper right-handed glass/frame transform for a counter-clockwise footprint
+getThemeColorAsHex: --color-window-glass -> ""
+getThemeColorAsHex: --color-window-frame -> ""
+getThemeColorAsHex: --color-window-overhang -> ""
+
+stdout | src/services/__tests__/WindowService.test.ts > WindowService facade overlays > uses a proper right-handed glass/frame transform for a clockwise footprint
+getThemeColorAsHex: --color-window-glass -> ""
+getThemeColorAsHex: --color-window-frame -> ""
+getThemeColorAsHex: --color-window-overhang -> ""
+
+stdout | src/services/__tests__/WindowService.test.ts > WindowService facade overlays > uses a proper right-handed glass/frame transform for a irregular footprint
+getThemeColorAsHex: --color-window-glass -> ""
+getThemeColorAsHex: --color-window-frame -> ""
+getThemeColorAsHex: --color-window-overhang -> ""
+
+ ✓ src/services/__tests__/WindowService.test.ts (5 tests) 41ms
+stdout | src/hooks/__tests__/useBuildingManager.test.tsx > useBuildingManager canonical scene ownership > updates preview and committed massing on the live scene mesh
+getThemeColorAsHex: --color-building-debug -> ""
+getThemeColorAsHex: --color-building-debug -> ""
+getThemeColorAsHex: --color-building-preview -> ""
+[2026-09-06T10:12:16.723Z] [BuildingManager] Building stats recalculated { count: 0, totalGrossFloorArea: 0, totalFloors: 0 }
+[2026-09-06T10:12:16.725Z] [BuildingManager] Buildings collection updated { count: 0, ids: [] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.727Z] [BuildingManager] Adding building to scene {
+  id: 'building_1',
+  meshUuid: 'bbc6f548-17d2-4115-89fb-d3d8642025ff',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 5, y: 0, z: 4 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_1',
+    isBuilding: true
+  },
+  footprintUuid: '923ebf0e-daba-418f-8188-d5c1f25122b7',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_1',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_1'
+  },
+  floorLines: '9de903b8-9db9-43c0-925c-7f716c6d1707',
+  sceneChildren: 3,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.728Z] [BuildingManager] Building added successfully { id: 'building_1', totalBuildings: 1, buildingIds: [ 'building_1' ] }
+[2026-09-06T10:12:16.729Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 480, totalFloors: 6 }
+[2026-09-06T10:12:16.729Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_1' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.733Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 960, totalFloors: 12 }
+[2026-09-06T10:12:16.733Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_1' ] }
+
+stdout | src/hooks/__tests__/useBuildingManager.test.tsx > useBuildingManager canonical scene ownership > keeps multi-building massing independent across previews and commits
+[2026-09-06T10:12:16.735Z] [BuildingManager] Building stats recalculated { count: 0, totalGrossFloorArea: 0, totalFloors: 0 }
+[2026-09-06T10:12:16.735Z] [BuildingManager] Buildings collection updated { count: 0, ids: [] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.736Z] [BuildingManager] Adding building to scene {
+  id: 'building_1',
+  meshUuid: '92c2b02a-c31c-4de2-a670-a1fbf8dab765',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 5, y: 0, z: 4 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_1',
+    isBuilding: true
+  },
+  footprintUuid: '9a8ee3ff-a405-4f2e-8f2c-73f97f1d5768',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_1',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_1'
+  },
+  floorLines: '41e3f331-1dd3-4fd6-b71b-c83c190a01e7',
+  sceneChildren: 4,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.737Z] [BuildingManager] Building added successfully { id: 'building_1', totalBuildings: 1, buildingIds: [ 'building_1' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.737Z] [BuildingManager] Adding building to scene {
+  id: 'building-b',
+  meshUuid: '73c0ae48-6d98-483d-a340-38044ccf849f',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 25, y: 0, z: 4 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building-b',
+    isBuilding: true
+  },
+  footprintUuid: '3aa3ab9c-6b65-48d3-a820-6f5baeef0a5f',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building-b',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building-b'
+  },
+  floorLines: '99d76bc9-baf0-43cb-8dde-1204bc70f791',
+  sceneChildren: 6,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.737Z] [BuildingManager] Building added successfully {
+  id: 'building-b',
+  totalBuildings: 2,
+  buildingIds: [ 'building_1', 'building-b' ]
+}
+[2026-09-06T10:12:16.737Z] [BuildingManager] Building stats recalculated { count: 2, totalGrossFloorArea: 1120, totalFloors: 14 }
+[2026-09-06T10:12:16.738Z] [BuildingManager] Buildings collection updated { count: 2, ids: [ 'building_1', 'building-b' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.740Z] [BuildingManager] Building stats recalculated { count: 2, totalGrossFloorArea: 1600, totalFloors: 20 }
+[2026-09-06T10:12:16.740Z] [BuildingManager] Buildings collection updated { count: 2, ids: [ 'building_1', 'building-b' ] }
+
+ ✓ src/components/__tests__/BuildingEditPanel.test.tsx (5 tests) 141ms
+stdout | src/hooks/__tests__/useBuildingManager.test.tsx > useBuildingManager canonical scene ownership > atomically restores a same-id 6-floor baseline after 2- and 10-floor iterations
+getThemeColorAsHex: --color-window-glass -> ""
+getThemeColorAsHex: --color-window-frame -> ""
+getThemeColorAsHex: --color-window-overhang -> ""
+[2026-09-06T10:12:16.745Z] [BuildingManager] Building stats recalculated { count: 0, totalGrossFloorArea: 0, totalFloors: 0 }
+[2026-09-06T10:12:16.745Z] [BuildingManager] Buildings collection updated { count: 0, ids: [] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.754Z] [BuildingManager] Added windows to building { buildingId: 'building-a', windowCount: 180 }
+[2026-09-06T10:12:16.754Z] [BuildingManager] Adding building to scene {
+  id: 'building-a',
+  meshUuid: 'a8155af9-59f2-4afd-8f92-39634d96cdb9',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 5, y: 0, z: 4 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building-a',
+    isBuilding: true
+  },
+  footprintUuid: 'b01511c6-7cf6-4a62-9a0c-6da98caacd8d',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building-a',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building-a'
+  },
+  floorLines: '21f06a34-56b5-4c12-9af3-5a8bef771e6e',
+  sceneChildren: 6,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.754Z] [BuildingManager] Building added successfully { id: 'building-a', totalBuildings: 1, buildingIds: [ 'building-a' ] }
+[2026-09-06T10:12:16.755Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 480, totalFloors: 6 }
+[2026-09-06T10:12:16.755Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building-a' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.766Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 800, totalFloors: 10 }
+[2026-09-06T10:12:16.766Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building-a' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.769Z] [BuildingManager] Added windows to building { buildingId: 'building-a', windowCount: 180 }
+[2026-09-06T10:12:16.769Z] [BuildingManager] Adding building to scene {
+  id: 'building-a',
+  meshUuid: '1dbc27d1-52f4-4b5b-9bf9-9067479f019f',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 5, y: 0, z: 4 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building-a',
+    name: 'Building 0',
+    description: '',
+    isBuilding: true
+  },
+  footprintUuid: '2ae0bfaa-be93-4c3e-bbd7-2c09ac89b1e1',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building-a',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building-a'
+  },
+  floorLines: 'ae5bb73f-7ef2-47e1-8fb0-5cb6dad7f0ba',
+  sceneChildren: 6,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.769Z] [BuildingManager] Building added successfully { id: 'building-a', totalBuildings: 1, buildingIds: [ 'building-a' ] }
+[2026-09-06T10:12:16.769Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 480, totalFloors: 6 }
+[2026-09-06T10:12:16.769Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building-a' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+
+stdout | src/hooks/__tests__/useBuildingManager.test.tsx > workspace import boundaries > rejects invalid replacement before disposing the current workspace
+[2026-09-06T10:12:16.774Z] [BuildingManager] Building stats recalculated { count: 0, totalGrossFloorArea: 0, totalFloors: 0 }
+[2026-09-06T10:12:16.775Z] [BuildingManager] Buildings collection updated { count: 0, ids: [] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.775Z] [BuildingManager] Adding building to scene {
+  id: 'building_1',
+  meshUuid: '393e9104-4890-4dc2-8df1-3740df1b936d',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 5, y: 0, z: 4 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_1',
+    isBuilding: true
+  },
+  footprintUuid: '37c6156c-bc6f-497c-af48-00279e075f94',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_1',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_1'
+  },
+  floorLines: '3e4cc9ac-a459-45ea-b076-1b7ed6baadff',
+  sceneChildren: 3,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.775Z] [BuildingManager] Building added successfully { id: 'building_1', totalBuildings: 1, buildingIds: [ 'building_1' ] }
+[2026-09-06T10:12:16.776Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 240, totalFloors: 3 }
+[2026-09-06T10:12:16.776Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_1' ] }
+
+stdout | src/hooks/__tests__/useBuildingManager.test.tsx > workspace import boundaries > generates a fresh ID after importing IDs from another workspace
+[2026-09-06T10:12:16.777Z] [BuildingManager] Building stats recalculated { count: 0, totalGrossFloorArea: 0, totalFloors: 0 }
+[2026-09-06T10:12:16.777Z] [BuildingManager] Buildings collection updated { count: 0, ids: [] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.777Z] [BuildingManager] Adding building to scene {
+  id: 'building_1',
+  meshUuid: 'fe4049f5-c259-4696-8619-8d80cb17a3f0',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 5, y: 0, z: 4 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_1',
+    isBuilding: true
+  },
+  footprintUuid: 'dd72e1d2-134b-4d5b-8b7d-600c24a7e1c5',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_1',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_1'
+  },
+  floorLines: '7c47ca77-fae6-4bcf-bdd8-6186fa9542b4',
+  sceneChildren: 3,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.777Z] [BuildingManager] Building added successfully { id: 'building_1', totalBuildings: 1, buildingIds: [ 'building_1' ] }
+[2026-09-06T10:12:16.777Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 240, totalFloors: 3 }
+[2026-09-06T10:12:16.778Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_1' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.778Z] [BuildingManager] Adding building to scene {
+  id: 'building_2',
+  meshUuid: '4b11855c-4045-4e6d-b267-dfa87e208efa',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 5, y: 0, z: 4 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_2',
+    name: 'Building 1',
+    description: '',
+    isBuilding: true
+  },
+  footprintUuid: '11d9aca6-f26e-47ca-9cde-1642337c0291',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_2',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_2'
+  },
+  floorLines: '43e30b71-aca8-42b6-8f58-94efbcb90187',
+  sceneChildren: 3,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.778Z] [BuildingManager] Building added successfully { id: 'building_2', totalBuildings: 1, buildingIds: [ 'building_2' ] }
+[2026-09-06T10:12:16.778Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 240, totalFloors: 3 }
+[2026-09-06T10:12:16.778Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_2' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.778Z] [BuildingManager] Adding building to scene {
+  id: 'building_3',
+  meshUuid: '287efcc6-d873-4e9c-b967-b2c78b560c1e',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 25, y: 0, z: 4 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_3',
+    isBuilding: true
+  },
+  footprintUuid: '654a7d04-3345-4b66-9286-996b7e182432',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_3',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_3'
+  },
+  floorLines: 'e23b3da8-a3b3-4e4b-af95-ce5be4f87a62',
+  sceneChildren: 6,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.778Z] [BuildingManager] Building added successfully {
+  id: 'building_3',
+  totalBuildings: 2,
+  buildingIds: [ 'building_2', 'building_3' ]
+}
+[2026-09-06T10:12:16.778Z] [BuildingManager] Building stats recalculated { count: 2, totalGrossFloorArea: 480, totalFloors: 6 }
+[2026-09-06T10:12:16.778Z] [BuildingManager] Buildings collection updated { count: 2, ids: [ 'building_2', 'building_3' ] }
+
+ ✓ src/hooks/__tests__/useBuildingManager.test.tsx (5 tests) 82ms
+stdout | src/hooks/__tests__/useWorkspaceEditor.test.tsx > workspace interaction ownership > commits one drag once, keeps the final pointer, and restores every layer on undo/redo
+getThemeColorAsHex: --color-window-glass -> ""
+getThemeColorAsHex: --color-window-frame -> ""
+getThemeColorAsHex: --color-window-overhang -> ""
+[2026-09-06T10:12:16.853Z] [BuildingManager] Building stats recalculated { count: 0, totalGrossFloorArea: 0, totalFloors: 0 }
+[2026-09-06T10:12:16.853Z] [BuildingManager] Buildings collection updated { count: 0, ids: [] }
+getThemeColorAsHex: --color-building-debug -> ""
+getThemeColorAsHex: --color-building-debug -> ""
+getThemeColorAsHex: --color-building-preview -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.853Z] [BuildingManager] Added windows to building { buildingId: 'building_1', windowCount: 96 }
+[2026-09-06T10:12:16.853Z] [BuildingManager] Adding building to scene {
+  id: 'building_1',
+  meshUuid: 'c196e11f-696a-4576-9faa-9079a7f4595c',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 0, y: 0, z: 0 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_1',
+    isBuilding: true
+  },
+  footprintUuid: 'ef977a6a-e209-4d07-ae7b-44fe2596efea',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_1',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_1'
+  },
+  floorLines: '70f108ac-ebd7-40b0-9444-a2567b4659d8',
+  sceneChildren: 6,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.853Z] [BuildingManager] Building added successfully { id: 'building_1', totalBuildings: 1, buildingIds: [ 'building_1' ] }
+[2026-09-06T10:12:16.853Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 300, totalFloors: 3 }
+[2026-09-06T10:12:16.853Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_1' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.917Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 210, totalFloors: 3 }
+[2026-09-06T10:12:16.917Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_1' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.917Z] [BuildingManager] Added windows to building { buildingId: 'building_1', windowCount: 96 }
+[2026-09-06T10:12:16.917Z] [BuildingManager] Adding building to scene {
+  id: 'building_1',
+  meshUuid: '1626eb82-7a45-4256-b22e-85addcea1695',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 0, y: 0, z: 0 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_1',
+    name: 'Building 1',
+    description: '',
+    isBuilding: true
+  },
+  footprintUuid: 'a3bb43c8-1a27-4597-bbbc-0661f80d250a',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_1',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_1'
+  },
+  floorLines: '8a82432e-9514-456e-88c0-5064919fedc3',
+  sceneChildren: 6,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.917Z] [BuildingManager] Building added successfully { id: 'building_1', totalBuildings: 1, buildingIds: [ 'building_1' ] }
+[2026-09-06T10:12:16.917Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 300, totalFloors: 3 }
+[2026-09-06T10:12:16.917Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_1' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.917Z] [BuildingManager] Added windows to building { buildingId: 'building_1', windowCount: 99 }
+[2026-09-06T10:12:16.917Z] [BuildingManager] Adding building to scene {
+  id: 'building_1',
+  meshUuid: '448e7f00-9657-4889-99bc-ba85d9538ae1',
+  meshVisible: true,
+  meshPosition: Vector3 { x: -1, y: 0, z: -2.5 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_1',
+    name: 'Building 1',
+    description: '',
+    isBuilding: true
+  },
+  footprintUuid: '8dba45af-17c5-4798-a48c-9d05a918e3c9',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_1',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_1'
+  },
+  floorLines: 'aa561899-fd8d-4b3b-8ee9-6520e0b6836b',
+  sceneChildren: 6,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.917Z] [BuildingManager] Building added successfully { id: 'building_1', totalBuildings: 1, buildingIds: [ 'building_1' ] }
+[2026-09-06T10:12:16.917Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 210, totalFloors: 3 }
+[2026-09-06T10:12:16.917Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_1' ] }
+
+stdout | src/hooks/__tests__/useWorkspaceEditor.test.tsx > workspace interaction ownership > restores the starting solid and skips history when a drag returns to its origin
+getThemeColorAsHex: --color-window-glass -> ""
+getThemeColorAsHex: --color-window-frame -> ""
+getThemeColorAsHex: --color-window-overhang -> ""
+[2026-09-06T10:12:16.915Z] [BuildingManager] Building stats recalculated { count: 0, totalGrossFloorArea: 0, totalFloors: 0 }
+[2026-09-06T10:12:16.915Z] [BuildingManager] Buildings collection updated { count: 0, ids: [] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.915Z] [BuildingManager] Added windows to building { buildingId: 'building_1', windowCount: 96 }
+[2026-09-06T10:12:16.915Z] [BuildingManager] Adding building to scene {
+  id: 'building_1',
+  meshUuid: 'fc305cfd-055e-49cf-92fc-f83b6a0081c1',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 0, y: 0, z: 0 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_1',
+    isBuilding: true
+  },
+  footprintUuid: '50a8d1f9-3da5-4317-9417-12642027e7e3',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_1',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_1'
+  },
+  floorLines: '142bc40d-ef03-4519-bc55-d7eaa62a3ea0',
+  sceneChildren: 6,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.915Z] [BuildingManager] Building added successfully { id: 'building_1', totalBuildings: 1, buildingIds: [ 'building_1' ] }
+[2026-09-06T10:12:16.915Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 300, totalFloors: 3 }
+[2026-09-06T10:12:16.915Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_1' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+
+stdout | src/hooks/__tests__/useWorkspaceEditor.test.tsx > workspace interaction ownership > rolls back on escape, including a queued preview
+getThemeColorAsHex: --color-window-glass -> ""
+getThemeColorAsHex: --color-window-frame -> ""
+getThemeColorAsHex: --color-window-overhang -> ""
+[2026-09-06T10:12:16.921Z] [BuildingManager] Building stats recalculated { count: 0, totalGrossFloorArea: 0, totalFloors: 0 }
+[2026-09-06T10:12:16.921Z] [BuildingManager] Buildings collection updated { count: 0, ids: [] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.921Z] [BuildingManager] Added windows to building { buildingId: 'building_1', windowCount: 96 }
+[2026-09-06T10:12:16.921Z] [BuildingManager] Adding building to scene {
+  id: 'building_1',
+  meshUuid: '2352023f-cfdd-431b-a102-955598a9af82',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 0, y: 0, z: 0 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_1',
+    isBuilding: true
+  },
+  footprintUuid: '51b5f527-0776-4c0f-8776-df0bb869b2d8',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_1',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_1'
+  },
+  floorLines: '326eabca-f43d-4fe8-afbd-25da3d3312ac',
+  sceneChildren: 6,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.921Z] [BuildingManager] Building added successfully { id: 'building_1', totalBuildings: 1, buildingIds: [ 'building_1' ] }
+[2026-09-06T10:12:16.921Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 300, totalFloors: 3 }
+[2026-09-06T10:12:16.921Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_1' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+
+stdout | src/hooks/__tests__/useWorkspaceEditor.test.tsx > workspace interaction ownership > rolls back on pointercancel, including a queued preview
+getThemeColorAsHex: --color-window-glass -> ""
+getThemeColorAsHex: --color-window-frame -> ""
+getThemeColorAsHex: --color-window-overhang -> ""
+[2026-09-06T10:12:16.927Z] [BuildingManager] Building stats recalculated { count: 0, totalGrossFloorArea: 0, totalFloors: 0 }
+[2026-09-06T10:12:16.927Z] [BuildingManager] Buildings collection updated { count: 0, ids: [] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.927Z] [BuildingManager] Added windows to building { buildingId: 'building_1', windowCount: 96 }
+[2026-09-06T10:12:16.927Z] [BuildingManager] Adding building to scene {
+  id: 'building_1',
+  meshUuid: 'd7a2b954-2691-4ed9-93e4-0f84af21b38a',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 0, y: 0, z: 0 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_1',
+    isBuilding: true
+  },
+  footprintUuid: '60324984-d160-4120-9ae0-2b895ce60787',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_1',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_1'
+  },
+  floorLines: '0aa3ae8b-acca-471c-b0ef-d4c090cbd814',
+  sceneChildren: 6,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.927Z] [BuildingManager] Building added successfully { id: 'building_1', totalBuildings: 1, buildingIds: [ 'building_1' ] }
+[2026-09-06T10:12:16.927Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 300, totalFloors: 3 }
+[2026-09-06T10:12:16.927Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_1' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+
+stdout | src/hooks/__tests__/useWorkspaceEditor.test.tsx > workspace interaction ownership > rolls back on blur, including a queued preview
+getThemeColorAsHex: --color-window-glass -> ""
+getThemeColorAsHex: --color-window-frame -> ""
+getThemeColorAsHex: --color-window-overhang -> ""
+[2026-09-06T10:12:16.933Z] [BuildingManager] Building stats recalculated { count: 0, totalGrossFloorArea: 0, totalFloors: 0 }
+[2026-09-06T10:12:16.933Z] [BuildingManager] Buildings collection updated { count: 0, ids: [] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.933Z] [BuildingManager] Added windows to building { buildingId: 'building_1', windowCount: 96 }
+[2026-09-06T10:12:16.933Z] [BuildingManager] Adding building to scene {
+  id: 'building_1',
+  meshUuid: 'bb90b1d4-c1f1-48e1-bb10-f96b0df9440c',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 0, y: 0, z: 0 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_1',
+    isBuilding: true
+  },
+  footprintUuid: '17778dcc-e688-4029-bf8e-83c5710abdd5',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_1',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_1'
+  },
+  floorLines: '9d52d25e-d960-41e6-9262-5dd17e665908',
+  sceneChildren: 6,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.933Z] [BuildingManager] Building added successfully { id: 'building_1', totalBuildings: 1, buildingIds: [ 'building_1' ] }
+[2026-09-06T10:12:16.933Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 300, totalFloors: 3 }
+[2026-09-06T10:12:16.933Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_1' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+
+stdout | src/hooks/__tests__/useWorkspaceEditor.test.tsx > workspace interaction ownership > rolls back on lostpointercapture, including a queued preview
+getThemeColorAsHex: --color-window-glass -> ""
+getThemeColorAsHex: --color-window-frame -> ""
+getThemeColorAsHex: --color-window-overhang -> ""
+[2026-09-06T10:12:16.940Z] [BuildingManager] Building stats recalculated { count: 0, totalGrossFloorArea: 0, totalFloors: 0 }
+[2026-09-06T10:12:16.940Z] [BuildingManager] Buildings collection updated { count: 0, ids: [] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.940Z] [BuildingManager] Added windows to building { buildingId: 'building_1', windowCount: 96 }
+[2026-09-06T10:12:16.940Z] [BuildingManager] Adding building to scene {
+  id: 'building_1',
+  meshUuid: 'ac5a80dd-0201-4b6c-b3fe-74cb42d9c106',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 0, y: 0, z: 0 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_1',
+    isBuilding: true
+  },
+  footprintUuid: '13bbe586-f13b-4a93-9d44-783bd0cbd240',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_1',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_1'
+  },
+  floorLines: '54977ed1-741a-4fab-87f8-151e124010bc',
+  sceneChildren: 6,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.940Z] [BuildingManager] Building added successfully { id: 'building_1', totalBuildings: 1, buildingIds: [ 'building_1' ] }
+[2026-09-06T10:12:16.940Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 300, totalFloors: 3 }
+[2026-09-06T10:12:16.940Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_1' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+
+stdout | src/hooks/__tests__/useWorkspaceEditor.test.tsx > workspace interaction ownership > retains a valid solid during an invalid preview and rejects the whole gesture
+getThemeColorAsHex: --color-window-glass -> ""
+getThemeColorAsHex: --color-window-frame -> ""
+getThemeColorAsHex: --color-window-overhang -> ""
+[2026-09-06T10:12:16.945Z] [BuildingManager] Building stats recalculated { count: 0, totalGrossFloorArea: 0, totalFloors: 0 }
+[2026-09-06T10:12:16.945Z] [BuildingManager] Buildings collection updated { count: 0, ids: [] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.945Z] [BuildingManager] Added windows to building { buildingId: 'building_1', windowCount: 96 }
+[2026-09-06T10:12:16.945Z] [BuildingManager] Adding building to scene {
+  id: 'building_1',
+  meshUuid: 'e9ebda57-8632-4e18-b1d7-acd6bb2cd990',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 0, y: 0, z: 0 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_1',
+    isBuilding: true
+  },
+  footprintUuid: '6e00148d-b1d7-4455-9e56-40f7ef995055',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_1',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_1'
+  },
+  floorLines: '76c2b499-0103-414d-827a-c7d536fc8d83',
+  sceneChildren: 6,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.945Z] [BuildingManager] Building added successfully { id: 'building_1', totalBuildings: 1, buildingIds: [ 'building_1' ] }
+[2026-09-06T10:12:16.945Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 300, totalFloors: 3 }
+[2026-09-06T10:12:16.945Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_1' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+
+stdout | src/hooks/__tests__/useWorkspaceEditor.test.tsx > workspace interaction ownership > keeps rotation and property changes independent, preserves facade counts, and scopes deletion
+getThemeColorAsHex: --color-window-glass -> ""
+getThemeColorAsHex: --color-window-frame -> ""
+getThemeColorAsHex: --color-window-overhang -> ""
+[2026-09-06T10:12:16.950Z] [BuildingManager] Building stats recalculated { count: 0, totalGrossFloorArea: 0, totalFloors: 0 }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Buildings collection updated { count: 0, ids: [] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.950Z] [BuildingManager] Added windows to building { buildingId: 'building_1', windowCount: 96 }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Adding building to scene {
+  id: 'building_1',
+  meshUuid: '119eab5f-4723-429d-96b8-31a97401c88e',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 0, y: 0, z: 0 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_1',
+    isBuilding: true
+  },
+  footprintUuid: '0b1aba63-8276-4138-bd54-12254db8ca3b',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_1',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_1'
+  },
+  floorLines: '50c113b6-87c6-4ec9-94be-7755745fa126',
+  sceneChildren: 6,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.950Z] [BuildingManager] Building added successfully { id: 'building_1', totalBuildings: 1, buildingIds: [ 'building_1' ] }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 300, totalFloors: 3 }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_1' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.950Z] [BuildingManager] Added windows to building { buildingId: 'building_2', windowCount: 96 }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Adding building to scene {
+  id: 'building_2',
+  meshUuid: '335f46fb-b19c-4180-981f-6bb7656be084',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 20, y: 0, z: 0 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_2',
+    isBuilding: true
+  },
+  footprintUuid: 'd2bb609a-8e1e-419e-98d5-1be8ed11ed81',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_2',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_2'
+  },
+  floorLines: 'caba940c-d537-4f67-98e4-5d079288e429',
+  sceneChildren: 9,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.950Z] [BuildingManager] Building added successfully {
+  id: 'building_2',
+  totalBuildings: 2,
+  buildingIds: [ 'building_1', 'building_2' ]
+}
+[2026-09-06T10:12:16.950Z] [BuildingManager] Building stats recalculated { count: 2, totalGrossFloorArea: 600, totalFloors: 6 }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Buildings collection updated { count: 2, ids: [ 'building_1', 'building_2' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.950Z] [BuildingManager] Building stats recalculated { count: 2, totalGrossFloorArea: 600, totalFloors: 6 }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Buildings collection updated { count: 2, ids: [ 'building_1', 'building_2' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.950Z] [BuildingManager] Building stats recalculated { count: 2, totalGrossFloorArea: 1100, totalFloors: 11 }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Buildings collection updated { count: 2, ids: [ 'building_1', 'building_2' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.950Z] [BuildingManager] Added windows to building { buildingId: 'building_1', windowCount: 96 }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Adding building to scene {
+  id: 'building_1',
+  meshUuid: 'b2a1b1b0-0a53-4c45-bf0d-7a2a63f769dd',
+  meshVisible: true,
+  meshPosition: Vector3 { x: -1.1102230246251565e-16, y: 0, z: 0 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_1',
+    name: 'Building 1',
+    description: '',
+    isBuilding: true
+  },
+  footprintUuid: '1c641f4d-64ba-4232-a2fe-646ee7fa8828',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_1',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_1'
+  },
+  floorLines: '711ae17f-0909-41d2-bd7c-70937e53c0fe',
+  sceneChildren: 6,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.950Z] [BuildingManager] Building added successfully { id: 'building_1', totalBuildings: 1, buildingIds: [ 'building_1' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.950Z] [BuildingManager] Added windows to building { buildingId: 'building_2', windowCount: 96 }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Adding building to scene {
+  id: 'building_2',
+  meshUuid: '8e10f6ea-a5e0-48ca-949e-7e6a52a3e809',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 20, y: 0, z: 0 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_2',
+    name: 'Building 2',
+    description: '',
+    isBuilding: true
+  },
+  footprintUuid: '67147acd-e68a-4eeb-9caa-9608e8d92b17',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_2',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_2'
+  },
+  floorLines: 'e8f320eb-9682-4ab7-8313-abbee792e57a',
+  sceneChildren: 9,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.950Z] [BuildingManager] Building added successfully {
+  id: 'building_2',
+  totalBuildings: 2,
+  buildingIds: [ 'building_1', 'building_2' ]
+}
+[2026-09-06T10:12:16.950Z] [BuildingManager] Building stats recalculated { count: 2, totalGrossFloorArea: 600, totalFloors: 6 }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Buildings collection updated { count: 2, ids: [ 'building_1', 'building_2' ] }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Removing building objects {
+  buildingId: 'building_1',
+  objectsCount: 1,
+  objects: [
+    {
+      type: 'Mesh',
+      userData: [Object],
+      uuid: '67147acd-e68a-4eeb-9caa-9608e8d92b17'
+    }
+  ]
+}
+[2026-09-06T10:12:16.950Z] [BuildingManager] Removing Points objects { pointsCount: 0 }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Building stats recalculated { count: 1, totalGrossFloorArea: 300, totalFloors: 3 }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Buildings collection updated { count: 1, ids: [ 'building_2' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.950Z] [BuildingManager] Added windows to building { buildingId: 'building_1', windowCount: 96 }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Adding building to scene {
+  id: 'building_1',
+  meshUuid: 'a6488aa2-dee2-444b-b6ef-6372a8453eed',
+  meshVisible: true,
+  meshPosition: Vector3 { x: -1.1102230246251565e-16, y: 0, z: 0 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_1',
+    name: 'Building 1',
+    description: '',
+    isBuilding: true
+  },
+  footprintUuid: 'e8c61f2b-f09e-4e23-ae05-449f69f46b89',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_1',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_1'
+  },
+  floorLines: '2e702b01-8f4c-4cc0-ae1c-aff679c82b0a',
+  sceneChildren: 6,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.950Z] [BuildingManager] Building added successfully { id: 'building_1', totalBuildings: 1, buildingIds: [ 'building_1' ] }
+getThemeColorAsHex: --color-floor-lines -> ""
+getThemeColorAsHex: --color-floor-lines -> ""
+[2026-09-06T10:12:16.950Z] [BuildingManager] Added windows to building { buildingId: 'building_2', windowCount: 96 }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Adding building to scene {
+  id: 'building_2',
+  meshUuid: '2eb680a0-2869-4f87-97c2-0b2c34cb5731',
+  meshVisible: true,
+  meshPosition: Vector3 { x: 20, y: 0, z: 0 },
+  meshUserData: {
+    type: 'building',
+    interactive: true,
+    clickable: true,
+    castsShadows: true,
+    buildingId: 'building_2',
+    name: 'Building 2',
+    description: '',
+    isBuilding: true
+  },
+  footprintUuid: '11286334-41c1-4f0a-95e4-b054c47de9bc',
+  footprintVisible: true,
+  footprintUserData: {
+    buildingId: 'building_2',
+    isFootprint: true,
+    interactive: true,
+    parentBuildingId: 'building_2'
+  },
+  floorLines: 'b723e433-579a-48a3-8bc3-e056b607b02e',
+  sceneChildren: 9,
+  meshInScene: true,
+  footprintInScene: true
+}
+[2026-09-06T10:12:16.950Z] [BuildingManager] Building added successfully {
+  id: 'building_2',
+  totalBuildings: 2,
+  buildingIds: [ 'building_1', 'building_2' ]
+}
+[2026-09-06T10:12:16.950Z] [BuildingManager] Building stats recalculated { count: 2, totalGrossFloorArea: 600, totalFloors: 6 }
+[2026-09-06T10:12:16.950Z] [BuildingManager] Buildings collection updated { count: 2, ids: [ 'building_1', 'building_2' ] }
+
+ ✓ src/hooks/__tests__/useWorkspaceEditor.test.tsx (8 tests) 131ms
+ ✓ src/utils/__tests__/footprintInteraction.test.ts (4 tests) 20ms
+ ✓ src/utils/__tests__/workspaceHistory.test.ts (2 tests) 7ms
+ ✓ src/services/__tests__/FootprintEditorService.test.ts (2 tests) 6ms
+ ✓ src/services/__tests__/EPSMService.test.ts (2 tests) 3ms
+ ✓ src/services/__tests__/SimulationFingerprint.test.ts (3 tests) 2ms
+ ✓ src/core/__tests__/CameraManager.test.ts (2 tests) 6ms
+ ✓ src/core/__tests__/SceneAppearanceManager.test.ts (3 tests) 4ms
+ ✓ src/services/__tests__/DaylightVisualizationService.test.ts (4 tests) 3ms
+ ✓ src/services/__tests__/DaylightApiService.test.ts (9 tests) 3ms
+ ✓ src/services/__tests__/DesignExplorationService.test.ts (2 tests) 2ms
+ ✓ src/core/__tests__/RendererManager.test.ts (1 test) 3ms
+ ✓ src/components/model/__tests__/DesignGraphOverviewCard.test.ts (2 tests) 2ms
+ ✓ src/utils/__tests__/buildingMetrics.test.ts (3 tests) 2ms
+
+ Test Files  26 passed (26)
+      Tests  126 passed (126)
+   Start at  12:12:13
+   Duration  7.42s (transform 3.32s, setup 13.73s, collect 21.57s, tests 778ms, environment 36.45s, prepare 7.08s)
+

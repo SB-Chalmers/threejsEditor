@@ -26,6 +26,33 @@ export class CameraManager {
   private controls: OrbitControls | null = null;
   private config: CameraConfig;
   private aspect: number;
+  private planMode = false;
+  private saved3D: { position: THREE.Vector3; target: THREE.Vector3 } | null = null;
+
+  setSpacePan(active: boolean): void {
+    if (this.controls) this.controls.mouseButtons.LEFT = active ? THREE.MOUSE.PAN : undefined;
+  }
+
+  setPlanMode(plan: boolean): void {
+    if (!this.controls) return;
+    this.planMode = plan;
+    if (plan) {
+      if (this.currentCameraType === 'perspective') this.saved3D = {
+        position: this.getCurrentCamera().position.clone(), target: this.controls.target.clone(),
+      };
+      const target = this.controls.target.clone();
+      target.y = 0;
+      const distance = Math.max(40, this.getCurrentCamera().position.distanceTo(target));
+      this.switchCameraType('orthographic');
+      this.controls.enableRotate = false;
+      this.transitionToView(target.clone().add(new THREE.Vector3(0, distance, 0.0001)), target, { duration: 280 });
+    } else {
+      this.switchCameraType('perspective');
+      this.controls.enableRotate = true;
+      this.transitionToView(this.saved3D?.position ?? new THREE.Vector3(45, 45, 45),
+        this.saved3D?.target ?? new THREE.Vector3(), { duration: 280 });
+    }
+  }
   
   // Transition system
   private isTransitioning = false;
@@ -102,6 +129,7 @@ export class CameraManager {
       this.controls.minDistance = 10;
       this.controls.maxDistance = 800;
       this.controls.enablePan = true;
+      this.controls.mouseButtons = { LEFT: undefined, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
       this.controls.panSpeed = 0.8;
       this.controls.rotateSpeed = 0.4;
       this.controls.zoomSpeed = 0.6;
@@ -142,7 +170,10 @@ export class CameraManager {
   }
 
   setControlsEnabled(enabled: boolean): void {
-    if (this.controls) this.controls.enabled = enabled;
+    if (this.controls) {
+      if (!enabled) this.isTransitioning = false;
+      this.controls.enabled = enabled;
+    }
   }
 
   getCurrentCameraType(): CameraType {
@@ -352,6 +383,7 @@ export class CameraManager {
 
     // Calculate optimal camera position and target
     const center = box.getCenter(new THREE.Vector3());
+    if (this.planMode) center.y = 0;
     const size = box.getSize(new THREE.Vector3());
     const maxDimension = Math.max(size.x, size.y, size.z);
 
@@ -368,7 +400,7 @@ export class CameraManager {
       distance = maxDimension * 1.1;
       
       // Update orthographic camera size
-      const viewSize = maxDimension * 0.56;
+      const viewSize = this.planMode ? Math.max(size.z, size.x / this.aspect) * 0.6 : maxDimension * 0.56;
       this.orthographicCamera.left = -viewSize * this.aspect;
       this.orthographicCamera.right = viewSize * this.aspect;
       this.orthographicCamera.top = viewSize;
@@ -378,7 +410,9 @@ export class CameraManager {
 
     // Position camera to look at center from current direction
     const direction = new THREE.Vector3();
-    direction.subVectors(this.getCurrentCamera().position, center).normalize();
+    if (this.planMode) direction.set(0, 1, 0.000001).normalize();
+    else direction.subVectors(this.getCurrentCamera().position, center).normalize();
+    if (this.planMode) distance = Math.max(size.y + 20, 80);
     const targetPosition = center.clone().add(direction.multiplyScalar(distance));
 
     this.transitionToView(targetPosition, center, options);
@@ -396,7 +430,7 @@ export class CameraManager {
     this.perspectiveCamera.updateProjectionMatrix();
     
     // Update orthographic camera
-    const size = this.config.orthographicSize!;
+    const size = this.orthographicCamera.top;
     this.orthographicCamera.left = -size * aspect;
     this.orthographicCamera.right = size * aspect;
     this.orthographicCamera.updateProjectionMatrix();
@@ -448,7 +482,7 @@ export class CameraManager {
     }
     
     // Update controls (always update, but transitions take precedence)
-    if (this.controls) {
+    if (this.controls?.enabled) {
       this.controls.update();
     }
   }

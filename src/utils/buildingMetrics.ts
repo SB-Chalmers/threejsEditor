@@ -62,7 +62,7 @@ const segmentsIntersect = (a: Point3D, b: Point3D, c: Point3D, d: Point3D) => {
 
 export const validateFootprint = (points: readonly Point3D[]): string | null => {
   if (points.length < 3) return 'A footprint needs at least three vertices.';
-  if (points.some(point => !Number.isFinite(point.x) || !Number.isFinite(point.z))) {
+  if (points.some(point => !Number.isFinite(point.x) || !Number.isFinite(point.y) || !Number.isFinite(point.z))) {
     return 'Footprint coordinates must be finite numbers.';
   }
   for (let i = 0; i < points.length; i += 1) {

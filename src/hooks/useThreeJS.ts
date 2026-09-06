@@ -240,7 +240,12 @@ export const useThreeJS = (containerRef: React.RefObject<HTMLDivElement>, showGr
     coreRef.current?.setCameraControlsEnabled(enabled);
   }, []);
 
+  const getCamera = useCallback(() => coreRef.current?.getCamera() ?? null, []);
+  const setPlanMode = useCallback((plan: boolean) => coreRef.current?.setPlanMode(plan), []);
+  const setSpacePan = useCallback((active: boolean) => coreRef.current?.setSpacePan(active), []);
+
   return {
+    getCamera, setPlanMode, setSpacePan,
     scene: coreRef.current?.getScene() || null,
     camera: coreRef.current?.getCamera() || null,
     renderer: coreRef.current?.getRenderer() || null,

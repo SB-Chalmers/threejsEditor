@@ -131,3 +131,45 @@ describe('WindowService facade overlays', () => {
     service.dispose();
   });
 });
+
+describe('per-building facade focus', () => {
+  it('ghosts only neighboring facade batches and preserves them through updates and restoration', async () => {
+    const { SceneAppearanceManager } = await import('../../core/SceneAppearanceManager');
+    const scene = new THREE.Scene(), service = new WindowService(scene, config), appearance = new SceneAppearanceManager();
+    const a = building(), b = { ...building(), id: 'b', points: building().points.map(p => ({ ...p, x: p.x + 25 })) };
+    service.addBuildingWindows(a, config); service.addBuildingWindows(b, config);
+    const total = service.getTotalWindowCount(), aCount = service.getBuildingWindowCount(a.id);
+    const focus = (id: string | null) => {
+      service.setEditingBuilding(id);
+      appearance.setMode(scene, id ? { kind: 'editing', buildingId: id } : { kind: 'normal' });
+    };
+    focus(a.id);
+    const contextFrames = scene.getObjectByName('facade-frames-context') as THREE.InstancedMesh;
+    const contextGlass = scene.getObjectByName('facade-glass-context') as THREE.InstancedMesh;
+    const contextShades = scene.getObjectByName('facade-shades-context') as THREE.InstancedMesh;
+    expect(service.glassInstancedMesh.count).toBe(aCount);
+    expect(contextGlass.count).toBe(total - aCount);
+    for (const mesh of [contextFrames, contextGlass, contextShades]) {
+      expect((mesh.material as THREE.Material).opacity).toBe(.28);
+      expect((mesh.material as THREE.Material).depthWrite).toBe(false);
+      expect(mesh.castShadow).toBe(false);
+    }
+    expect((service.frameInstancedMesh.material as THREE.Material).opacity).toBe(1);
+    expect(contextFrames.boundingBox!.min.x).toBeGreaterThan(20);
+    service.updateBuildingWindows({ ...a, floors: 2 }, config);
+    expect(contextGlass.count).toBe(total - aCount);
+    expect((contextFrames.material as THREE.Material).opacity).toBe(.28);
+    focus(b.id);
+    expect(service.glassInstancedMesh.count).toBe(total - aCount);
+    expect(contextGlass.count).toBe(aCount * 2);
+    focus(null);
+    expect(contextFrames.visible).toBe(false);
+    expect(contextFrames.count).toBe(0);
+    expect(service.glassInstancedMesh.count).toBe(service.getTotalWindowCount());
+    expect((service.frameInstancedMesh.material as THREE.Material).opacity).toBe(1);
+    focus(a.id); service.clearAllWindows();
+    expect(contextGlass.count).toBe(0); expect(service.glassInstancedMesh.count).toBe(0);
+    appearance.restore(); service.dispose();
+    expect(scene.children).toHaveLength(0);
+  });
+});

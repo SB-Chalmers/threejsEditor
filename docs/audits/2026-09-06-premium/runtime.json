@@ -1,0 +1,92 @@
+{
+  "evidence": {
+    "camera": {
+      "type": "PerspectiveCamera",
+      "position": [
+        40.3710277064619,
+        41.45112124162078,
+        40.37102770646191
+      ],
+      "near": 0.1,
+      "far": 1000
+    },
+    "stats": {
+      "frame": 11719,
+      "calls": 56,
+      "triangles": 38725,
+      "points": 0,
+      "lines": 404
+    },
+    "pixels": [
+      {
+        "x": 50,
+        "y": 50,
+        "rgba": [
+          90,
+          98,
+          103,
+          255
+        ]
+      },
+      {
+        "x": 720,
+        "y": 450,
+        "rgba": [
+          180,
+          176,
+          168,
+          255
+        ]
+      },
+      {
+        "x": 1000,
+        "y": 300,
+        "rgba": [
+          0,
+          0,
+          0,
+          255
+        ]
+      },
+      {
+        "x": 600,
+        "y": 700,
+        "rgba": [
+          59,
+          65,
+          72,
+          255
+        ]
+      }
+    ],
+    "facades": [
+      {
+        "name": "facade-glass",
+        "count": 144,
+        "radius": -1
+      },
+      {
+        "name": "facade-frames",
+        "count": 576,
+        "radius": -1
+      },
+      {
+        "name": "facade-shades",
+        "count": 432,
+        "radius": -1
+      }
+    ],
+    "canvas": {
+      "width": 1440,
+      "height": 852
+    },
+    "palette": {
+      "--color-ground": "#d3d9df",
+      "--color-context-model": "#8c959e",
+      "--color-building-default": "#eeeae2",
+      "--color-window-glass": "#547ea5",
+      "--color-window-frame": "#46515c"
+    }
+  },
+  "logs": []
+}

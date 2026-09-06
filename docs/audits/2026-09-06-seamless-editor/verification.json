@@ -1,0 +1,272 @@
+{
+  "checks": [
+    "Rectangle creation flows directly into nonmodal reshaping",
+    "One drag, one undoable command; Redo restores final geometry",
+    "Insert and drag a vertex at an arbitrary edge position",
+    "Exact point fields and point removal",
+    "Invalid duplicate/crossing drag rolls back the whole gesture",
+    "Escape and window blur restore geometry in the live browser",
+    "Centroid rotation preserves area, properties, IDs and the second building",
+    "Move gesture and Undo",
+    "3D restores the previous camera",
+    "Right-drag orbits after geometry gestures",
+    "Scoped building deletion and restoration",
+    "Rapid polygon clicks, live preview across rerenders, and Enter completion"
+  ],
+  "errors": [],
+  "warnings": [
+    "[.WebGL-0x124001b6e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[.WebGL-0x124001b6e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[.WebGL-0x124001b6e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[.WebGL-0x124001b6e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)"
+  ],
+  "initialCamera": [
+    40.3710277064619,
+    41.45112124162078,
+    40.37102770646191
+  ],
+  "restoredCamera": [
+    40.3710277064619,
+    41.45112124162078,
+    40.37102770646191
+  ],
+  "layouts": [
+    {
+      "width": 1024,
+      "height": 768,
+      "boxes": [
+        {
+          "s": ".model-tool-rail",
+          "r": {
+            "x": 8,
+            "y": 266,
+            "w": 54,
+            "h": 284
+          }
+        },
+        {
+          "s": ".editor-command-bar",
+          "r": {
+            "x": 175.7421875,
+            "y": 64,
+            "w": 368.515625,
+            "h": 42
+          }
+        },
+        {
+          "s": ".editor-view-switch",
+          "r": {
+            "x": 84,
+            "y": 64,
+            "w": 81.703125,
+            "h": 42
+          }
+        },
+        {
+          "s": ".model-status-bar",
+          "r": {
+            "x": 130.578125,
+            "y": 714,
+            "w": 458.84375,
+            "h": 42
+          }
+        },
+        {
+          "s": ".editor-inspector",
+          "r": {
+            "x": 720,
+            "y": 48,
+            "w": 304,
+            "h": 720
+          }
+        },
+        {
+          "s": ".editor-status",
+          "r": {
+            "x": 84,
+            "y": 671.5,
+            "w": 381.390625,
+            "h": 32.5
+          }
+        }
+      ],
+      "overlaps": [],
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "height": 700,
+      "boxes": [
+        {
+          "s": ".model-tool-rail",
+          "r": {
+            "x": 8,
+            "y": 176,
+            "w": 54,
+            "h": 284
+          }
+        },
+        {
+          "s": ".editor-command-bar",
+          "r": {
+            "x": 84,
+            "y": 112,
+            "w": 323.734375,
+            "h": 42
+          }
+        },
+        {
+          "s": ".editor-view-switch",
+          "r": {
+            "x": 84,
+            "y": 64,
+            "w": 81.703125,
+            "h": 42
+          }
+        },
+        {
+          "s": ".model-status-bar",
+          "r": {
+            "x": 526,
+            "y": 403,
+            "w": 232,
+            "h": 42
+          }
+        },
+        {
+          "s": ".editor-inspector",
+          "r": {
+            "x": 0,
+            "y": 455,
+            "w": 768,
+            "h": 245
+          }
+        },
+        {
+          "s": ".editor-status",
+          "r": {
+            "x": 84,
+            "y": 335,
+            "w": 674,
+            "h": 55
+          }
+        }
+      ],
+      "overlaps": [
+        [
+          ".model-tool-rail",
+          ".editor-inspector",
+          270
+        ]
+      ],
+      "overflow": false
+    },
+    {
+      "width": 640,
+      "height": 700,
+      "boxes": [
+        {
+          "s": ".model-tool-rail",
+          "r": {
+            "x": 8,
+            "y": 176,
+            "w": 54,
+            "h": 284
+          }
+        },
+        {
+          "s": ".editor-command-bar",
+          "r": {
+            "x": 84,
+            "y": 112,
+            "w": 323.734375,
+            "h": 42
+          }
+        },
+        {
+          "s": ".editor-view-switch",
+          "r": {
+            "x": 84,
+            "y": 64,
+            "w": 81.703125,
+            "h": 42
+          }
+        },
+        {
+          "s": ".model-status-bar",
+          "r": {
+            "x": 398,
+            "y": 403,
+            "w": 232,
+            "h": 42
+          }
+        },
+        {
+          "s": ".editor-inspector",
+          "r": {
+            "x": 0,
+            "y": 455,
+            "w": 640,
+            "h": 245
+          }
+        },
+        {
+          "s": ".editor-status",
+          "r": {
+            "x": 84,
+            "y": 335,
+            "w": 546,
+            "h": 55
+          }
+        }
+      ],
+      "overlaps": [
+        [
+          ".model-tool-rail",
+          ".editor-inspector",
+          270
+        ]
+      ],
+      "overflow": false
+    }
+  ],
+  "webgl": {
+    "colors": [
+      [
+        162,
+        166,
+        169,
+        255
+      ],
+      [
+        170,
+        175,
+        179,
+        255
+      ],
+      [
+        125,
+        126,
+        126,
+        255
+      ],
+      [
+        166,
+        171,
+        174,
+        255
+      ],
+      [
+        166,
+        171,
+        174,
+        255
+      ]
+    ],
+    "unique": 4,
+    "canvas": {
+      "width": 640,
+      "height": 652
+    }
+  }
+}

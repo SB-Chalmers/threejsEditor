@@ -1,160 +1,259 @@
-# 3D Building Designer
+# 3JS Web Editor for SBE Education
 
-A modern, interactive 3D building design application built with React, TypeScript, and Three.js. Create, edit, and visualize architectural designs with real-time 3D rendering and advanced design exploration tools.
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=white)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Three.js](https://img.shields.io/badge/Three.js-r160-black?style=flat-square&logo=threedotjs&logoColor=white)](https://threejs.org/)
+[![D3.js](https://img.shields.io/badge/D3.js-F9A03C?style=flat-square&logo=d3.js&logoColor=white)](https://d3js.org/)
+[![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Rhino3dm](https://img.shields.io/badge/Rhino3dm-3D%20Geometry-801010?style=flat-square)](https://www.npmjs.com/package/rhino3dm)
+[![GitHub stars](https://img.shields.io/github/stars/SB-Chalmers/threejsEditor?style=flat-square)](https://github.com/SB-Chalmers/threejsEditor/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/SB-Chalmers/threejsEditor?style=flat-square)](https://github.com/SB-Chalmers/threejsEditor/network/members)
+[![GitHub issues](https://img.shields.io/github/issues/SB-Chalmers/threejsEditor?style=flat-square)](https://github.com/SB-Chalmers/threejsEditor/issues)
+[![GitHub license](https://img.shields.io/github/license/SB-Chalmers/threejsEditor?style=flat-square)](https://github.com/SB-Chalmers/threejsEditor/blob/main/LICENSE)
+[![GitHub last commit](https://img.shields.io/github/last-commit/SB-Chalmers/threejsEditor?style=flat-square)](https://github.com/SB-Chalmers/threejsEditor/commits/main)
 
-## 🏗️ Features
+This is a web-based 3D building design tool developed for teaching and exploring
+computational sustainable design and urban building energy modelling.
 
-### Core Functionality
-- **Interactive 3D Building Creation**: Draw and design buildings with intuitive click-and-drag tools
-- **Real-time 3D Visualization**: Instant feedback with smooth Three.js rendering
-- **Multiple Camera Views**: Switch between perspective and orthographic cameras
-- **Grid System**: Optional grid overlay with snap-to-grid functionality
-- **Design Exploration**: Advanced parametric design tools with visual graphs
 
-### Building Design Tools
-- **Flexible Floor Configuration**: Adjustable floor count and height
-- **Window Management**: Automated window placement and parameterization
-- **Material System**: Customizable building colors and materials
-- **Context Integration**: Import and work with 3D context models (.3dm format)
+The tool allows users to create and modify simple building models, work with
+surrounding context, explore different design options, and study things such as
+solar position and shadows. The intention is to give students a hands-on way of
+seeing how changes to a building affect the design and its surrounding environment.
 
-### Advanced Features
-- **Sun Position Simulation**: Real-time shadow analysis with sun controller
-- **Performance Optimization**: Efficient rendering and memory management
-- **Theme System**: Dark/light mode with customizable color schemes
-- **Export/Import**: Save and load building configurations
-- **Keyboard Shortcuts**: Streamlined workflow with hotkeys
+The application is built with React, TypeScript and Three.js, with D3.js used for
+design exploration and Rhino3dm used for working with `.3dm` geometry.
 
-## 🚀 Getting Started
 
-### Prerequisites
-- Node.js (v16 or higher)
-- npm or yarn package manager
+## Features
+
+### 3D Building Design
+![alt text](image.png)
+- Draw building footprints directly in the 3D view
+- Extrude footprints into buildings
+- Change the number and height of floors
+- Generate and configure windows
+- Change building materials and colours
+- Edit buildings interactively in the scene
+
+### 3D View
+![alt text](image-1.png)
+- Real-time Three.js rendering
+- Perspective and orthographic camera views
+- Camera navigation and controls
+- Optional grid
+- Snap-to-grid
+- Dynamic lighting and shadows
+- Dark and light themes
+
+### Context Models
+
+HEATH can be used together with surrounding building geometry to provide
+context for the design.
+
+- Import `.3dm` models
+- Work with surrounding buildings
+- Use grid and snapping when positioning geometry
+
+### Sun and Shadow Analysis
+
+The sun controller provides a simple way of exploring how the sun moves
+around a building and how this affects shadows.
+
+This is intended primarily as a visual and educational tool for investigating
+orientation, massing and surrounding context.
+
+### Design Exploration
+![alt text](image-2.png)
+The design exploration tools allow different building configurations to be
+created and compared.
+
+Design alternatives are represented as a graph, making it possible to see how
+one design develops into another and return to earlier configurations.
+
+D3.js is used for the graph visualisation.
+
+---
+
+## Getting Started
+
+### Requirements
+
+- Node.js 16 or later
+- npm or Yarn
+- A modern browser with WebGL support
 
 ### Installation
 
-1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/threejsEditor.git
+git clone https://github.com/SB-Chalmers/threejsEditor.git
 cd threejsEditor
-```
-
-2. Install dependencies:
-```bash
 npm install
-```
+````
 
-3. Start the development server:
+### Run the development version
+
 ```bash
 npm run dev
 ```
 
-4. Open your browser and navigate to `http://localhost:5173`
+The application will normally be available at:
 
-## 🛠️ Development Scripts
+```text
+http://localhost:5173
+```
 
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build locally
-- `npm run lint` - Run ESLint for code quality
+### Build
 
-## 🎮 Usage
+```bash
+npm run build
+```
 
-### Basic Controls
-- **Left Click**: Place building points or select elements
-- **Right Click**: Complete building creation or cancel action
-- **Mouse Wheel**: Zoom in/out
-- **Middle Mouse Drag**: Pan the camera
+### Preview the production build
 
-### Keyboard Shortcuts
+```bash
+npm run preview
+```
 
-#### Drawing & Building
-- **D**: Start/restart drawing building mode
-- **U**: Undo last point while drawing
-- **Escape**: Cancel current action or exit drawing mode
-- **Ctrl + C**: Open building configuration panel
+### Lint
 
-#### View & Display
-- **G**: Toggle grid visibility
-- **S**: Toggle snap to grid
-- **F**: Toggle FPS counter
-- **T**: Toggle theme (dark/light mode)
-- **R**: Toggle sun controller for shadow analysis
+```bash
+npm run lint
+```
 
-#### File Operations
-- **Ctrl + S**: Save current configuration
-- **I**: Import configuration from file
-- **Ctrl + E**: Export current scene
+## Controls
 
-#### Utility
-- **Delete** or **Backspace**: Clear all buildings
-- **Ctrl + Shift + D**: Open theme color debugger
+### Mouse
 
-#### Dialog Controls
-- **Enter**: Confirm action in dialogs (e.g., save configuration)
-- **Escape**: Close dialogs or cancel actions
+| Input             | Action                            |
+| ----------------- | --------------------------------- |
+| Left click        | Place a point / select an element |
+| Right click       | Finish or cancel drawing          |
+| Mouse wheel       | Zoom                              |
+| Middle mouse drag | Pan                               |
 
-### Building Creation
-1. Click the "Draw Building" tool in the left toolbar
-2. Click on the ground plane to place building corners
-3. Right-click to complete the building footprint
-4. Use the configuration panel to adjust floors, height, and materials
+### Drawing and building
 
-### Design Exploration
-- Access the design graph dialog to explore parametric variations
-- Adjust building parameters and see real-time updates
-- Export configurations for future use
+| Shortcut   | Action                      |
+| ---------- | --------------------------- |
+| `D`        | Start/restart drawing mode  |
+| `U`        | Undo the last point         |
+| `Escape`   | Cancel the current action   |
+| `Ctrl + C` | Open building configuration |
 
-## 🏗️ Architecture
+### View
 
-### Core Systems
-- **ThreeJSCore**: Central 3D engine management
-- **CameraManager**: Camera controls and view management
-- **SceneManager**: 3D scene organization and object management
-- **LightingManager**: Dynamic lighting and shadow systems
-- **EnvironmentManager**: Sky, ground, and atmosphere controls
+| Shortcut | Action                |
+| -------- | --------------------- |
+| `G`      | Toggle grid           |
+| `S`      | Toggle snap to grid   |
+| `F`      | Toggle FPS counter    |
+| `T`      | Toggle theme          |
+| `R`      | Toggle sun controller |
+
+### Files
+
+| Shortcut   | Action               |
+| ---------- | -------------------- |
+| `Ctrl + S` | Save configuration   |
+| `I`        | Import configuration |
+| `Ctrl + E` | Export scene         |
+
+### Other
+
+| Shortcut               | Action              |
+| ---------------------- | ------------------- |
+| `Delete` / `Backspace` | Clear buildings     |
+| `Ctrl + Shift + D`     | Open theme debugger |
+
+## Creating a Building
+![alt text](image-3.png)
+1. Select the drawing tool.
+2. Click on the ground plane to place the building corners.
+3. Right-click to finish the footprint.
+4. Open the building configuration.
+5. Adjust the number of floors, floor height, windows and materials.
+6. Continue editing the building or create another design variation.
+
+## Design Exploration
+
+The design exploration tools are used to investigate different versions of a
+building.
+
+A design can be changed and saved as a new configuration, allowing different
+options to be compared. The design graph shows the relationship between the
+different configurations and can be used to return to an earlier version.
+
+The exact performance metrics and analysis tools are still under development.
+
+## Project Structure
+
+The main parts of the application are organised roughly as follows:
+
+### Core
+
+* `ThreeJSCore` — central Three.js setup
+* `CameraManager` — camera and navigation
+* `SceneManager` — scene and object management
+* `LightingManager` — lighting and shadows
+* `EnvironmentManager` — ground, sky and environment
 
 ### Services
-- **BuildingService**: Building creation and modification logic
-- **WindowService**: Automated window placement and styling
-- **DesignExplorationService**: Parametric design analysis
-- **DrawingService**: Interactive drawing tools and geometry creation
+
+* `BuildingService` — building creation and modification
+* `DrawingService` — drawing and geometry creation
+* `WindowService` — window generation
+* `DesignExplorationService` — design variations and exploration
 
 ### Components
-- **SimpleBuildingCreator**: Main application container
-- **LeftToolbar/BottomToolbar**: Tool selection and controls
-- **BuildingConfigPanel**: Building parameter configuration
-- **SunController**: Solar analysis and shadow simulation
 
-## 🎨 Theming
+* `SimpleBuildingCreator` — main application
+* `LeftToolbar` — main design tools
+* `BottomToolbar` — viewport controls
+* `BuildingConfigPanel` — building settings
+* `SunController` — sun and shadow controls
 
-The application supports dynamic theming with CSS custom properties. Theme colors can be debugged and modified in real-time using the built-in theme debugger (Ctrl + Shift + D).
+## Technologies
 
-## 📦 Key Dependencies
+* React 18
+* TypeScript
+* Three.js
+* D3.js
+* Rhino3dm
+* Tailwind CSS
+* Vite
+* Lucide React
 
-- **React 18**: Modern React with hooks and concurrent features
-- **Three.js**: 3D graphics and WebGL rendering
-- **TypeScript**: Type-safe development
-- **Tailwind CSS**: Utility-first styling
-- **Vite**: Fast build tool and development server
-- **D3.js**: Data visualization for design graphs
-- **Rhino3dm**: 3D model file format support
-- **Lucide React**: Modern icon library
+## Project Team
 
-## 🤝 Contributing
+**Alexander Hollberg**
+Course Examiner / Principal Investigator
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+**Toivo Säwén**
+Course Incharge / Developer, HEATH 1.0
 
-## 📄 License
+**Isac Mjörnell**
+Developer
 
-TBA
+**Jieming Yan**
+Testing
 
-## 🙏 Acknowledgments
+**Sanjay Somanath**
+HEATH Web Tool Developer
 
-- Three.js community for excellent 3D graphics library
-- React team for the robust UI framework
-- Tailwind CSS for the utility-first styling approach
-- All contributors and users of this project
+## About HEATH
+
+HEATH is being developed as part of teaching and research around sustainable
+built environments and computational design.
+
+The web tool is intended to make it easier for students to experiment with
+building design and understand the connection between geometry, context and
+environmental performance.
+
+The project is under active development, so parts of the application and
+documentation may change.
+
+## License
+
+TBA.

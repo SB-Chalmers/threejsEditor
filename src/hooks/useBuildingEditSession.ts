@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEFAULT_BUILDING_COLOR, type BuildingConfig, type BuildingData, type BuildingModel, type Point3D } from '../types/building';
+import { validateFootprint } from '../utils/buildingMetrics';
 import { clampWwr } from '../services/FacadeGeometry';
 
 export type BuildingEditDraft = BuildingConfig & {
@@ -47,6 +48,11 @@ export const createBuildingEditDraft = (building: BuildingModel): BuildingEditDr
   natural_ventilation: building.natural_ventilation ?? false,
 });
 
+const sameDraft = (a: BuildingEditDraft, b: BuildingEditDraft) =>
+  JSON.stringify({ ...a, points: undefined }) === JSON.stringify({ ...b, points: undefined }) &&
+  a.points.length === b.points.length && a.points.every((p, i) =>
+    Math.abs(p.x - b.points[i].x) < 1e-8 && Math.abs(p.y - b.points[i].y) < 1e-8 && Math.abs(p.z - b.points[i].z) < 1e-8);
+
 const cloneDraft = (draft: BuildingEditDraft): BuildingEditDraft => ({
   ...draft,
   points: draft.points.map(point => ({ ...point })),
@@ -71,7 +77,7 @@ export const useBuildingEditSession = ({
 
   const cancelPendingPreview = useCallback(() => {
     if (previewTimerRef.current !== null) {
-      window.clearTimeout(previewTimerRef.current);
+      window.cancelAnimationFrame(previewTimerRef.current);
       previewTimerRef.current = null;
     }
   }, []);
@@ -96,14 +102,14 @@ export const useBuildingEditSession = ({
     if (!current) return;
     const next: EditSession = { ...current, draft: cloneDraft(nextDraft) };
     publishSession(next);
-    cancelPendingPreview();
-    previewTimerRef.current = window.setTimeout(() => {
-      const latest = sessionRef.current;
-      if (!latest || latest.token !== next.token) return;
-      previewBuilding(latest.buildingId, latest.draft, latest.draft.points);
+    if (previewTimerRef.current !== null) return;
+    previewTimerRef.current = window.requestAnimationFrame(() => {
       previewTimerRef.current = null;
-    }, 50);
-  }, [cancelPendingPreview, previewBuilding, publishSession]);
+      const latest = sessionRef.current;
+      if (!latest || latest.token !== next.token || validateFootprint(latest.draft.points)) return;
+      previewBuilding(latest.buildingId, latest.draft, latest.draft.points);
+    });
+  }, [previewBuilding, publishSession]);
 
   const updateFootprint = useCallback((points: Point3D[]) => {
     const current = sessionRef.current;
@@ -124,13 +130,23 @@ export const useBuildingEditSession = ({
     const current = sessionRef.current;
     if (!current) return undefined;
     cancelPendingPreview();
+    if (validateFootprint(current.draft.points)) {
+      restoreBuildingPreview(current.buildingId);
+      publishSession(null);
+      return undefined;
+    }
+    if (sameDraft(current.baseDraft, current.draft)) {
+      restoreBuildingPreview(current.buildingId);
+      publishSession(null);
+      return getBuilding(current.buildingId);
+    }
     const updated = updateBuilding(current.buildingId, {
       points: current.draft.points,
       config: current.draft,
     });
     publishSession(null);
     return updated;
-  }, [cancelPendingPreview, publishSession, updateBuilding]);
+  }, [cancelPendingPreview, publishSession, updateBuilding, getBuilding, restoreBuildingPreview]);
 
   const cancel = useCallback(() => {
     const current = sessionRef.current;
@@ -161,6 +177,8 @@ export const useBuildingEditSession = ({
     draft: session?.draft ?? null,
     baseDraft: session?.baseDraft ?? null,
     open,
+    begin: open,
+    getDraft: () => sessionRef.current?.draft ?? null,
     updateDraft,
     updateFootprint,
     reset,
