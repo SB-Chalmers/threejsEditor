@@ -256,4 +256,4 @@ documentation may change.
 
 ## License
 
-TBA.
+This project is licensed under the [MIT License](LICENSE).
